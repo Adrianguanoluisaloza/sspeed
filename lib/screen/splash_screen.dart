@@ -25,6 +25,7 @@ class _SplashScreenState extends State<SplashScreen> {
     await Future.delayed(const Duration(milliseconds: 1200));
     if (!mounted) return;
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return; // Validamos nuevamente antes de acceder al contexto tras obtener preferencias asíncronas.
     final userEmail = prefs.getString('userEmail');
     final userPassword = prefs.getString('userPassword');
     final databaseService = context.read<DatabaseService>();

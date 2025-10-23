@@ -94,42 +94,92 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         }
 
         final stats = snapshot.data!;
-        final double ventasHoy = stats['ventas_hoy']?.toDouble() ?? 0.0;
-        final int pedidosPendientes = stats['pedidos_pendientes']?.toInt() ?? 0;
-        final int nuevosClientes = stats['nuevos_clientes']?.toInt() ?? 0;
+        final double ventasHoy = stats['ventas_hoy'] is num
+            ? (stats['ventas_hoy'] as num).toDouble()
+            : double.tryParse(stats['ventas_hoy']?.toString() ?? '') ?? 0.0;
+        final double ventasTotales = stats['ventas_totales'] is num
+            ? (stats['ventas_totales'] as num).toDouble()
+            : double.tryParse(stats['ventas_totales']?.toString() ?? '') ?? ventasHoy;
+        final int pedidosPendientes = stats['pedidos_pendientes'] is num
+            ? (stats['pedidos_pendientes'] as num).toInt()
+            : int.tryParse(stats['pedidos_pendientes']?.toString() ?? '') ?? 0;
+        final int pedidosEntregados = stats['pedidos_entregados'] is num
+            ? (stats['pedidos_entregados'] as num).toInt()
+            : int.tryParse(stats['pedidos_entregados']?.toString() ?? '') ?? 0;
+        final int nuevosClientes = stats['nuevos_clientes'] is num
+            ? (stats['nuevos_clientes'] as num).toInt()
+            : int.tryParse(stats['nuevos_clientes']?.toString() ?? '') ?? 0;
+        final String productoDestacado =
+            stats['producto_mas_vendido']?.toString() ?? 'Sin datos';
+        final int productoDestacadoCantidad = stats['producto_mas_vendido_cantidad'] is num
+            ? (stats['producto_mas_vendido_cantidad'] as num).toInt()
+            : int.tryParse(stats['producto_mas_vendido_cantidad']?.toString() ?? '') ?? 0;
 
         // Grid para las tarjetas de estadísticas
-        return GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          childAspectRatio: 1.5, // Hace las tarjetas un poco más anchas que altas
-          crossAxisSpacing: 8,
-          mainAxisSpacing: 8,
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _StatCard(
-              title: 'Ventas de Hoy',
-              value: currencyFormatter.format(ventasHoy), // Formatea como $0.00
-              icon: Icons.monetization_on,
-              color: Colors.green,
+            GridView.count(
+              crossAxisCount: 2,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              childAspectRatio: 1.5,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+              children: [
+                _StatCard(
+                  title: 'Ventas de Hoy',
+                  value: currencyFormatter.format(ventasHoy),
+                  icon: Icons.monetization_on,
+                  color: Colors.green,
+                ),
+                _StatCard(
+                  title: 'Ventas Totales',
+                  value: currencyFormatter.format(ventasTotales),
+                  icon: Icons.stacked_line_chart,
+                  color: Colors.orange,
+                ),
+                _StatCard(
+                  title: 'Pedidos Entregados',
+                  value: pedidosEntregados.toString(),
+                  icon: Icons.local_shipping,
+                  color: Colors.blue,
+                ),
+                _StatCard(
+                  title: 'Pendientes',
+                  value: pedidosPendientes.toString(),
+                  icon: Icons.pending_actions,
+                  color: Colors.purple,
+                ),
+              ],
             ),
-            _StatCard(
-              title: 'Pendientes',
-              value: pedidosPendientes.toString(),
-              icon: Icons.pending_actions,
-              color: Colors.orange,
+            const SizedBox(height: 12),
+            Card(
+              child: ListTile(
+                leading:
+                    const Icon(Icons.people_alt, color: Colors.indigoAccent),
+                title: const Text('Nuevos clientes hoy'),
+                subtitle: const Text('Usuarios registrados durante la jornada'),
+                trailing: Text(
+                  nuevosClientes.toString(),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
             ),
-            _StatCard(
-              title: 'Clientes Hoy',
-              value: nuevosClientes.toString(),
-              icon: Icons.person_add,
-              color: Colors.blue,
-            ),
-            _StatCard(
-              title: 'Próximamente',
-              value: '...',
-              icon: Icons.bar_chart,
-              color: Colors.grey,
+            const SizedBox(height: 8),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.local_fire_department,
+                    color: Colors.deepOrange),
+                title: const Text('Producto más vendido'),
+                subtitle: Text(productoDestacado),
+                trailing: Text(
+                  productoDestacadoCantidad > 0
+                      ? '$productoDestacadoCantidad uds.'
+                      : 'Sin datos',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
             ),
           ],
         );

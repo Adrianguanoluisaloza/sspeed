@@ -14,7 +14,18 @@ class DatabaseService {
 
   // --- Métodos de Usuario ---
   Future<Usuario?> login(String email, String password) => _dataSource.login(email, password);
-  Future<bool> register(String nombre, String email, String password, String telefono) => _dataSource.register(nombre, email, password, telefono);
+  Future<bool> register(
+    String nombre,
+    String email,
+    String password,
+    String telefono,
+  ) =>
+      _dataSource.register(
+        nombre,
+        email,
+        password,
+        telefono,
+      ); // Ajuste de formato para evitar saltos de línea insertados por el analizador.
 
   // --- Métodos del Cliente ---
   // CORREGIDO: Se pasan los parámetros nombrados
@@ -63,9 +74,5 @@ class DatabaseService {
 
   Future<Map<String, dynamic>?> getRepartidorLocation(int idPedido) =>
       _dataSource.getRepartidorLocation(idPedido);
-
-
-
-
 }
 

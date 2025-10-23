@@ -4,7 +4,8 @@ import 'package:flutter/material.dart';
 enum ChatSection { cliente, soporte, historial }
 
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key});
+  final ChatSection initialSection;
+  const ChatScreen({super.key, this.initialSection = ChatSection.cliente});
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -39,8 +40,12 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: ChatSection.values.length, vsync: this)
-      ..addListener(() {
+    final initialIndex = ChatSection.values.indexOf(widget.initialSection);
+    _tabController = TabController(
+      length: ChatSection.values.length,
+      vsync: this,
+      initialIndex: initialIndex,
+    )..addListener(() {
         if (mounted) {
           setState(() {}); // Fuerza el AnimatedSwitcher cuando cambia la pestaña.
         }

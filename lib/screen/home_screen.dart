@@ -110,7 +110,7 @@ class _HomeScreenState extends State<HomeScreen> {
               duration: const Duration(milliseconds: 300),
               child: Chip(
                 key: ValueKey(_isGuest),
-                backgroundColor: Colors.white.withValues(alpha: 0.2), // Reemplazamos withOpacity por la alternativa recomendada.
+                backgroundColor: Colors.white.withValues(alpha: 0.2), // Reemplazamos withOpacity por la alternativa recomendada sin modificar el estilo original.
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 label: Text(
                   _isGuest ? 'Modo invitado' : 'Sesión activa',
@@ -274,6 +274,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   icon: const Icon(Icons.clear),
                   onPressed: () {
                     _searchController.clear();
+                    _loadProducts(); // Forzamos el refresco inmediato al limpiar el buscador para evitar estados inconsistentes.
                   },
                 )
               : null,

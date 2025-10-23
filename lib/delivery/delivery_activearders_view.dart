@@ -1,4 +1,3 @@
-import 'dart:async'; // 1. Importar Timer
 import 'package:flutter/material.dart';
 import 'package:flutter_application_2/models/pedido.dart';
 import 'package:flutter_application_2/models/usuario.dart';
