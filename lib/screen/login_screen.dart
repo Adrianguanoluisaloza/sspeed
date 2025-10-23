@@ -14,12 +14,10 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
 
-  bool _isLoading = false;
-  bool _obscureText = true;
+  bool isLoading = false;
 
   // --- FUNCIÓN DE LOGIN ---
   Future<void> _handleLogin() async {
@@ -125,24 +123,18 @@ class _LoginScreenState extends State<LoginScreen> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _passwordController,
-                  obscureText: _obscureText,
-                  decoration: InputDecoration(
-                    labelText: 'Contraseña',
-                    prefixIcon: const Icon(Icons.lock),
-                    suffixIcon: IconButton(
-                      icon: Icon(_obscureText ? Icons.visibility : Icons.visibility_off),
-                      onPressed: () => setState(() => _obscureText = !_obscureText),
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Por favor, ingresa tu contraseña.';
-                    }
-                    return null;
-                  },
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Inicia sesión con tu cuenta',
+                style: TextStyle(color: Colors.grey, fontSize: 16),
+              ),
+              const SizedBox(height: 50),
+              TextField(
+                controller: emailController,
+                decoration: const InputDecoration(
+                  labelText: 'Correo electrónico',
+                  border: OutlineInputBorder(),
                 ),
                 const SizedBox(height: 30),
                 AnimatedSwitcher(
@@ -163,18 +155,43 @@ class _LoginScreenState extends State<LoginScreen> {
                   onPressed: () => Navigator.of(context).pushNamed(AppRoutes.register),
                   child: const Text('¿No tienes cuenta? Regístrate aquí'),
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text('¿No tienes cuenta? '),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const RegisterScreen()),
+                      );
+                    },
+                    child: const Text(
+                      'Regístrate',
+                      style: TextStyle(
+                        color: Colors.deepPurple,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  @override
-  void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
-    super.dispose();
+  void _login() async {
+    setState(() => isLoading = true);
+    await Future.delayed(const Duration(seconds: 2)); // Simula login
+    setState(() => isLoading = false);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Inicio de sesión exitoso')),
+    );
   }
 }
