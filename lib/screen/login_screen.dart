@@ -40,6 +40,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (user != null) {
         // Guardar datos del usuario localmente
         final prefs = await SharedPreferences.getInstance();
+        if (!mounted) return; // Confirmamos que el contexto sigue vivo tras obtener SharedPreferences.
         await prefs.setString('userEmail', user.correo);
         await prefs.setString('userPassword', _passwordController.text.trim());
 
@@ -57,11 +58,13 @@ class _LoginScreenState extends State<LoginScreen> {
           Navigator.of(context).pushReplacementNamed('/main_navigator', arguments: user);
         }
       } else {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Credenciales incorrectas.')),
         );
       }
     } catch (e) {
+      if (!mounted) return; // Evitamos usar ScaffoldMessenger sin contexto válido tras el await.
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Ocurrió un error: ${e.toString()}')),
       );

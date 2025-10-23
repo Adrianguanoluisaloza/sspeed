@@ -109,7 +109,7 @@ class _HomeScreenState extends State<HomeScreen> {
               duration: const Duration(milliseconds: 300),
               child: Chip(
                 key: ValueKey(_isGuest),
-                backgroundColor: Colors.white.withOpacity(0.2),
+                backgroundColor: Colors.white.withValues(alpha: 0.2), // Reemplazamos withOpacity por la alternativa recomendada.
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 label: Text(
                   _isGuest ? 'Modo invitado' : 'Sesión activa',

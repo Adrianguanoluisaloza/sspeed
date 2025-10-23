@@ -63,11 +63,11 @@ class MyApp extends StatelessWidget {
         backgroundColor: primaryOrange,
         contentTextStyle: TextStyle(color: Colors.white),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         elevation: 3,
         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      ),
+      ), // Ajustamos a CardThemeData para cumplir con Material 3.
       inputDecorationTheme: InputDecorationTheme(
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),

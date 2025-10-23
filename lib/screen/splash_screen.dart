@@ -8,7 +8,6 @@ import '../models/session_state.dart';
 import '../models/usuario.dart';
 import '../services/api_exception.dart';
 import '../services/database_service.dart';
-import 'login_screen.dart';
 import 'main_navigator.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -100,7 +99,7 @@ class _SplashScreenState extends State<SplashScreen> {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.12),
+                  color: Colors.white.withValues(alpha: 0.12), // Reemplazo recomendado para evitar deprecaciones.
                   borderRadius: BorderRadius.circular(24),
                 ),
                 child: const Icon(Icons.delivery_dining,
