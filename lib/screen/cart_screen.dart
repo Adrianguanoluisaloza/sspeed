@@ -11,6 +11,45 @@ class CartScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (usuario.isGuest) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Mi Carrito de Compras'),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.lock_outline,
+                    size: 96, color: Theme.of(context).colorScheme.primary),
+                const SizedBox(height: 16),
+                const Text(
+                  'Inicia sesión para usar el carrito',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Necesitamos tu cuenta para guardar tu carrito y tus pedidos.',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(context).pushNamed('/login'),
+                  child: const Text('Iniciar sesión'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pushNamed('/registro'),
+                  child: const Text('Crear cuenta'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
     return Consumer<CartModel>(
       builder: (context, cart, child) {
         return Scaffold(
