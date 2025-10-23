@@ -6,6 +6,7 @@ import '../models/cart_model.dart';
 import '../models/producto.dart';
 import '../models/usuario.dart'; // <-- Necesitamos el usuario para enviar la reseña
 import '../services/database_service.dart'; // <-- Necesitamos el servicio
+import 'widgets/login_required_dialog.dart';
 
 // AÑADIR EL PARÁMETRO 'usuario'
 class ProductDetailScreen extends StatefulWidget {
@@ -30,6 +31,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   // Método para enviar la reseña
   Future<void> _submitReview() async {
+    if (widget.usuario.isGuest) {
+      await showLoginRequiredDialog(context);
+      return;
+    }
     if (_userRating == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Por favor, selecciona una puntuación (estrellas).'), backgroundColor: Colors.orange),
@@ -73,6 +78,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final cart = Provider.of<CartModel>(context, listen: false);
+    final isGuest = widget.usuario.isGuest;
 
     return Scaffold(
       appBar: AppBar(
@@ -205,16 +211,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         child: ElevatedButton.icon(
           icon: const Icon(Icons.add_shopping_cart),
           label: const Text('Añadir al Carrito'),
-          onPressed: () {
-            cart.addToCart(widget.producto);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('${widget.producto.nombre} fue añadido al carrito.'),
-                duration: const Duration(seconds: 2),
-                backgroundColor: Colors.green,
-              ),
-            );
-          },
+          onPressed: isGuest
+              ? () => showLoginRequiredDialog(context)
+              : () {
+                  cart.addToCart(widget.producto);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('${widget.producto.nombre} fue añadido al carrito.'),
+                      duration: const Duration(seconds: 2),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                },
           style: ElevatedButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 15),
             textStyle: const TextStyle(

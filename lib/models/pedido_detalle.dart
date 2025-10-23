@@ -1,14 +1,18 @@
-import 'package:flutter_application_2/models/pedido.dart';
+import 'pedido.dart';
 
-// Modelo para un producto dentro del detalle de un pedido
+/// Modelo para los ítems de la tabla `detalle_pedidos` con datos enriquecidos.
 class ProductoDetalle {
+  final int idDetalle;
+  final int idProducto;
   final String nombreProducto;
-  final String imagenUrl;
+  final String? imagenUrl;
   final int cantidad;
   final double precioUnitario;
   final double subtotal;
 
-  ProductoDetalle({
+  const ProductoDetalle({
+    required this.idDetalle,
+    required this.idProducto,
     required this.nombreProducto,
     required this.imagenUrl,
     required this.cantidad,
@@ -17,32 +21,42 @@ class ProductoDetalle {
   });
 
   factory ProductoDetalle.fromMap(Map<String, dynamic> map) {
+    double parseDouble(dynamic value) {
+      if (value is num) return value.toDouble();
+      if (value is String) return double.tryParse(value) ?? 0.0;
+      return 0.0;
+    }
+
     return ProductoDetalle(
-      nombreProducto: map['nombre_producto'] ?? 'N/A',
-      imagenUrl: map['imagen_url'] ?? '',
+      idDetalle: (map['id_detalle'] as num?)?.toInt() ?? 0,
+      idProducto: (map['id_producto'] as num?)?.toInt() ?? 0,
+      nombreProducto: map['nombre_producto']?.toString() ?? 'Sin nombre',
+      imagenUrl: map['imagen_url']?.toString(),
       cantidad: (map['cantidad'] as num?)?.toInt() ?? 0,
-      precioUnitario: (map['precio_unitario'] as num?)?.toDouble() ?? 0.0,
-      subtotal: (map['subtotal'] as num?)?.toDouble() ?? 0.0,
+      precioUnitario: parseDouble(map['precio_unitario']),
+      subtotal: parseDouble(map['subtotal']),
     );
   }
 }
 
-// Modelo para el objeto completo que devuelve la API
+/// Modelo para la respuesta combinada de un pedido con sus detalles.
 class PedidoDetalle {
   final Pedido pedido;
   final List<ProductoDetalle> detalles;
 
-  PedidoDetalle({
+  const PedidoDetalle({
     required this.pedido,
     required this.detalles,
   });
 
   factory PedidoDetalle.fromMap(Map<String, dynamic> map) {
-    var detallesList = map['detalles'] as List<dynamic>? ?? [];
-    List<ProductoDetalle> detalles = detallesList.map((d) => ProductoDetalle.fromMap(d)).toList();
+    final detallesList = map['detalles'] as List<dynamic>? ?? [];
+    final detalles = detallesList
+        .map((d) => ProductoDetalle.fromMap(Map<String, dynamic>.from(d as Map)))
+        .toList();
 
     return PedidoDetalle(
-      pedido: Pedido.fromMap(map['pedido'] ?? {}),
+      pedido: Pedido.fromMap(Map<String, dynamic>.from(map['pedido'] as Map? ?? {})),
       detalles: detalles,
     );
   }

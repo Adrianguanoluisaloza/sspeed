@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_application_2/services/database_service.dart';
+import '../models/session_state.dart';
 import '../admin/admin_home_screen.dart' show AdminHomeScreen;
 import '../delivery/delivery_home_screen.dart' show DeliveryHomeScreen;
 
@@ -43,6 +44,7 @@ class _LoginScreenState extends State<LoginScreen> {
         await prefs.setString('userPassword', _passwordController.text.trim());
 
         // --- LÓGICA DE REDIRECCIÓN SEGÚN ROL ---
+        context.read<SessionController>().setUser(user);
         if (user.rol == 'admin') {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (context) => AdminHomeScreen(adminUser: user)),
