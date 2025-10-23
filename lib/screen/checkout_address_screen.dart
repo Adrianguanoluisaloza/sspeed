@@ -26,6 +26,41 @@ class _CheckoutAddressScreenState extends State<CheckoutAddressScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.usuario.isGuest) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Seleccionar Dirección'),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.lock_outline,
+                    size: 96, color: Theme.of(context).colorScheme.primary),
+                const SizedBox(height: 16),
+                const Text(
+                  'Necesitas iniciar sesión para continuar',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Así podremos asociar la dirección a tus pedidos.',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(context).pushNamed('/login'),
+                  child: const Text('Iniciar sesión'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
     return Scaffold(
       appBar: AppBar(
         title: const Text('Seleccionar Dirección'),
@@ -96,7 +131,7 @@ class _CheckoutAddressScreenState extends State<CheckoutAddressScreen> {
           Icons.location_on,
           color: isSelected ? Colors.deepOrange : Colors.grey,
         ),
-        title: Text(ubicacion.direccion,
+        title: Text(ubicacion.direccion ?? 'Dirección sin especificar',
             style: const TextStyle(fontWeight: FontWeight.bold)),
         subtitle: Text(
             'Lat: ${ubicacion.latitud.toStringAsFixed(4)}, Lon: ${ubicacion.longitud.toStringAsFixed(4)}'),
@@ -153,3 +188,4 @@ class _CheckoutAddressScreenState extends State<CheckoutAddressScreen> {
     );
   }
 }
+

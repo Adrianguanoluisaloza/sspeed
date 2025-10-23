@@ -1,7 +1,10 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+
 import '../config/api_config.dart' show AppConfig;
 import '../models/cart_model.dart';
 import '../models/pedido.dart';
@@ -9,69 +12,105 @@ import '../models/pedido_detalle.dart';
 import '../models/producto.dart';
 import '../models/ubicacion.dart';
 import '../models/usuario.dart';
+import 'api_exception.dart';
 import 'data_source.dart';
 
 class ApiDataSource implements DataSource {
   final String _baseUrl = AppConfig.baseUrl;
+  final http.Client _httpClient;
 
-  // --- Métodos HTTP Helper ---
-  Future<Map<String, dynamic>> _post(String endpoint, Map<String, dynamic> data) async {
+  ApiDataSource({http.Client? httpClient}) : _httpClient = httpClient ?? http.Client();
+
+  static const Duration _timeout = Duration(seconds: 15);
+
+  Map<String, String> get _jsonHeaders =>
+      const {'Content-Type': 'application/json; charset=UTF-8'};
+
+  Map<String, dynamic> _parseMapResponse(http.Response response) {
+    final raw = response.bodyBytes.isEmpty
+        ? null
+        : jsonDecode(utf8.decode(response.bodyBytes));
+    debugPrint('   <- Response [${response.statusCode}]: $raw');
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      if (raw == null) return {'success': true};
+      if (raw is Map<String, dynamic>) return raw;
+      throw const ApiException('Respuesta inesperada del servidor.');
+    }
+
+    final message = raw is Map<String, dynamic>
+        ? raw['message']?.toString()
+        : 'Error del servidor (${response.statusCode})';
+    throw ApiException(message ?? 'Error del servidor',
+        statusCode: response.statusCode);
+  }
+
+  List<dynamic> _parseListResponse(http.Response response) {
+    final raw = response.bodyBytes.isEmpty
+        ? []
+        : jsonDecode(utf8.decode(response.bodyBytes));
+    debugPrint('   <- Response [${response.statusCode}]: (list)');
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      if (raw is List<dynamic>) return raw;
+      if (raw is Map<String, dynamic> && raw['data'] is List<dynamic>) {
+        return raw['data'] as List<dynamic>;
+      }
+      throw const ApiException('Formato de lista no válido.');
+    }
+
+    final message = raw is Map<String, dynamic>
+        ? raw['message']?.toString()
+        : 'Error del servidor (${response.statusCode})';
+    throw ApiException(message ?? 'Error del servidor',
+        statusCode: response.statusCode);
+  }
+
+  ApiException _mapToApiException(Object error) {
+    if (error is ApiException) {
+      return error;
+    }
+    if (error is SocketException) {
+      return const ApiException('No se pudo conectar al servidor.');
+    }
+    if (error is TimeoutException) {
+      return const ApiException('Tiempo de espera agotado, intenta nuevamente.');
+    }
+    if (error is FormatException) {
+      return const ApiException('Respuesta inesperada del servidor.');
+    }
+    return ApiException(error.toString());
+  }
+
+  Future<Map<String, dynamic>> _post(
+      String endpoint, Map<String, dynamic> data) async {
     final url = Uri.parse('$_baseUrl$endpoint');
     debugPrint('🌍 POST: $url');
-    debugPrint('   -> Body: ${jsonEncode(data)}'); // Log encoded body
+    debugPrint('   -> Body: ${jsonEncode(data)}');
     try {
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json; charset=UTF-8'},
-        body: jsonEncode(data),
-      );
-      if (response.body.isEmpty) return {"success": true}; // Handle 204 No Content
-      final decodedBody = jsonDecode(utf8.decode(response.bodyBytes));
-      debugPrint('   <- Response [${response.statusCode}]: $decodedBody'); // Log response
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        return decodedBody;
-      } else {
-        throw HttpException(decodedBody['message'] ?? 'Error del servidor: ${response.statusCode}');
-      }
-    } on SocketException {
-      debugPrint('   <- Error: SocketException (No connection)');
-      throw const SocketException('No se pudo conectar al servidor.');
-    } on FormatException {
-      debugPrint('   <- Error: FormatException (Invalid JSON)');
-      throw const FormatException('Respuesta inesperada del servidor.');
-    } catch (e) {
-      debugPrint('   <- Error: $e');
-      rethrow;
+      final response = await _httpClient
+          .post(url, headers: _jsonHeaders, body: jsonEncode(data))
+          .timeout(_timeout);
+      return _parseMapResponse(response);
+    } catch (error) {
+      debugPrint('   <- Error: $error');
+      throw _mapToApiException(error);
     }
   }
 
-  Future<Map<String, dynamic>> _put(String endpoint, Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> _put(
+      String endpoint, Map<String, dynamic> data) async {
     final url = Uri.parse('$_baseUrl$endpoint');
     debugPrint('🌍 PUT: $url');
     debugPrint('   -> Body: ${jsonEncode(data)}');
     try {
-      final response = await http.put(
-        url,
-        headers: {'Content-Type': 'application/json; charset=UTF-8'},
-        body: jsonEncode(data),
-      );
-      if (response.body.isEmpty) return {"success": true};
-      final decodedBody = jsonDecode(utf8.decode(response.bodyBytes));
-      debugPrint('   <- Response [${response.statusCode}]: $decodedBody');
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        return decodedBody;
-      } else {
-        throw HttpException(decodedBody['message'] ?? 'Error del servidor: ${response.statusCode}');
-      }
-    } on SocketException {
-      debugPrint('   <- Error: SocketException (No connection)');
-      throw const SocketException('No se pudo conectar al servidor.');
-    } on FormatException {
-      debugPrint('   <- Error: FormatException (Invalid JSON)');
-      throw const FormatException('Respuesta inesperada del servidor.');
-    } catch (e) {
-      debugPrint('   <- Error: $e');
-      rethrow;
+      final response = await _httpClient
+          .put(url, headers: _jsonHeaders, body: jsonEncode(data))
+          .timeout(_timeout);
+      return _parseMapResponse(response);
+    } catch (error) {
+      debugPrint('   <- Error: $error');
+      throw _mapToApiException(error);
     }
   }
 
@@ -79,23 +118,13 @@ class ApiDataSource implements DataSource {
     final url = Uri.parse('$_baseUrl$endpoint');
     debugPrint('🗑️ DELETE: $url');
     try {
-      final response = await http.delete(url, headers: {'Content-Type': 'application/json; charset=UTF-8'});
-      final decodedBody = jsonDecode(utf8.decode(response.bodyBytes));
-      debugPrint('   <- Response [${response.statusCode}]: $decodedBody');
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        return decodedBody;
-      } else {
-        throw HttpException(decodedBody['message'] ?? 'Error al eliminar: ${response.statusCode}');
-      }
-    } on SocketException {
-      debugPrint('   <- Error: SocketException (No connection)');
-      throw const SocketException('No se pudo conectar al servidor.');
-    } on FormatException {
-      debugPrint('   <- Error: FormatException (Invalid JSON)');
-      throw const FormatException('Respuesta inesperada del servidor.');
-    } catch (e) {
-      debugPrint('   <- Error: $e');
-      rethrow;
+      final response = await _httpClient
+          .delete(url, headers: _jsonHeaders)
+          .timeout(_timeout);
+      return _parseMapResponse(response);
+    } catch (error) {
+      debugPrint('   <- Error: $error');
+      throw _mapToApiException(error);
     }
   }
 
@@ -103,24 +132,11 @@ class ApiDataSource implements DataSource {
     final uri = Uri.parse('$_baseUrl$endpoint');
     debugPrint('🌍 GET List: $uri');
     try {
-      final response = await http.get(uri);
-      final decodedBody = utf8.decode(response.bodyBytes);
-      debugPrint('   <- Response [${response.statusCode}]: (List data)'); // Avoid logging potentially large lists
-      if (response.statusCode == 200) {
-        return jsonDecode(decodedBody) as List<dynamic>;
-      } else {
-        final errorBody = jsonDecode(decodedBody);
-        throw HttpException(errorBody['message'] ?? 'Error del servidor al obtener datos: ${response.statusCode}');
-      }
-    } on SocketException {
-      debugPrint('   <- Error: SocketException (No connection)');
-      throw const SocketException('No se pudo conectar al servidor.');
-    } on FormatException {
-      debugPrint('   <- Error: FormatException (Invalid JSON)');
-      throw const FormatException('Respuesta inesperada del servidor.');
-    } catch (e) {
-      debugPrint('   <- Error: $e');
-      rethrow;
+      final response = await _httpClient.get(uri).timeout(_timeout);
+      return _parseListResponse(response);
+    } catch (error) {
+      debugPrint('   <- Error: $error');
+      throw _mapToApiException(error);
     }
   }
 
@@ -128,24 +144,11 @@ class ApiDataSource implements DataSource {
     final url = Uri.parse('$_baseUrl$endpoint');
     debugPrint('🌍 GET Map: $url');
     try {
-      final response = await http.get(url);
-      final decodedBody = utf8.decode(response.bodyBytes);
-      final data = jsonDecode(decodedBody);
-      debugPrint('   <- Response [${response.statusCode}]: $data');
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        return data;
-      } else {
-        throw HttpException(data['message'] ?? 'Error del servidor: ${response.statusCode}');
-      }
-    } on SocketException {
-      debugPrint('   <- Error: SocketException (No connection)');
-      throw const SocketException('No se pudo conectar al servidor.');
-    } on FormatException {
-      debugPrint('   <- Error: FormatException (Invalid JSON)');
-      throw const FormatException('Respuesta inesperada del servidor.');
-    } catch (e) {
-      debugPrint('   <- Error: $e');
-      rethrow;
+      final response = await _httpClient.get(url).timeout(_timeout);
+      return _parseMapResponse(response);
+    } catch (error) {
+      debugPrint('   <- Error: $error');
+      throw _mapToApiException(error);
     }
   }
 
@@ -154,7 +157,9 @@ class ApiDataSource implements DataSource {
   Future<Usuario?> login(String email, String password) async {
     final response = await _post('/login', {'correo': email, 'contrasena': password});
     if (response['success'] == true && response['usuario'] != null) {
-      return Usuario.fromMap(response['usuario']);
+      return Usuario.fromMap(
+        Map<String, dynamic>.from(response['usuario'] as Map),
+      );
     }
     return null;
   }
@@ -182,20 +187,26 @@ class ApiDataSource implements DataSource {
       endpoint = uri.toString().replaceFirst(_baseUrl, '');
     }
     final data = await _get(endpoint);
-    return data.map((item) => Producto.fromMap(item)).toList();
+    return data
+        .map((item) => Producto.fromMap(Map<String, dynamic>.from(item as Map)))
+        .toList();
   }
 
   @override
   Future<List<Producto>> getAllProductosAdmin() async {
     final data = await _get('/admin/productos');
-    return data.map((item) => Producto.fromMap(item)).toList();
+    return data
+        .map((item) => Producto.fromMap(Map<String, dynamic>.from(item as Map)))
+        .toList();
   }
 
   @override
   Future<Producto?> createProducto(Producto producto) async {
     final response = await _post('/admin/productos', producto.toMap());
     if (response['success'] == true && response['producto'] != null) {
-      return Producto.fromMap(response['producto']);
+      return Producto.fromMap(
+        Map<String, dynamic>.from(response['producto'] as Map),
+      );
     }
     return null;
   }
@@ -214,7 +225,10 @@ class ApiDataSource implements DataSource {
   @override
   Future<List<ProductoRankeado>> getRecomendaciones() async {
     final data = await _get('/recomendaciones');
-    return data.map((item) => ProductoRankeado.fromMap(item)).toList();
+    return data
+        .map((item) =>
+            ProductoRankeado.fromMap(Map<String, dynamic>.from(item as Map)))
+        .toList();
   }
   // --- NUEVO MÉTODO PARA AÑADIR RECOMENDACIÓN ---
   @override
@@ -224,23 +238,20 @@ class ApiDataSource implements DataSource {
     required int puntuacion,
     String? comentario,
   }) async {
-    try {
-      final response = await _post('/productos/$idProducto/recomendaciones', {
-        'idUsuario': idUsuario,
-        'puntuacion': puntuacion,
-        'comentario': comentario ?? '', // Enviar vacío si es nulo
-      });
-      return response['success'] ?? false;
-    } catch (e) {
-      debugPrint('Error al enviar recomendación: $e');
-      return false;
-    }
+    final response = await _post('/productos/$idProducto/recomendaciones', {
+      'id_usuario': idUsuario,
+      'puntuacion': puntuacion,
+      'comentario': comentario ?? '',
+    });
+    return response['success'] ?? false;
   }
 
   @override
   Future<List<Ubicacion>> getUbicaciones(int idUsuario) async {
     final data = await _get('/ubicaciones/usuario/$idUsuario');
-    return data.map((item) => Ubicacion.fromMap(item)).toList();
+    return data
+        .map((item) => Ubicacion.fromMap(Map<String, dynamic>.from(item as Map)))
+        .toList();
   }
 
   @override
@@ -266,29 +277,26 @@ class ApiDataSource implements DataSource {
   @override
   Future<List<Pedido>> getPedidos(int idUsuario) async {
     final data = await _get('/pedidos/cliente/$idUsuario');
-    return data.map((item) => Pedido.fromMap(item)).toList();
+    return data
+        .map((item) => Pedido.fromMap(Map<String, dynamic>.from(item as Map)))
+        .toList();
   }
 
   @override
   Future<PedidoDetalle?> getPedidoDetalle(int idPedido) async {
-    try {
-      final data = await _getMap('/pedidos/$idPedido');
-      // Asegúrate que la respuesta contiene las claves esperadas antes de parsear
-      if (data.containsKey('pedido') && data.containsKey('detalles')) {
-        return PedidoDetalle.fromMap(data);
-      }
-      debugPrint("Respuesta de getPedidoDetalle no tiene la estructura esperada: $data");
-      return null;
-    } catch (e) {
-      debugPrint("Error fetching order details: $e");
-      return null;
+    final data = await _getMap('/pedidos/$idPedido');
+    if (data.containsKey('pedido') && data.containsKey('detalles')) {
+      return PedidoDetalle.fromMap(data);
     }
+    throw const ApiException('Estructura de datos de pedido inválida.');
   }
 
   @override
   Future<List<Pedido>> getPedidosPorEstado(String estado) async {
     final data = await _get('/pedidos/estado/$estado');
-    return data.map((item) => Pedido.fromMap(item)).toList();
+    return data
+        .map((item) => Pedido.fromMap(Map<String, dynamic>.from(item as Map)))
+        .toList();
   }
 
   @override
@@ -299,23 +307,15 @@ class ApiDataSource implements DataSource {
 
   // --- NUEVO MÉTODO IMPLEMENTADO ---
   @override
-  Future<Map<String, dynamic>> getAdminStats() async {
-    try {
-      final data = await _getMap('/admin/stats');
-      // Devuelve el mapa completo si la llamada fue exitosa
-      // El widget se encargará de verificar la clave 'success'
-      return data;
-    } catch (e) {
-      debugPrint("Error fetching admin stats: $e");
-      // Devuelve un mapa indicando el error
-      return {"success": false, "error": e.toString()};
-    }
-  }
+  Future<Map<String, dynamic>> getAdminStats() async =>
+      _getMap('/admin/stats');
 
   @override
   Future<List<Pedido>> getPedidosDisponibles() async {
     final data = await _get('/pedidos/disponibles');
-    return data.map((item) => Pedido.fromMap(item)).toList();
+    return data
+        .map((item) => Pedido.fromMap(Map<String, dynamic>.from(item as Map)))
+        .toList();
   }
 
   @override
@@ -327,7 +327,9 @@ class ApiDataSource implements DataSource {
   @override
   Future<List<Pedido>> getPedidosPorDelivery(int idDelivery) async {
     final data = await _get('/pedidos/delivery/$idDelivery');
-    return data.map((item) => Pedido.fromMap(item)).toList();
+    return data
+        .map((item) => Pedido.fromMap(Map<String, dynamic>.from(item as Map)))
+        .toList();
   }
 
   @override
@@ -349,7 +351,7 @@ class ApiDataSource implements DataSource {
     try {
       final data = await _getMap('/pedidos/$idPedido/tracking');
       if (data['success'] == true && data['ubicacion'] != null) {
-        return data['ubicacion'] as Map<String, dynamic>;
+        return Map<String, dynamic>.from(data['ubicacion'] as Map);
       }
       return null;
     } catch (e) {

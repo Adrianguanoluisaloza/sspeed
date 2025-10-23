@@ -1,5 +1,5 @@
-
 import 'package:flutter/foundation.dart';
+
 import '../models/producto.dart'; // Asegúrate de que la ruta de Producto sea correcta
 
 /// Clase que envuelve un Producto y añade información específica del carrito (cantidad y subtotal).
@@ -69,3 +69,4 @@ class CartModel extends ChangeNotifier {
     notifyListeners();
   }
 }
+
