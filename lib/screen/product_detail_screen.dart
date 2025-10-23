@@ -6,6 +6,7 @@ import '../models/cart_model.dart';
 import '../models/producto.dart';
 import '../models/usuario.dart'; // <-- Necesitamos el usuario para enviar la reseña
 import '../services/database_service.dart'; // <-- Necesitamos el servicio
+import 'widgets/login_required_dialog.dart';
 
 // AÑADIR EL PARÁMETRO 'usuario'
 class ProductDetailScreen extends StatefulWidget {
@@ -30,6 +31,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   // Método para enviar la reseña
   Future<void> _submitReview() async {
+    if (widget.usuario.isGuest) {
+      await showLoginRequiredDialog(context);
+      return;
+    }
     if (_userRating == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Por favor, selecciona una puntuación (estrellas).'), backgroundColor: Colors.orange),
@@ -55,9 +60,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         ),
       );
       // Opcional: Limpiar campos o cerrar si fue exitoso
-      if(success) {
-        // Podrías limpiar _userRating = 0; _commentController.clear();
-        // O incluso Navigator.pop(context);
+      if (success) {
+        _commentController.clear();
+        setState(() {
+          _userRating = 0;
+        });
       }
     }
 
@@ -73,6 +80,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final cart = Provider.of<CartModel>(context, listen: false);
+    final isGuest = widget.usuario.isGuest;
 
     return Scaffold(
       appBar: AppBar(
@@ -84,19 +92,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           children: <Widget>[
             Hero(
               tag: 'product-${widget.producto.idProducto}',
-              child: Image.network(
-                widget.producto.imagenUrl,
-                height: 300,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    height: 300,
-                    color: Colors.grey.shade200,
-                    child: Icon(Icons.fastfood,
-                        color: Colors.grey.shade400, size: 80),
-                  );
-                },
-              ),
+              child: _DetailImage(imageUrl: widget.producto.imagenUrl),
             ),
             Padding(
               padding: const EdgeInsets.all(24.0),
@@ -129,7 +125,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   ),
                   const Divider(),
                   Text(
-                    widget.producto.descripcion,
+                    widget.producto.descripcion ?? 'Sin descripción disponible.',
                     style: TextStyle(
                       fontSize: 16,
                       color: Colors.grey.shade700,
@@ -205,16 +201,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         child: ElevatedButton.icon(
           icon: const Icon(Icons.add_shopping_cart),
           label: const Text('Añadir al Carrito'),
-          onPressed: () {
-            cart.addToCart(widget.producto);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('${widget.producto.nombre} fue añadido al carrito.'),
-                duration: const Duration(seconds: 2),
-                backgroundColor: Colors.green,
-              ),
-            );
-          },
+          onPressed: isGuest
+              ? () => showLoginRequiredDialog(context)
+              : () {
+                  cart.addToCart(widget.producto);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('${widget.producto.nombre} fue añadido al carrito.'),
+                      duration: const Duration(seconds: 2),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                },
           style: ElevatedButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 15),
             textStyle: const TextStyle(
@@ -224,6 +222,51 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _DetailImage extends StatelessWidget {
+  final String? imageUrl;
+
+  const _DetailImage({required this.imageUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    if (imageUrl == null || imageUrl!.isEmpty) {
+      return _DetailPlaceholder(icon: Icons.fastfood);
+    }
+
+    return Image.network(
+      imageUrl!,
+      height: 300,
+      width: double.infinity,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) =>
+          _DetailPlaceholder(icon: Icons.image_not_supported),
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return SizedBox(
+          height: 300,
+          child: const Center(child: CircularProgressIndicator()),
+        );
+      },
+    );
+  }
+}
+
+class _DetailPlaceholder extends StatelessWidget {
+  final IconData icon;
+
+  const _DetailPlaceholder({required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 300,
+      color: Colors.grey.shade200,
+      alignment: Alignment.center,
+      child: Icon(icon, color: Colors.grey.shade400, size: 80),
     );
   }
 }
