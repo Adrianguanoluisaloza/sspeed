@@ -6,6 +6,8 @@ import 'package:provider/provider.dart' show Provider;
 
 import 'package:intl/intl.dart'; // Necesitarás añadir `intl: ^0.18.1` a tu pubspec.yaml
 
+import '../routes/app_routes.dart';
+
 class OrderHistoryScreen extends StatefulWidget {
   final Usuario usuario;
   const OrderHistoryScreen({super.key, required this.usuario});
@@ -52,7 +54,8 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                 ),
                 const SizedBox(height: 24),
                 ElevatedButton(
-                  onPressed: () => Navigator.of(context).pushNamed('/login'),
+                  onPressed: () =>
+                      Navigator.of(context).pushNamed(AppRoutes.login),
                   child: const Text('Iniciar sesión'),
                 ),
               ],

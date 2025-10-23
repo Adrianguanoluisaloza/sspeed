@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../routes/app_routes.dart';
+
 Future<void> showLoginRequiredDialog(BuildContext context) async {
   return showDialog<void>(
     context: context,
@@ -17,7 +19,7 @@ Future<void> showLoginRequiredDialog(BuildContext context) async {
         FilledButton(
           onPressed: () {
             Navigator.of(dialogContext).pop();
-            Navigator.of(context).pushNamed('/login');
+            Navigator.of(context).pushNamed(AppRoutes.login);
           },
           child: const Text('Ir a iniciar sesión'),
         ),

@@ -2,13 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../admin/admin_home_screen.dart';
-import '../delivery/delivery_home_screen.dart';
 import '../models/session_state.dart';
 import '../models/usuario.dart';
 import '../services/api_exception.dart';
 import '../services/database_service.dart';
-import 'main_navigator.dart';
+import '../routes/app_routes.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -54,30 +52,25 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   void _navigateForUser(Usuario user) {
-    Widget destination;
+    String targetRoute;
     switch (user.rol) {
       case 'admin':
-        destination = AdminHomeScreen(adminUser: user);
+        targetRoute = AppRoutes.adminHome;
         break;
       case 'delivery':
-        destination = DeliveryHomeScreen(deliveryUser: user);
+        targetRoute = AppRoutes.deliveryHome;
         break;
       default:
-        destination = MainNavigator(usuario: user);
+        targetRoute = AppRoutes.mainNavigator;
     }
 
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => destination),
-    );
+    Navigator.of(context).pushReplacementNamed(targetRoute, arguments: user);
   }
 
   void _navigateAsGuest() {
     final guest = context.read<SessionController>().usuario;
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => MainNavigator(usuario: guest),
-      ),
-    );
+    Navigator.of(context)
+        .pushReplacementNamed(AppRoutes.mainNavigator, arguments: guest);
   }
 
   @override

@@ -5,6 +5,8 @@ import 'package:flutter_application_2/services/database_service.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
 
+import '../routes/app_routes.dart';
+
 class CheckoutAddressScreen extends StatefulWidget {
   final Usuario usuario;
   const CheckoutAddressScreen({super.key, required this.usuario});
@@ -52,7 +54,8 @@ class _CheckoutAddressScreenState extends State<CheckoutAddressScreen> {
                 ),
                 const SizedBox(height: 24),
                 ElevatedButton(
-                  onPressed: () => Navigator.of(context).pushNamed('/login'),
+                  onPressed: () =>
+                      Navigator.of(context).pushNamed(AppRoutes.login),
                   child: const Text('Iniciar sesión'),
                 ),
               ],

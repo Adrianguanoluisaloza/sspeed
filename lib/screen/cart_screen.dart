@@ -3,6 +3,7 @@ import 'package:flutter_application_2/models/usuario.dart';
 import 'package:flutter_application_2/screen/checkout_address_screen.dart';
 import 'package:provider/provider.dart';
 import '../models/cart_model.dart';
+import '../routes/app_routes.dart';
 
 // 1. AÑADE EL PARÁMETRO 'usuario'
 class CartScreen extends StatelessWidget {
@@ -37,11 +38,13 @@ class CartScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 24),
                 ElevatedButton(
-                  onPressed: () => Navigator.of(context).pushNamed('/login'),
+                  onPressed: () =>
+                      Navigator.of(context).pushNamed(AppRoutes.login),
                   child: const Text('Iniciar sesión'),
                 ),
                 TextButton(
-                  onPressed: () => Navigator.of(context).pushNamed('/registro'),
+                  onPressed: () =>
+                      Navigator.of(context).pushNamed(AppRoutes.register),
                   child: const Text('Crear cuenta'),
                 ),
               ],

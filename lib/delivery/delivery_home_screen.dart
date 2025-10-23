@@ -3,6 +3,8 @@ import 'package:flutter_application_2/models/usuario.dart' show Usuario;
 
 import 'delivery_activearders_view.dart' show DeliveryActiveOrdersView;
 import 'delivery_availableorders_view.dart' show DeliveryAvailableOrdersView;
+import 'delivery_history_orders_view.dart' show DeliveryHistoryOrdersView;
+import '../routes/app_routes.dart';
 
 class DeliveryHomeScreen extends StatefulWidget {
   final Usuario deliveryUser;
@@ -18,7 +20,7 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen> with SingleTick
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -36,7 +38,8 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen> with SingleTick
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () {
-              Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+              Navigator.of(context)
+                  .pushNamedAndRemoveUntil(AppRoutes.login, (route) => false);
             },
           )
         ],
@@ -44,7 +47,8 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen> with SingleTick
           controller: _tabController,
           tabs: const [
             Tab(text: 'Pedidos Disponibles'),
-            Tab(text: 'Mis Entregas'),
+            Tab(text: 'En curso'),
+            Tab(text: 'Historial'),
           ],
         ),
       ),
@@ -55,6 +59,8 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen> with SingleTick
           DeliveryAvailableOrdersView(deliveryUser: widget.deliveryUser),
           // Vista para pedidos activos del repartidor
           DeliveryActiveOrdersView(deliveryUser: widget.deliveryUser),
+          // Nueva vista para dar visibilidad al historial sin alterar la lógica existente.
+          DeliveryHistoryOrdersView(deliveryUser: widget.deliveryUser),
         ],
       ),
     );

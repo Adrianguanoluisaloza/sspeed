@@ -7,6 +7,7 @@ import 'package:shimmer/shimmer.dart';
 import '../models/cart_model.dart';
 import '../models/producto.dart';
 import '../services/database_service.dart';
+import '../routes/app_routes.dart';
 import 'cart_screen.dart' show CartScreen;
 import 'product_detail_screen.dart';
 import 'widgets/login_required_dialog.dart';
@@ -127,12 +128,14 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: [
           if (_isGuest)
             TextButton(
-              onPressed: () => Navigator.of(context).pushNamed('/login'),
+              onPressed: () =>
+                  Navigator.of(context).pushNamed(AppRoutes.login),
               child: const Text('Iniciar sesión', style: TextStyle(color: Colors.white)),
             ),
           if (_isGuest)
             TextButton(
-              onPressed: () => Navigator.of(context).pushNamed('/registro'),
+              onPressed: () =>
+                  Navigator.of(context).pushNamed(AppRoutes.register),
               child: const Text('Registrarse', style: TextStyle(color: Colors.white70)),
             ),
           Consumer<CartModel>(

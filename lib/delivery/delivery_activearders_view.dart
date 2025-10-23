@@ -7,7 +7,7 @@ import 'package:provider/provider.dart';
 import 'dart:async' show Future, Timer;
 import 'package:location/location.dart';
 
-import '../screen/order_detail_screen.dart';
+import '../routes/app_routes.dart';
 
 
 class DeliveryActiveOrdersView extends StatefulWidget {
@@ -159,12 +159,13 @@ class _DeliveryActiveOrdersViewState extends State<DeliveryActiveOrdersView> {
                     // 11. CORREGIDO: Navegar a la pantalla de detalle
                     // El repartidor puede ver el detalle (igual que el cliente)
                     // para ver los productos o el mapa de su propio tracking
-                    await Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => OrderDetailScreen(idPedido: pedido.idPedido))
+                    await Navigator.of(context).pushNamed(
+                      AppRoutes.orderDetail,
+                      arguments: pedido.idPedido,
                     );
 
-                    // 12. Refrescar la lista al volver
+                    if (!mounted) return;
+                    // 12. Refrescar la lista al volver usando la ruta centralizada.
                     setState(() => _loadPedidos());
                   },
                 ),

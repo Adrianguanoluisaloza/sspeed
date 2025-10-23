@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_2/screen/login_screen.dart';
-import 'package:flutter_application_2/screen/main_navigator.dart';
-import 'package:flutter_application_2/screen/register_screen.dart';
-import 'package:flutter_application_2/screen/splash_screen.dart'; // Asegúrate de tener este import
 import 'package:provider/provider.dart';
 import 'models/cart_model.dart';
 import 'models/session_state.dart';
-import 'models/usuario.dart';
 import 'services/database_service.dart';
+import 'routes/app_routes.dart';
+import 'routes/route_generator.dart';
 
 void main() {
   runApp(
@@ -84,24 +81,9 @@ class MyApp extends StatelessWidget {
       title: 'Unite7speed Delivery App',
       debugShowCheckedModeBanner: false,
       theme: theme,
-      home: const SplashScreen(),
-      routes: {
-        '/login': (context) => const LoginScreen(),
-        '/registro': (context) => const RegisterScreen(),
-      },
-      onGenerateRoute: (settings) {
-        if (settings.name == '/main_navigator') {
-          final usuario = settings.arguments;
-          if (usuario is! Usuario) {
-            return MaterialPageRoute(builder: (_) => const LoginScreen());
-          }
-          return MaterialPageRoute(
-            builder: (_) => MainNavigator(usuario: usuario),
-            settings: settings,
-          );
-        }
-        return null;
-      },
+      initialRoute: AppRoutes.splash,
+      // Centralizamos toda la navegación para conseguir transiciones consistentes.
+      onGenerateRoute: RouteGenerator.generateRoute,
     );
   }
 }

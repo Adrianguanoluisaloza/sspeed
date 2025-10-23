@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'admin_order_detail_screen.dart' show AdminOrderDetailScreen;
 import 'admin_products_scree.dart' show AdminProductsScreen;
 import 'package:intl/intl.dart'; // Para formatear moneda
+import '../routes/app_routes.dart';
 
 
 class AdminHomeScreen extends StatefulWidget {
@@ -56,7 +57,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () {
-              Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+              Navigator.of(context)
+                  .pushNamedAndRemoveUntil(AppRoutes.login, (route) => false);
             },
           ),
         ],

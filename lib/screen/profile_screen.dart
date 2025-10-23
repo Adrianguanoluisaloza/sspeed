@@ -6,7 +6,7 @@ import 'package:flutter_application_2/models/ubicacion.dart';
 import 'package:flutter_application_2/models/usuario.dart';
 import 'package:flutter_application_2/services/database_service.dart';
 import '../models/session_state.dart';
-import 'order_history_screen.dart'; // <-- AÑADIDO
+import '../routes/app_routes.dart';
 
 class ProfileScreen extends StatefulWidget {
   final Usuario usuario;
@@ -38,7 +38,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (!mounted) return;
     context.read<SessionController>().setGuest();
-    Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+    Navigator.of(context)
+        .pushNamedAndRemoveUntil(AppRoutes.login, (route) => false);
   }
   // ---------------------------------
 
@@ -70,11 +71,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const SizedBox(height: 24),
                 ElevatedButton(
-                  onPressed: () => Navigator.of(context).pushNamed('/login'),
+                  onPressed: () =>
+                      Navigator.of(context).pushNamed(AppRoutes.login),
                   child: const Text('Iniciar sesión'),
                 ),
                 TextButton(
-                  onPressed: () => Navigator.of(context).pushNamed('/registro'),
+                  onPressed: () =>
+                      Navigator.of(context).pushNamed(AppRoutes.register),
                   child: const Text('Crear una cuenta'),
                 )
               ],
@@ -122,12 +125,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 title: const Text('Historial de Pedidos'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) =>
-                          OrderHistoryScreen(usuario: widget.usuario),
-                    ),
+                  Navigator.of(context).pushNamed(
+                    AppRoutes.orderHistory,
+                    arguments: widget.usuario,
                   );
                 },
               ),
