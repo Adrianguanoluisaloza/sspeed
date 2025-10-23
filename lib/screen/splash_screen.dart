@@ -1,11 +1,12 @@
-import 'package:flutter/cupertino.dart' show StatefulWidget, State, BuildContext, Widget, Color, Navigator, MainAxisAlignment, Icon, SizedBox, FontWeight, TextStyle, Text, AlwaysStoppedAnimation, Column, Center;
-import 'package:flutter/material.dart' show MaterialPageRoute, Scaffold, Colors, Icons, CircularProgressIndicator;
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/session_state.dart';
+import '../models/usuario.dart';
+import '../services/api_exception.dart';
 import '../services/database_service.dart';
-import 'login_screen.dart';
-import 'main_navigator.dart';
+import '../routes/app_routes.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -21,80 +22,98 @@ class _SplashScreenState extends State<SplashScreen> {
     _checkLoginStatus();
   }
   Future<void> _checkLoginStatus() async {
-    // Pequeña demora para que el splash sea visible
-    await Future.delayed(const Duration(seconds: 2));
-
-    // Verifica si el widget sigue montado
+    await Future.delayed(const Duration(milliseconds: 1200));
     if (!mounted) return;
-
     final prefs = await SharedPreferences.getInstance();
     final userEmail = prefs.getString('userEmail');
     final userPassword = prefs.getString('userPassword');
+    final databaseService = context.read<DatabaseService>();
+    final session = context.read<SessionController>();
 
     if (userEmail != null && userPassword != null) {
-      // Obtenemos el servicio de base de datos
-      final databaseService = Provider.of<DatabaseService>(context, listen: false);
-
       try {
         final user = await databaseService.login(userEmail, userPassword);
-
-        // ⚠️ Verificamos nuevamente que el widget siga montado tras el await
         if (!mounted) return;
-
-        if (user != null) {
-          // Si el login es exitoso, navegamos a la pantalla principal
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => MainNavigator(usuario: user)),
-          );
-        } else {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const LoginScreen()),
-          );
+        if (user != null && user.estaActivo) {
+          session.setUser(user);
+          _navigateForUser(user);
+          return;
         }
-      } catch (e) {
-        // En caso de error, comprobamos si el widget sigue montado
-        if (!mounted) return;
-
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
-        );
+      } on ApiException catch (_) {
+        // Ignoramos, el flujo continuará como invitado
+      } catch (_) {
+        // Cualquier otro error redirige al flujo invitado
       }
-    } else {
-      // Si no hay datos guardados, comprobamos antes de navegar
-      if (!mounted) return;
-
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-      );
     }
+
+    if (!mounted) return;
+    session.setGuest();
+    _navigateAsGuest();
+  }
+
+  void _navigateForUser(Usuario user) {
+    String targetRoute;
+    switch (user.rol) {
+      case 'admin':
+        targetRoute = AppRoutes.adminHome;
+        break;
+      case 'delivery':
+        targetRoute = AppRoutes.deliveryHome;
+        break;
+      default:
+        targetRoute = AppRoutes.mainNavigator;
+    }
+
+    Navigator.of(context).pushReplacementNamed(targetRoute, arguments: user);
+  }
+
+  void _navigateAsGuest() {
+    final guest = context.read<SessionController>().usuario;
+    Navigator.of(context)
+        .pushReplacementNamed(AppRoutes.mainNavigator, arguments: guest);
   }
 
   @override
   Widget build(BuildContext context) {
-    // Una pantalla de carga simple y elegante.
-    return const Scaffold(
-      backgroundColor: Colors.deepOrange,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.delivery_dining, size: 120, color: Colors.white),
-            SizedBox(height: 20),
-            Text(
-              'Unite7speed Delivery',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
+    final theme = Theme.of(context);
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFFFF6F3C), Color(0xFFFB923C)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.12), // Reemplazo recomendado para evitar deprecaciones.
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: const Icon(Icons.delivery_dining,
+                    size: 120, color: Colors.white),
               ),
-            ),
-            SizedBox(height: 40),
-            CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-            ),
-          ],
+              const SizedBox(height: 24),
+              Text(
+                'Unite7speed Delivery',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                ),
+              ),
+              const SizedBox(height: 40),
+              const CircularProgressIndicator(color: Colors.white),
+            ],
+          ),
         ),
       ),
     );
   }
 }
+

@@ -29,12 +29,18 @@ class DatabaseService {
     required int puntuacion,
     String? comentario,
   }) => _dataSource.addRecomendacion(
-      idProducto: idProducto,
-      idUsuario: idUsuario,
-      puntuacion: puntuacion,
-      comentario: comentario
-  );
-  Future<bool> placeOrder({ required Usuario user, required CartModel cart, required Ubicacion location }) => _dataSource.placeOrder(user: user, cart: cart, location: location);
+        idProducto: idProducto,
+        idUsuario: idUsuario,
+        puntuacion: puntuacion,
+        comentario: comentario,
+      );
+
+  Future<bool> placeOrder({
+    required Usuario user,
+    required CartModel cart,
+    required Ubicacion location,
+  }) =>
+      _dataSource.placeOrder(user: user, cart: cart, location: location);
   Future<List<Pedido>> getPedidos(int idUsuario) => _dataSource.getPedidos(idUsuario);
   Future<PedidoDetalle?> getPedidoDetalle(int idPedido) => _dataSource.getPedidoDetalle(idPedido);
 
@@ -62,3 +68,4 @@ class DatabaseService {
 
 
 }
+

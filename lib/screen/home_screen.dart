@@ -7,8 +7,10 @@ import 'package:shimmer/shimmer.dart';
 import '../models/cart_model.dart';
 import '../models/producto.dart';
 import '../services/database_service.dart';
+import '../routes/app_routes.dart';
 import 'cart_screen.dart' show CartScreen;
 import 'product_detail_screen.dart';
+import 'widgets/login_required_dialog.dart';
 
 class HomeScreen extends StatefulWidget {
   final Usuario usuario;
@@ -27,8 +29,18 @@ class _HomeScreenState extends State<HomeScreen> {
   String _selectedCategory = "Todos";
   Timer? _debounce;
 
-  final List<String> _categories = [
-    "Todos", "Pizza", "Hamburguesa", "Bebidas", "Postres", "Varios"
+  bool get _isGuest => widget.usuario.isGuest;
+
+  final List<String> _categories = const [
+    'Todos',
+    'Pizzas',
+    'Hamburguesas',
+    'Acompañamientos',
+    'Bebidas',
+    'Ensaladas',
+    'Pastas',
+    'Mexicana',
+    'Japonesa',
   ];
 
   @override
@@ -49,10 +61,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _loadProducts() {
+    final query = _searchController.text.trim();
+    final categoryFilter = _selectedCategory == 'Todos' ? null : _selectedCategory;
     setState(() {
       _productosFuture = _databaseService.getProductos(
-        query: _searchController.text.trim(),
-        categoria: _selectedCategory,
+        query: query.isEmpty ? null : query,
+        categoria: categoryFilter,
       );
     });
   }
@@ -64,24 +78,73 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  void _handleCartTap() {
+    if (_isGuest) {
+      showLoginRequiredDialog(context);
+      return;
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CartScreen(usuario: widget.usuario),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final firstName = widget.usuario.nombre.split(' ').first;
     return Scaffold(
       appBar: AppBar(
-        title: Text('Hola, ${widget.usuario.nombre.split(' ')[0]}'),
+        titleSpacing: 16,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Hola, ${_isGuest ? 'invitado' : firstName}',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 4),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              child: Chip(
+                key: ValueKey(_isGuest),
+                backgroundColor: Colors.white.withValues(alpha: 0.2), // Reemplazamos withOpacity por la alternativa recomendada.
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                label: Text(
+                  _isGuest ? 'Modo invitado' : 'Sesión activa',
+                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                ),
+                avatar: Icon(
+                  _isGuest ? Icons.visibility_off : Icons.verified,
+                  size: 16,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
         actions: [
+          if (_isGuest)
+            TextButton(
+              onPressed: () =>
+                  Navigator.of(context).pushNamed(AppRoutes.login),
+              child: const Text('Iniciar sesión', style: TextStyle(color: Colors.white)),
+            ),
+          if (_isGuest)
+            TextButton(
+              onPressed: () =>
+                  Navigator.of(context).pushNamed(AppRoutes.register),
+              child: const Text('Registrarse', style: TextStyle(color: Colors.white70)),
+            ),
           Consumer<CartModel>(
             builder: (context, cart, child) => Stack(
               alignment: Alignment.center,
               children: [
                 IconButton(
                   icon: const Icon(Icons.shopping_cart),
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => CartScreen(usuario: widget.usuario),
-                    ),
-                  ),
+                  onPressed: _handleCartTap,
                 ),
                 if (cart.items.isNotEmpty)
                   Positioned(
@@ -90,7 +153,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(2),
                       decoration: BoxDecoration(
-                        color: Colors.red,
+                        color: Colors.redAccent,
                         borderRadius: BorderRadius.circular(10),
                       ),
                       constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
@@ -135,10 +198,26 @@ class _HomeScreenState extends State<HomeScreen> {
                       return const RecommendationsListLoading();
                     }
                     if (snapshot.hasError) {
-                      return Center(child: Text('Error: ${snapshot.error}'));
+                      return InfoState(
+                        icon: Icons.sentiment_dissatisfied,
+                        title: 'No se pudo cargar',
+                        message: 'Intenta actualizar las recomendaciones.',
+                        actionLabel: 'Reintentar',
+                        onAction: () {
+                          setState(() {
+                            _recomendacionesFuture =
+                                _databaseService.getRecomendaciones();
+                          });
+                        },
+                      );
                     }
                     if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                      return const Center(child: Text('No hay recomendaciones.'));
+                      return const InfoState(
+                        icon: Icons.star_border,
+                        title: 'Sin recomendaciones',
+                        message:
+                            'Cuando agregues reseñas verás sugerencias aquí.',
+                      );
                     }
                     return _buildRecommendationsList(snapshot.data!);
                   },
@@ -156,10 +235,21 @@ class _HomeScreenState extends State<HomeScreen> {
                     return const ProductsGridLoading();
                   }
                   if (snapshot.hasError) {
-                    return Center(child: Text('Error: ${snapshot.error}'));
+                    return InfoState(
+                      icon: Icons.cloud_off,
+                      title: 'Error al cargar productos',
+                      message: 'Revisa tu conexión e intenta nuevamente.',
+                      actionLabel: 'Reintentar',
+                      onAction: _loadProducts,
+                    );
                   }
                   if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                    return const Center(child: Text('No hay productos.'));
+                    return const InfoState(
+                      icon: Icons.search_off,
+                      title: 'No encontramos productos',
+                      message:
+                          'Prueba con otra búsqueda o categoría disponible.',
+                    );
                   }
                   return _buildProductsGrid(snapshot.data!);
                 },
@@ -181,11 +271,11 @@ class _HomeScreenState extends State<HomeScreen> {
           prefixIcon: const Icon(Icons.search),
           suffixIcon: _searchController.text.isNotEmpty
               ? IconButton(
-            icon: const Icon(Icons.clear),
-            onPressed: () {
-              _searchController.clear();
-            },
-          )
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    _searchController.clear();
+                  },
+                )
               : null,
         ),
       ),
@@ -275,21 +365,29 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildProductsGrid(List<Producto> productos) {
-    return GridView.builder(
-      physics: const NeverScrollableScrollPhysics(),
-      shrinkWrap: true,
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 0.75,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 350),
+      child: GridView.builder(
+        key: ValueKey(productos.length + productos.hashCode),
+        physics: const NeverScrollableScrollPhysics(),
+        shrinkWrap: true,
+        padding: const EdgeInsets.all(16),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          childAspectRatio: 0.75,
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
+        ),
+        itemCount: productos.length,
+        itemBuilder: (context, index) {
+          final producto = productos[index];
+          return ProductCard(
+            producto: producto,
+            usuario: widget.usuario,
+            isGuest: _isGuest,
+          );
+        },
       ),
-      itemCount: productos.length,
-      itemBuilder: (context, index) {
-        final producto = productos[index];
-        return ProductCard(producto: producto, usuario: widget.usuario);
-      },
     );
   }
 }
@@ -297,10 +395,12 @@ class _HomeScreenState extends State<HomeScreen> {
 class ProductCard extends StatelessWidget {
   final Producto producto;
   final Usuario usuario;
+  final bool isGuest;
 
   const ProductCard({
     required this.producto,
     required this.usuario,
+    required this.isGuest,
     super.key,
   });
 
@@ -330,17 +430,7 @@ class ProductCard extends StatelessWidget {
               flex: 3,
               child: Hero(
                 tag: 'product-${producto.idProducto}',
-                child: Image.network(
-                  producto.imagenUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      color: Colors.grey.shade200,
-                      child: Icon(Icons.fastfood,
-                          color: Colors.grey.shade400, size: 40),
-                    );
-                  },
-                ),
+                child: _ProductImage(imageUrl: producto.imagenUrl),
               ),
             ),
             Expanded(
@@ -362,14 +452,17 @@ class ProductCard extends StatelessWidget {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: () {
-                          cart.addToCart(producto);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                                content: Text('${producto.nombre} añadido'),
-                                duration: const Duration(seconds: 1)),
-                          );
-                        },
+                        onPressed: isGuest
+                            ? () => showLoginRequiredDialog(context)
+                            : () {
+                                cart.addToCart(producto);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('${producto.nombre} añadido'),
+                                    duration: const Duration(seconds: 1),
+                                  ),
+                                );
+                              },
                         child: const Text('Añadir'),
                       ),
                     ),
@@ -380,6 +473,45 @@ class ProductCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ProductImage extends StatelessWidget {
+  final String? imageUrl;
+  const _ProductImage({required this.imageUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    if (imageUrl == null || imageUrl!.isEmpty) {
+      return _ImagePlaceholder(icon: Icons.fastfood);
+    }
+
+    return Image.network(
+      imageUrl!,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) =>
+          _ImagePlaceholder(icon: Icons.image_not_supported),
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return Container(
+          color: Colors.grey.shade200,
+          child: const Center(child: CircularProgressIndicator()),
+        );
+      },
+    );
+  }
+}
+
+class _ImagePlaceholder extends StatelessWidget {
+  final IconData icon;
+  const _ImagePlaceholder({required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.grey.shade200,
+      child: Icon(icon, color: Colors.grey.shade400, size: 40),
     );
   }
 }
@@ -405,6 +537,56 @@ class ProductsGridLoading extends StatelessWidget {
         itemBuilder: (context, index) {
           return const ProductCardSkeleton();
         },
+      ),
+    );
+  }
+}
+
+class InfoState extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String message;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  const InfoState({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.message,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 48, color: theme.colorScheme.primary),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey.shade600),
+            ),
+            if (actionLabel != null && onAction != null) ...[
+              const SizedBox(height: 16),
+              OutlinedButton(onPressed: onAction, child: Text(actionLabel!)),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -495,3 +677,4 @@ class RecommendationCardSkeleton extends StatelessWidget {
     );
   }
 }
+
