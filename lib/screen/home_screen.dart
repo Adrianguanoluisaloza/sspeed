@@ -133,7 +133,7 @@ class _HomeScreenState extends State<HomeScreen> {
           if (_isGuest)
             TextButton(
               onPressed: () => Navigator.of(context).pushNamed('/registro'),
-            child: const Text('Registrarse', style: TextStyle(color: Colors.white70)),
+              child: const Text('Registrarse', style: TextStyle(color: Colors.white70)),
             ),
           Consumer<CartModel>(
             builder: (context, cart, child) => Stack(
@@ -268,11 +268,11 @@ class _HomeScreenState extends State<HomeScreen> {
           prefixIcon: const Icon(Icons.search),
           suffixIcon: _searchController.text.isNotEmpty
               ? IconButton(
-            icon: const Icon(Icons.clear),
-            onPressed: () {
-              _searchController.clear();
-            },
-          )
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    _searchController.clear();
+                  },
+                )
               : null,
         ),
       ),
@@ -427,17 +427,7 @@ class ProductCard extends StatelessWidget {
               flex: 3,
               child: Hero(
                 tag: 'product-${producto.idProducto}',
-                child: Image.network(
-                  producto.imagenUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      color: Colors.grey.shade200,
-                      child: Icon(Icons.fastfood,
-                          color: Colors.grey.shade400, size: 40),
-                    );
-                  },
-                ),
+                child: _ProductImage(imageUrl: producto.imagenUrl),
               ),
             ),
             Expanded(
@@ -480,6 +470,45 @@ class ProductCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ProductImage extends StatelessWidget {
+  final String? imageUrl;
+  const _ProductImage({required this.imageUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    if (imageUrl == null || imageUrl!.isEmpty) {
+      return _ImagePlaceholder(icon: Icons.fastfood);
+    }
+
+    return Image.network(
+      imageUrl!,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) =>
+          _ImagePlaceholder(icon: Icons.image_not_supported),
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return Container(
+          color: Colors.grey.shade200,
+          child: const Center(child: CircularProgressIndicator()),
+        );
+      },
+    );
+  }
+}
+
+class _ImagePlaceholder extends StatelessWidget {
+  final IconData icon;
+  const _ImagePlaceholder({required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.grey.shade200,
+      child: Icon(icon, color: Colors.grey.shade400, size: 40),
     );
   }
 }
@@ -645,3 +674,4 @@ class RecommendationCardSkeleton extends StatelessWidget {
     );
   }
 }
+

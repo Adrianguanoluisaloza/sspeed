@@ -122,13 +122,9 @@ class CartItemCard extends StatelessWidget {
                 padding: const EdgeInsets.all(8.0),
                 child: Row(children: [
                   ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.network(cartItem.producto.imagenUrl,
-                          width: 70,
-                          height: 70,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
-                          const Icon(Icons.image_not_supported))),
+                    borderRadius: BorderRadius.circular(8),
+                    child: _CartImage(imageUrl: cartItem.producto.imagenUrl),
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                       child: Column(
@@ -173,6 +169,39 @@ class CartItemCard extends StatelessWidget {
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints())
         ]));
+  }
+}
+
+class _CartImage extends StatelessWidget {
+  final String? imageUrl;
+
+  const _CartImage({required this.imageUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    if (imageUrl == null || imageUrl!.isEmpty) {
+      return Container(
+        width: 70,
+        height: 70,
+        color: Colors.grey.shade200,
+        alignment: Alignment.center,
+        child: const Icon(Icons.fastfood, color: Colors.grey),
+      );
+    }
+
+    return Image.network(
+      imageUrl!,
+      width: 70,
+      height: 70,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) => Container(
+        width: 70,
+        height: 70,
+        color: Colors.grey.shade200,
+        alignment: Alignment.center,
+        child: const Icon(Icons.image_not_supported, color: Colors.grey),
+      ),
+    );
   }
 }
 

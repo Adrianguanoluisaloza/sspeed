@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../models/pedido.dart';
 import '../models/pedido_detalle.dart';
 import '../services/database_service.dart';
 import 'package:intl/intl.dart';
@@ -105,18 +106,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                       return ListTile(
                         leading: ClipRRect(
                           borderRadius: BorderRadius.circular(8.0),
-                          child: Image.network(
-                            item.imagenUrl ?? '',
-                            width: 50,
-                            height: 50,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
-                              width: 50,
-                              height: 50,
-                              color: Colors.grey.shade200,
-                              child: const Icon(Icons.image_not_supported),
-                            ),
-                          ),
+                          child: _OrderItemImage(imageUrl: item.imagenUrl),
                         ),
                         title: Text(item.nombreProducto),
                         subtitle: Text(
@@ -137,7 +127,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
   // --- WIDGETS AUXILIARES ---
 
-  Widget _buildSummaryCard(BuildContext context, dynamic pedido, String formattedDate) {
+  Widget _buildSummaryCard(
+      BuildContext context, Pedido pedido, String formattedDate) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -381,3 +372,35 @@ class TimelineTile extends StatelessWidget {
     );
   }
 }
+
+class _OrderItemImage extends StatelessWidget {
+  final String? imageUrl;
+
+  const _OrderItemImage({required this.imageUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    if (imageUrl == null || imageUrl!.isEmpty) {
+      return _buildPlaceholder();
+    }
+
+    return Image.network(
+      imageUrl!,
+      width: 50,
+      height: 50,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => _buildPlaceholder(),
+    );
+  }
+
+  Widget _buildPlaceholder() {
+    return Container(
+      width: 50,
+      height: 50,
+      color: Colors.grey.shade200,
+      alignment: Alignment.center,
+      child: const Icon(Icons.fastfood, color: Colors.grey),
+    );
+  }
+}
+

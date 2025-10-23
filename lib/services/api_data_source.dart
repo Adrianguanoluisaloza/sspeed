@@ -66,20 +66,20 @@ class ApiDataSource implements DataSource {
         statusCode: response.statusCode);
   }
 
-  Never _handleCommonError(Object error) {
+  ApiException _mapToApiException(Object error) {
     if (error is ApiException) {
-      throw error;
+      return error;
     }
     if (error is SocketException) {
-      throw const ApiException('No se pudo conectar al servidor.');
+      return const ApiException('No se pudo conectar al servidor.');
     }
     if (error is TimeoutException) {
-      throw const ApiException('Tiempo de espera agotado, intenta nuevamente.');
+      return const ApiException('Tiempo de espera agotado, intenta nuevamente.');
     }
     if (error is FormatException) {
-      throw const ApiException('Respuesta inesperada del servidor.');
+      return const ApiException('Respuesta inesperada del servidor.');
     }
-    throw ApiException(error.toString());
+    return ApiException(error.toString());
   }
 
   Future<Map<String, dynamic>> _post(
@@ -94,7 +94,7 @@ class ApiDataSource implements DataSource {
       return _parseMapResponse(response);
     } catch (error) {
       debugPrint('   <- Error: $error');
-      _handleCommonError(error);
+      throw _mapToApiException(error);
     }
   }
 
@@ -110,7 +110,7 @@ class ApiDataSource implements DataSource {
       return _parseMapResponse(response);
     } catch (error) {
       debugPrint('   <- Error: $error');
-      _handleCommonError(error);
+      throw _mapToApiException(error);
     }
   }
 
@@ -124,7 +124,7 @@ class ApiDataSource implements DataSource {
       return _parseMapResponse(response);
     } catch (error) {
       debugPrint('   <- Error: $error');
-      _handleCommonError(error);
+      throw _mapToApiException(error);
     }
   }
 
@@ -136,7 +136,7 @@ class ApiDataSource implements DataSource {
       return _parseListResponse(response);
     } catch (error) {
       debugPrint('   <- Error: $error');
-      _handleCommonError(error);
+      throw _mapToApiException(error);
     }
   }
 
@@ -148,7 +148,7 @@ class ApiDataSource implements DataSource {
       return _parseMapResponse(response);
     } catch (error) {
       debugPrint('   <- Error: $error');
-      _handleCommonError(error);
+      throw _mapToApiException(error);
     }
   }
 
@@ -157,7 +157,9 @@ class ApiDataSource implements DataSource {
   Future<Usuario?> login(String email, String password) async {
     final response = await _post('/login', {'correo': email, 'contrasena': password});
     if (response['success'] == true && response['usuario'] != null) {
-      return Usuario.fromMap(response['usuario']);
+      return Usuario.fromMap(
+        Map<String, dynamic>.from(response['usuario'] as Map),
+      );
     }
     return null;
   }
@@ -185,20 +187,26 @@ class ApiDataSource implements DataSource {
       endpoint = uri.toString().replaceFirst(_baseUrl, '');
     }
     final data = await _get(endpoint);
-    return data.map((item) => Producto.fromMap(item)).toList();
+    return data
+        .map((item) => Producto.fromMap(Map<String, dynamic>.from(item as Map)))
+        .toList();
   }
 
   @override
   Future<List<Producto>> getAllProductosAdmin() async {
     final data = await _get('/admin/productos');
-    return data.map((item) => Producto.fromMap(item)).toList();
+    return data
+        .map((item) => Producto.fromMap(Map<String, dynamic>.from(item as Map)))
+        .toList();
   }
 
   @override
   Future<Producto?> createProducto(Producto producto) async {
     final response = await _post('/admin/productos', producto.toMap());
     if (response['success'] == true && response['producto'] != null) {
-      return Producto.fromMap(response['producto']);
+      return Producto.fromMap(
+        Map<String, dynamic>.from(response['producto'] as Map),
+      );
     }
     return null;
   }
@@ -217,7 +225,10 @@ class ApiDataSource implements DataSource {
   @override
   Future<List<ProductoRankeado>> getRecomendaciones() async {
     final data = await _get('/recomendaciones');
-    return data.map((item) => ProductoRankeado.fromMap(item)).toList();
+    return data
+        .map((item) =>
+            ProductoRankeado.fromMap(Map<String, dynamic>.from(item as Map)))
+        .toList();
   }
   // --- NUEVO MÉTODO PARA AÑADIR RECOMENDACIÓN ---
   @override
@@ -238,7 +249,9 @@ class ApiDataSource implements DataSource {
   @override
   Future<List<Ubicacion>> getUbicaciones(int idUsuario) async {
     final data = await _get('/ubicaciones/usuario/$idUsuario');
-    return data.map((item) => Ubicacion.fromMap(item)).toList();
+    return data
+        .map((item) => Ubicacion.fromMap(Map<String, dynamic>.from(item as Map)))
+        .toList();
   }
 
   @override
@@ -264,7 +277,9 @@ class ApiDataSource implements DataSource {
   @override
   Future<List<Pedido>> getPedidos(int idUsuario) async {
     final data = await _get('/pedidos/cliente/$idUsuario');
-    return data.map((item) => Pedido.fromMap(item)).toList();
+    return data
+        .map((item) => Pedido.fromMap(Map<String, dynamic>.from(item as Map)))
+        .toList();
   }
 
   @override
@@ -279,7 +294,9 @@ class ApiDataSource implements DataSource {
   @override
   Future<List<Pedido>> getPedidosPorEstado(String estado) async {
     final data = await _get('/pedidos/estado/$estado');
-    return data.map((item) => Pedido.fromMap(item)).toList();
+    return data
+        .map((item) => Pedido.fromMap(Map<String, dynamic>.from(item as Map)))
+        .toList();
   }
 
   @override
@@ -296,7 +313,9 @@ class ApiDataSource implements DataSource {
   @override
   Future<List<Pedido>> getPedidosDisponibles() async {
     final data = await _get('/pedidos/disponibles');
-    return data.map((item) => Pedido.fromMap(item)).toList();
+    return data
+        .map((item) => Pedido.fromMap(Map<String, dynamic>.from(item as Map)))
+        .toList();
   }
 
   @override
@@ -308,7 +327,9 @@ class ApiDataSource implements DataSource {
   @override
   Future<List<Pedido>> getPedidosPorDelivery(int idDelivery) async {
     final data = await _get('/pedidos/delivery/$idDelivery');
-    return data.map((item) => Pedido.fromMap(item)).toList();
+    return data
+        .map((item) => Pedido.fromMap(Map<String, dynamic>.from(item as Map)))
+        .toList();
   }
 
   @override
@@ -330,7 +351,7 @@ class ApiDataSource implements DataSource {
     try {
       final data = await _getMap('/pedidos/$idPedido/tracking');
       if (data['success'] == true && data['ubicacion'] != null) {
-        return data['ubicacion'] as Map<String, dynamic>;
+        return Map<String, dynamic>.from(data['ubicacion'] as Map);
       }
       return null;
     } catch (e) {

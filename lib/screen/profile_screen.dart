@@ -197,7 +197,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       child: ListTile(
                         leading:
                         const Icon(Icons.place, color: Colors.green),
-                        title: Text(ubicacion.direccion),
+                        title: Text(ubicacion.direccion ?? 'Dirección sin especificar'),
                         subtitle: Text(
                             'Lat: ${ubicacion.latitud.toStringAsFixed(4)}, Lon: ${ubicacion.longitud.toStringAsFixed(4)}'),
                         trailing: IconButton(
@@ -235,3 +235,4 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 }
+

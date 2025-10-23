@@ -131,7 +131,7 @@ class _CheckoutAddressScreenState extends State<CheckoutAddressScreen> {
           Icons.location_on,
           color: isSelected ? Colors.deepOrange : Colors.grey,
         ),
-        title: Text(ubicacion.direccion,
+        title: Text(ubicacion.direccion ?? 'Dirección sin especificar',
             style: const TextStyle(fontWeight: FontWeight.bold)),
         subtitle: Text(
             'Lat: ${ubicacion.latitud.toStringAsFixed(4)}, Lon: ${ubicacion.longitud.toStringAsFixed(4)}'),
@@ -188,3 +188,4 @@ class _CheckoutAddressScreenState extends State<CheckoutAddressScreen> {
     );
   }
 }
+

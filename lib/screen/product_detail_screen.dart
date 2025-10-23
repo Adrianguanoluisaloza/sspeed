@@ -60,9 +60,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         ),
       );
       // Opcional: Limpiar campos o cerrar si fue exitoso
-      if(success) {
-        // Podrías limpiar _userRating = 0; _commentController.clear();
-        // O incluso Navigator.pop(context);
+      if (success) {
+        _commentController.clear();
+        setState(() {
+          _userRating = 0;
+        });
       }
     }
 
@@ -90,19 +92,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           children: <Widget>[
             Hero(
               tag: 'product-${widget.producto.idProducto}',
-              child: Image.network(
-                widget.producto.imagenUrl,
-                height: 300,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    height: 300,
-                    color: Colors.grey.shade200,
-                    child: Icon(Icons.fastfood,
-                        color: Colors.grey.shade400, size: 80),
-                  );
-                },
-              ),
+              child: _DetailImage(imageUrl: widget.producto.imagenUrl),
             ),
             Padding(
               padding: const EdgeInsets.all(24.0),
@@ -135,7 +125,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   ),
                   const Divider(),
                   Text(
-                    widget.producto.descripcion,
+                    widget.producto.descripcion ?? 'Sin descripción disponible.',
                     style: TextStyle(
                       fontSize: 16,
                       color: Colors.grey.shade700,
@@ -232,6 +222,51 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _DetailImage extends StatelessWidget {
+  final String? imageUrl;
+
+  const _DetailImage({required this.imageUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    if (imageUrl == null || imageUrl!.isEmpty) {
+      return _DetailPlaceholder(icon: Icons.fastfood);
+    }
+
+    return Image.network(
+      imageUrl!,
+      height: 300,
+      width: double.infinity,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) =>
+          _DetailPlaceholder(icon: Icons.image_not_supported),
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return SizedBox(
+          height: 300,
+          child: const Center(child: CircularProgressIndicator()),
+        );
+      },
+    );
+  }
+}
+
+class _DetailPlaceholder extends StatelessWidget {
+  final IconData icon;
+
+  const _DetailPlaceholder({required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 300,
+      color: Colors.grey.shade200,
+      alignment: Alignment.center,
+      child: Icon(icon, color: Colors.grey.shade400, size: 80),
     );
   }
 }
