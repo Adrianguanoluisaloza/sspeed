@@ -35,6 +35,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
 
+      final messenger = ScaffoldMessenger.of(context);
+      final navigator = Navigator.of(context);
+      final sessionController = context.read<SessionController>();
+
       if (user != null) {
         // Guardar datos del usuario localmente
         final prefs = await SharedPreferences.getInstance();
@@ -43,38 +47,38 @@ class _LoginScreenState extends State<LoginScreen> {
         await prefs.setString('userPassword', _passwordController.text.trim());
 
         // --- LÓGICA DE REDIRECCIÓN SEGÚN ROL ---
-        context.read<SessionController>().setUser(user);
+        sessionController.setUser(user);
         if (user.rol == 'admin') {
-          Navigator.of(context).pushNamedAndRemoveUntil(
+          navigator.pushNamedAndRemoveUntil(
             AppRoutes.adminHome,
             (route) => false,
             arguments: user,
           );
         } else if (user.rol == 'delivery') {
-          Navigator.of(context).pushNamedAndRemoveUntil(
+          navigator.pushNamedAndRemoveUntil(
             AppRoutes.deliveryHome,
             (route) => false,
             arguments: user,
           );
         } else {
-          Navigator.of(context).pushNamedAndRemoveUntil(
+          navigator.pushNamedAndRemoveUntil(
             AppRoutes.mainNavigator,
             (route) => false,
             arguments: user,
           );
         }
       } else {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           const SnackBar(content: Text('Credenciales incorrectas.')),
         );
       }
     } catch (e) {
       if (!mounted) return; // Evitamos usar ScaffoldMessenger sin contexto válido tras el await.
+      final messenger = ScaffoldMessenger.of(context);
       final fallbackMessage = e is ApiException
           ? e.message
           : 'Error de conexión, verifica tu red e inténtalo nuevamente.';
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(content: Text(fallbackMessage)),
       );
     } finally {

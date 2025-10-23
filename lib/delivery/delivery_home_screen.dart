@@ -49,8 +49,10 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
               await prefs.remove('userEmail');
               await prefs.remove('userPassword');
               if (!mounted) return;
-              context.read<SessionController>().setGuest();
-              Navigator.of(context)
+              final sessionController = context.read<SessionController>();
+              final navigator = Navigator.of(context);
+              sessionController.setGuest();
+              navigator
                   .pushNamedAndRemoveUntil(AppRoutes.login, (route) => false);
             },
           )

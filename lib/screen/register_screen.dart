@@ -42,8 +42,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       if (!mounted) return;
 
+      final messenger = ScaffoldMessenger.of(context);
+      final navigator = Navigator.of(context);
+      final focusScope = FocusScope.of(context);
+
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           const SnackBar(
             content: Text('Registro exitoso. ¡Ahora inicia sesión!'),
             backgroundColor: Colors.green,
@@ -55,10 +59,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         _phoneController.clear();
         _passwordController.clear();
         _confirmPasswordController.clear();
-        FocusScope.of(context).unfocus(); // Garantizamos que el teclado se oculte y los campos queden limpios.
-        Navigator.of(context).pushReplacementNamed(AppRoutes.login);
+        focusScope.unfocus(); // Garantizamos que el teclado se oculte y los campos queden limpios.
+        navigator.pushReplacementNamed(AppRoutes.login);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           const SnackBar(
             content: Text('El correo ya está registrado.'),
             backgroundColor: Colors.orange,
@@ -67,7 +71,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.showSnackBar(
         SnackBar(
           content: Text('Error: ${e.toString()}'),
           backgroundColor: Colors.red,
