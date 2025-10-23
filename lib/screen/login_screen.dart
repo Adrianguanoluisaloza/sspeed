@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_application_2/services/database_service.dart';
-import '../admin/admin_home_screen.dart' show AdminHomeScreen;
-import '../delivery/delivery_home_screen.dart' show DeliveryHomeScreen;
+import 'package:flutter_application_2/services/api_exception.dart';
+import '../models/session_state.dart';
+import '../routes/app_routes.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -39,29 +40,44 @@ class _LoginScreenState extends State<LoginScreen> {
       if (user != null) {
         // Guardar datos del usuario localmente
         final prefs = await SharedPreferences.getInstance();
+        if (!mounted) return; // Confirmamos que el contexto sigue vivo tras obtener SharedPreferences.
         await prefs.setString('userEmail', user.correo);
         await prefs.setString('userPassword', _passwordController.text.trim());
 
         // --- LÓGICA DE REDIRECCIÓN SEGÚN ROL ---
+        context.read<SessionController>().setUser(user);
         if (user.rol == 'admin') {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => AdminHomeScreen(adminUser: user)),
+          Navigator.of(context).pushNamedAndRemoveUntil(
+            AppRoutes.adminHome,
+            (route) => false,
+            arguments: user,
           );
         } else if (user.rol == 'delivery') {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => DeliveryHomeScreen(deliveryUser: user)),
+          Navigator.of(context).pushNamedAndRemoveUntil(
+            AppRoutes.deliveryHome,
+            (route) => false,
+            arguments: user,
           );
         } else {
-          Navigator.of(context).pushReplacementNamed('/main_navigator', arguments: user);
+          Navigator.of(context).pushNamedAndRemoveUntil(
+            AppRoutes.mainNavigator,
+            (route) => false,
+            arguments: user,
+          );
         }
       } else {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Credenciales incorrectas.')),
         );
       }
     } catch (e) {
+      if (!mounted) return; // Evitamos usar ScaffoldMessenger sin contexto válido tras el await.
+      final fallbackMessage = e is ApiException
+          ? e.message
+          : 'Error de conexión, verifica tu red e inténtalo nuevamente.';
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ocurrió un error: ${e.toString()}')),
+        SnackBar(content: Text(fallbackMessage)),
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -77,11 +93,16 @@ class _LoginScreenState extends State<LoginScreen> {
         automaticallyImplyLeading: false,
       ),
       body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
+        child: TweenAnimationBuilder<double>(
+          duration: const Duration(milliseconds: 350),
+          tween: Tween(begin: 0, end: 1),
+          // Pequeña animación de entrada para suavizar la transición desde el splash.
+          builder: (context, opacity, child) => Opacity(opacity: opacity, child: child),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24.0),
+            child: Form(
+              key: _formKey,
+              child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
@@ -124,15 +145,22 @@ class _LoginScreenState extends State<LoginScreen> {
                   },
                 ),
                 const SizedBox(height: 30),
-                _isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : ElevatedButton(
-                  onPressed: _handleLogin,
-                  child: const Text('INICIAR SESIÓN'),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 250),
+                  child: _isLoading
+                      ? const Center(
+                          key: ValueKey('loading_indicator'),
+                          child: CircularProgressIndicator(),
+                        )
+                      : ElevatedButton(
+                          key: const ValueKey('login_button'),
+                          onPressed: _handleLogin,
+                          child: const Text('INICIAR SESIÓN'),
+                        ),
                 ),
                 const SizedBox(height: 16),
                 TextButton(
-                  onPressed: () => Navigator.of(context).pushNamed('/registro'),
+                  onPressed: () => Navigator.of(context).pushNamed(AppRoutes.register),
                   child: const Text('¿No tienes cuenta? Regístrate aquí'),
                 ),
               ],

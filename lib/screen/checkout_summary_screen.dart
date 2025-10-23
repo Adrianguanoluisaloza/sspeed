@@ -105,11 +105,14 @@ class _CheckoutSummaryScreenState extends State<CheckoutSummaryScreen> {
   }
 
   Widget _buildAddressCard(Ubicacion location) {
+    final direccionVisible = (location.direccion ?? 'Sin datos').trim().isEmpty
+        ? 'Sin datos'
+        : (location.direccion ?? 'Sin datos').trim();
+    // Mostramos dirección segura para evitar nulos provenientes de la base.
     return Card(
       child: ListTile(
         leading: const Icon(Icons.location_on, color: Colors.deepOrange),
-        title: Text(location.direccion,
-            style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(direccionVisible, style: const TextStyle(fontWeight: FontWeight.bold)),
         subtitle: Text(
             'Lat: ${location.latitud.toStringAsFixed(4)}, Lon: ${location.longitud.toStringAsFixed(4)}'),
       ),
