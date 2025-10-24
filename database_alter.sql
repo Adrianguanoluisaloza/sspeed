@@ -76,6 +76,22 @@ ALTER TABLE pedidos
     ADD COLUMN IF NOT EXISTS id_ubicacion INTEGER
         REFERENCES ubicaciones(id_ubicacion);
 
+-- 1.a) Si existen pedidos históricos sin la referencia, los enlazamos con la
+-- última ubicación activa registrada por el cliente para evitar datos huérfanos.
+WITH ubicaciones_prioritarias AS (
+    SELECT DISTINCT ON (u.id_usuario)
+        u.id_usuario,
+        u.id_ubicacion
+    FROM ubicaciones u
+    WHERE COALESCE(u.activa, TRUE)
+    ORDER BY u.id_usuario, u.fecha_registro DESC, u.id_ubicacion DESC
+)
+UPDATE pedidos p
+SET id_ubicacion = up.id_ubicacion
+FROM ubicaciones_prioritarias up
+WHERE p.id_cliente = up.id_usuario
+  AND p.id_ubicacion IS NULL;
+
 -- 2) Garantizar que siempre exista una dirección legible, incluso si llega vacía.
 ALTER TABLE pedidos
     ALTER COLUMN direccion_entrega DROP NOT NULL;
@@ -93,6 +109,8 @@ SET nombre = EXCLUDED.nombre,
     telefono = EXCLUDED.telefono;
 
 -- 4) Catálogo mínimo para probar la sección de productos sin depender de seeds defectuosos.
+CREATE UNIQUE INDEX IF NOT EXISTS ux_productos_nombre ON productos (nombre);
+
 INSERT INTO productos (nombre, descripcion, precio, imagen_url, categoria, disponible)
 VALUES
     ('Pizza Margarita', 'Pizza tradicional con tomate, mozzarella y albahaca', 12.50,

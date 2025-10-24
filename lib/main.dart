@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:permission_handler/permission_handler.dart' show Permission, PermissionActions, PermissionStatusGetters, openAppSettings;
 import 'package:provider/provider.dart';
 import 'models/cart_model.dart';
 import 'models/session_state.dart';

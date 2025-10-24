@@ -34,6 +34,7 @@ class Pedido {
   });
 
   factory Pedido.fromMap(Map<String, dynamic> map) {
+    // Normalizamos claves heterogéneas para que coincidan con el esquema de Postgres.
     dynamic readValue(List<String> keys) {
       for (final key in keys) {
         if (map.containsKey(key) && map[key] != null) {
@@ -71,8 +72,7 @@ class Pedido {
       if (value is Map<String, dynamic>) return value;
       if (value is String && value.isNotEmpty) {
         try {
-          // CORREGIDO: Se elimina el `as Map` innecesario.
-          return Map<String, dynamic>.from(jsonDecode(value));
+          return Map<String, dynamic>.from(jsonDecode(value) as Map);
         } catch (_) {
           return null;
         }
@@ -85,8 +85,7 @@ class Pedido {
     );
     final rawLocation = readValue(['ubicacion', 'location']);
     final ubicacion = rawLocation is Map
-        // CORREGIDO: Se elimina el `as Map` innecesario.
-        ? Map<String, dynamic>.from(rawLocation)
+        ? Map<String, dynamic>.from(rawLocation as Map)
         : null;
 
     final double? latitud = parseDouble(

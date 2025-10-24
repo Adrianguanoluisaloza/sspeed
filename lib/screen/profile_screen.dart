@@ -19,61 +19,217 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  late Future<List<Ubicacion>> _ubicacionesFuture;
+  Future<List<Ubicacion>>? _ubicacionesFuture;
+
+  bool get _isGuest => widget.usuario.isGuest;
 
   @override
   void initState() {
     super.initState();
-    _loadUbicaciones();
-  }
-  
-  void _loadUbicaciones() {
-    final dbService = Provider.of<DatabaseService>(context, listen: false);
-    _ubicacionesFuture = dbService.getUbicaciones(widget.usuario.idUsuario);
-  }
-
-  Future<void> _refreshData() async {
-    setState(() {
-      _loadUbicaciones();
-    });
+    if (!_isGuest) {
+      _ubicacionesFuture = Provider.of<DatabaseService>(context, listen: false)
+          .getUbicaciones(widget.usuario.idUsuario);
+    }
   }
 
   Future<void> _handleLogout() async {
     final navigator = Navigator.of(context);
     final session = context.read<SessionController>();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
-    session.setGuest();
-    navigator.pushNamedAndRemoveUntil(AppRoutes.login, (route) => false);
+    await prefs.remove('userEmail');
+    await prefs.remove('userPassword');
+
+    if (!mounted) return;
+    context.read<SessionController>().setGuest();
+    Navigator.of(context)
+        .pushNamedAndRemoveUntil(AppRoutes.login, (route) => false);
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final initial = widget.usuario.nombre.isNotEmpty ? widget.usuario.nombre[0].toUpperCase() : '?';
-
+    if (_isGuest) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Mi Perfil'),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.person_outline,
+                    size: 96, color: Theme.of(context).colorScheme.primary),
+                const SizedBox(height: 16),
+                const Text(
+                  'Explora más iniciando sesión',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Guarda direcciones, consulta tu historial de pedidos y personaliza tu experiencia.',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: () =>
+                      Navigator.of(context).pushNamed(AppRoutes.login),
+                  child: const Text('Iniciar sesión'),
+                ),
+                TextButton(
+                  onPressed: () =>
+                      Navigator.of(context).pushNamed(AppRoutes.register),
+                  child: const Text('Crear una cuenta'),
+                )
+              ],
+            ),
+          ),
+        ),
+      );
+    }
     return Scaffold(
-      body: RefreshIndicator(
-        onRefresh: _refreshData,
-        child: CustomScrollView(
-          slivers: <Widget>[
-            SliverAppBar(
-              pinned: true,
-              expandedHeight: 220.0,
-              backgroundColor: Colors.deepOrange,
-              flexibleSpace: FlexibleSpaceBar(
-                title: Text(widget.usuario.nombre, style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.white)),
-                background: _UserInfoHeader(initial: initial, usuario: widget.usuario),
+      appBar: AppBar(
+        title: const Text('Mi Perfil y Ubicaciones'),
+        backgroundColor: Colors.deepOrange,
+        foregroundColor: Colors.white,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            // Información del Usuario
+            Card(
+              elevation: 4,
+              child: ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: Colors.deepOrange,
+                  child: Text(
+                    widget.usuario.nombre.isNotEmpty
+                        ? widget.usuario.nombre[0].toUpperCase()
+                        : 'U',
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                ),
+                title: Text(widget.usuario.nombre),
+                subtitle: Text(
+                    'Correo: ${widget.usuario.correo}\nRol: ${widget.usuario.rol}'),
               ),
             ),
-            SliverList(
-              delegate: SliverChildListDelegate([
-                const _SectionTitle(title: 'Mis Ubicaciones'),
-                _buildUbicaciones(theme),
-                const SizedBox(height: 24),
-                _buildActionButtons(context),
-                const SizedBox(height: 40),
-              ]),
+
+            const SizedBox(height: 20),
+
+            // --- NUEVO BOTÓN: HISTORIAL DE PEDIDOS ---
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.receipt_long, color: Colors.deepOrange),
+                title: const Text('Historial de Pedidos'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.of(context).pushNamed(
+                    AppRoutes.orderHistory,
+                    arguments: widget.usuario,
+                  );
+                },
+              ),
+            ),
+            // ------------------------------------------
+
+            const SizedBox(height: 20),
+
+            // Sección de Ubicaciones
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Mis Ubicaciones Guardadas',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.deepOrange,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.add_location_alt,
+                      color: Colors.deepOrange),
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content:
+                          Text('Añadir Ubicación (Función en desarrollo)')),
+                    );
+                  },
+                ),
+              ],
+            ),
+            const Divider(),
+
+            // Lista de ubicaciones
+            FutureBuilder<List<Ubicacion>>(
+              future: _ubicacionesFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return Center(
+                      child: Text(
+                          'Error al cargar ubicaciones: ${snapshot.error}'));
+                }
+                if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(20.0),
+                      child: Text('No has guardado ninguna ubicación.'),
+                    ),
+                  );
+                }
+
+                final ubicaciones = snapshot.data!;
+
+                return ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: ubicaciones.length,
+                  itemBuilder: (context, index) {
+                    final ubicacion = ubicaciones[index];
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 8.0),
+                      child: ListTile(
+                        leading:
+                        const Icon(Icons.place, color: Colors.green),
+                        title: Text(ubicacion.direccion ?? 'Dirección sin especificar'),
+                        subtitle: Text(
+                            'Lat: ${ubicacion.latitud.toStringAsFixed(4)}, Lon: ${ubicacion.longitud.toStringAsFixed(4)}'),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.redAccent),
+                          onPressed: () {
+                            // TODO: lógica de eliminación
+                          },
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+
+            const SizedBox(height: 30),
+
+            // --- BOTÓN DE CERRAR SESIÓN ---
+            Center(
+              child: ElevatedButton.icon(
+                onPressed: _handleLogout,
+                icon: const Icon(Icons.logout),
+                label: const Text('Cerrar Sesión'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                  padding:
+                  const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                ),
+              ),
             ),
           ],
         ),
@@ -214,3 +370,4 @@ class _EmptyState extends StatelessWidget {
     );
   }
 }
+
