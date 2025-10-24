@@ -14,19 +14,23 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
 
   bool _isLoading = false;
-  bool _obscureText = true;
 
-  // --- FUNCIÓN DE LOGIN ---
   Future<void> _handleLogin() async {
+    // 1. Validar el formulario
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
 
+    // 2. Obtener dependencias del BuildContext ANTES de cualquier 'await'.
+    //    Esta es la única vez que necesitas definirlas.
+    final sessionController = context.read<SessionController>();
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
     final databaseService = Provider.of<DatabaseService>(context, listen: false);
 
     try {
@@ -35,6 +39,7 @@ class _LoginScreenState extends State<LoginScreen> {
         _passwordController.text.trim(),
       );
 
+      // 3. Comprobar si el widget sigue "montado" después del await
       if (!mounted) return;
 
       final messenger = ScaffoldMessenger.of(context);
@@ -42,7 +47,6 @@ class _LoginScreenState extends State<LoginScreen> {
       final sessionController = context.read<SessionController>();
 
       if (user != null) {
-        // Guardar datos del usuario localmente
         final prefs = await SharedPreferences.getInstance();
         if (!mounted) return; // Confirmamos que el contexto sigue vivo tras obtener SharedPreferences.
         await prefs.setString('userEmail', user.correo);
@@ -88,7 +92,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  // --- INTERFAZ ---
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -119,27 +122,22 @@ class _LoginScreenState extends State<LoginScreen> {
                     labelText: 'Correo Electrónico',
                     prefixIcon: Icon(Icons.email),
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Por favor, ingresa tu correo.';
-                    }
-                    if (!value.contains('@')) {
-                      return 'Ingresa un correo válido.';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _passwordController,
-                  obscureText: _obscureText,
-                  decoration: InputDecoration(
-                    labelText: 'Contraseña',
-                    prefixIcon: const Icon(Icons.lock),
-                    suffixIcon: IconButton(
-                      icon: Icon(_obscureText ? Icons.visibility : Icons.visibility_off),
-                      onPressed: () => setState(() => _obscureText = !_obscureText),
+
+                  // --- CAMPO DE CONTRASEÑA (corregido y añadido) ---
+                  const SizedBox(height: 20),
+                  TextFormField(
+                    controller: _passwordController,
+                    obscureText: true, // Oculta la contraseña
+                    decoration: const InputDecoration(
+                      labelText: 'Contraseña',
+                      prefixIcon: Icon(Icons.lock),
                     ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Por favor, ingresa tu contraseña.';
+                      }
+                      return null;
+                    },
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -174,11 +172,5 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
-
-  @override
-  void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
-    super.dispose();
-  }
 }
+
