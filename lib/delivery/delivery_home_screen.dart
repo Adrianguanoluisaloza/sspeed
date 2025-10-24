@@ -72,9 +72,7 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
       body: TabBarView(
         controller: _tabController,
         children: [
-          // Vista para pedidos disponibles
           DeliveryAvailableOrdersView(deliveryUser: widget.deliveryUser),
-          // Vista para pedidos activos del repartidor
           DeliveryActiveOrdersView(deliveryUser: widget.deliveryUser),
           // Nueva vista para dar visibilidad al historial sin alterar la lógica existente.
           DeliveryHistoryOrdersView(deliveryUser: widget.deliveryUser),

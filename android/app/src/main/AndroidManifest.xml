@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<!-- CORRECCIÓN: El atributo 'package' debe ser un nombre de paquete, no una ruta de archivo. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
 
     <!-- Permisos requeridos para llamadas a la API y actualización de ubicación en tiempo real. -->
     <uses-permission android:name="android.permission.INTERNET" />

@@ -47,17 +47,20 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _databaseService = Provider.of<DatabaseService>(context, listen: false);
-    _recomendacionesFuture = _databaseService.getRecomendaciones();
-    _loadProducts();
+    _fetchData();
     _searchController.addListener(_onSearchChanged);
   }
 
   @override
   void dispose() {
-    _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     _debounce?.cancel();
     super.dispose();
+  }
+
+  void _fetchData() {
+    _recomendacionesFuture = _databaseService.getRecomendaciones();
+    _loadProducts();
   }
 
   void _loadProducts() {
@@ -73,8 +76,22 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _onSearchChanged() {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
-    _debounce = Timer(const Duration(milliseconds: 500), () {
-      _loadProducts();
+    _debounce = Timer(const Duration(milliseconds: 400), () => _loadProducts());
+  }
+
+  void _handleCartTap() {
+    if (_isGuest) {
+      showLoginRequiredDialog(context);
+    } else {
+      Navigator.push(context, MaterialPageRoute(builder: (context) => CartScreen(usuario: widget.usuario)));
+    }
+  }
+
+  Future<void> _refresh() async {
+    setState(() {
+      _searchController.clear();
+      _selectedCategory = "Todos";
+       _fetchData();
     });
   }
 
@@ -254,8 +271,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   return _buildProductsGrid(snapshot.data!);
                 },
               ),
-            ],
-          ),
+            ),
+            _buildProductsGrid(),
+          ],
         ),
       ),
     );
@@ -263,11 +281,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildSearchBar() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 0.0),
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
       child: TextField(
         controller: _searchController,
         decoration: InputDecoration(
-          hintText: 'Buscar pizzas, hamburguesas...',
+          hintText: 'Buscar...',
           prefixIcon: const Icon(Icons.search),
           suffixIcon: _searchController.text.isNotEmpty
               ? IconButton(
@@ -285,40 +303,24 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildCategoryList() {
     return SizedBox(
-      height: 60,
+      height: 40,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
         itemCount: _categories.length,
         itemBuilder: (context, index) {
           final category = _categories[index];
-          final isSelected = category == _selectedCategory;
-
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4.0),
             child: ChoiceChip(
               label: Text(category),
-              selected: isSelected,
+              selected: category == _selectedCategory,
               onSelected: (selected) {
                 if (selected) {
-                  setState(() {
-                    _selectedCategory = category;
-                  });
+                  setState(() => _selectedCategory = category);
                   _loadProducts();
                 }
               },
-              selectedColor: Theme.of(context).primaryColor,
-              labelStyle: TextStyle(
-                color: isSelected ? Colors.white : Colors.black,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              ),
-              backgroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-                side: BorderSide(
-                  color: isSelected ? Theme.of(context).primaryColor : Colors.grey.shade300,
-                ),
-              ),
             ),
           );
         },
@@ -326,39 +328,23 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildRecommendationsList(List<ProductoRankeado> recomendaciones) {
-    return ListView.builder(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      itemCount: recomendaciones.length,
-      itemBuilder: (context, index) {
-        final rec = recomendaciones[index];
+  Widget _buildRecomendaciones() {
+    return FutureBuilder<List<ProductoRankeado>>(
+      future: _recomendacionesFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const RecommendationsListLoading();
+        }
+        if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
+          return const SizedBox.shrink(); // No ocupa espacio si no hay nada
+        }
         return SizedBox(
-          width: 150,
-          child: Card(
-            child: Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(rec.nombre,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis),
-                  const Spacer(),
-                  Row(
-                    children: [
-                      const Icon(Icons.star, color: Colors.amber, size: 16),
-                      Text(' ${rec.ratingPromedio.toStringAsFixed(1)}',
-                          style: const TextStyle(fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                  Text('${rec.totalReviews} reviews',
-                      style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                ],
-              ),
-            ),
+          height: 120,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            itemCount: snapshot.data!.length,
+            itemBuilder: (context, index) => _RecommendationCard(producto: snapshot.data![index]),
           ),
         );
       },
@@ -393,6 +379,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
+// --- WIDGETS AUXILIARES ---
+
 class ProductCard extends StatelessWidget {
   final Producto producto;
   final Usuario usuario;
@@ -409,21 +397,9 @@ class ProductCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final cart = Provider.of<CartModel>(context, listen: false);
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ProductDetailScreen(
-              producto: producto,
-              usuario: usuario,
-            ),
-          ),
-        );
-      },
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ProductDetailScreen(producto: producto, usuario: usuario))),
       child: Card(
         clipBehavior: Clip.antiAlias,
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -597,85 +573,78 @@ class ProductCardSkeleton extends StatelessWidget {
   const ProductCardSkeleton({super.key});
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Column(
+    return SizedBox(
+      width: 150,
+      child: Card(child: Padding(padding: const EdgeInsets.all(8.0), child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Expanded(flex: 3, child: Container(color: Colors.white)),
-          Expanded(
-            flex: 4,
-            child: Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(width: double.infinity, height: 16, color: Colors.white),
-                  const SizedBox(height: 4),
-                  Container(width: 100, height: 16, color: Colors.white),
-                  const Spacer(),
-                  Container(width: 60, height: 16, color: Colors.white),
-                  const SizedBox(height: 8),
-                  Container(
-                      width: double.infinity,
-                      height: 35,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                      )),
-                ],
-              ),
-            ),
-          ),
+          Text(producto.nombre, style: const TextStyle(fontWeight: FontWeight.bold), maxLines: 2, overflow: TextOverflow.ellipsis),
+          const Spacer(),
+          Row(children: [const Icon(Icons.star, color: Colors.amber, size: 16), Text(' ${producto.ratingPromedio.toStringAsFixed(1)}')]),
+          Text('${producto.totalReviews} reviews', style: const TextStyle(fontSize: 12, color: Colors.grey)),
         ],
-      ),
+      ))),
     );
   }
+}
+
+class _ProductImage extends StatelessWidget {
+  final String? imageUrl;
+  const _ProductImage({this.imageUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    if (imageUrl == null || imageUrl!.isEmpty) return _ImagePlaceholder();
+    return Image.network(imageUrl!, fit: BoxFit.cover, errorBuilder: (c, e, s) => _ImagePlaceholder(), loadingBuilder: (c, child, progress) {
+      return progress == null ? child : const Center(child: CircularProgressIndicator());
+    });
+  }
+}
+
+class _ImagePlaceholder extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) => Container(color: Colors.grey.shade200, child: Icon(Icons.fastfood, color: Colors.grey.shade400, size: 40));
+}
+
+class InfoState extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final VoidCallback? onAction;
+  const InfoState({super.key, required this.icon, required this.title, this.onAction});
+
+  @override
+  Widget build(BuildContext context) => Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+    Icon(icon, size: 48, color: Theme.of(context).colorScheme.primary),
+    const SizedBox(height: 12),    Text(title, textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleMedium),
+    if (onAction != null) ...[const SizedBox(height: 16), OutlinedButton(onPressed: onAction, child: const Text('Reintentar'))]
+  ]));
+}
+
+class ProductsGridLoading extends StatelessWidget {
+  const ProductsGridLoading({super.key});
+  @override
+  Widget build(BuildContext context) => Shimmer.fromColors(
+      baseColor: Colors.grey.shade300, highlightColor: Colors.grey.shade100,
+      child: GridView.builder(
+        physics: const NeverScrollableScrollPhysics(), shrinkWrap: true,
+        padding: const EdgeInsets.all(16),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: 0.75, crossAxisSpacing: 16, mainAxisSpacing: 16),
+        itemCount: 6,
+        itemBuilder: (c, i) => const Card(),
+      )
+  );
 }
 
 class RecommendationsListLoading extends StatelessWidget {
   const RecommendationsListLoading({super.key});
   @override
-  Widget build(BuildContext context) {
-    return Shimmer.fromColors(
-      baseColor: Colors.grey.shade300,
-      highlightColor: Colors.grey.shade100,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: 4,
-        itemBuilder: (context, index) {
-          return const RecommendationCardSkeleton();
-        },
-      ),
-    );
-  }
-}
-
-class RecommendationCardSkeleton extends StatelessWidget {
-  const RecommendationCardSkeleton({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 150,
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(width: double.infinity, height: 16, color: Colors.white),
-              const SizedBox(height: 4),
-              Container(width: 80, height: 16, color: Colors.white),
-              const Spacer(),
-              Container(width: 60, height: 14, color: Colors.white),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Shimmer.fromColors(
+    baseColor: Colors.grey.shade300, highlightColor: Colors.grey.shade100,
+    child: ListView.builder(
+      scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 12),
+      itemCount: 4, itemBuilder: (c, i) => SizedBox(width: 150, child: const Card()),
+    )
+  );
 }
 
