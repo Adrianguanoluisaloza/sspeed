@@ -2,8 +2,8 @@ import '../models/cart_model.dart';
 import '../models/pedido.dart';
 import '../models/pedido_detalle.dart';
 import '../models/producto.dart';
-import '../models/usuario.dart';
 import '../models/ubicacion.dart';
+import '../models/usuario.dart';
 
 /// Define el contrato que nuestra fuente de datos (la API) debe cumplir.
 abstract class DataSource {
@@ -23,7 +23,11 @@ abstract class DataSource {
     required int puntuacion,
     String? comentario,
   });
-  Future<bool> placeOrder({ required Usuario user, required CartModel cart, required Ubicacion location });
+  Future<bool> placeOrder({
+    required Usuario user,
+    required CartModel cart,
+    required Ubicacion location,
+  });
   Future<List<Pedido>> getPedidos(int idUsuario);
   Future<PedidoDetalle?> getPedidoDetalle(int idPedido);
 
@@ -44,9 +48,5 @@ abstract class DataSource {
   // --- MÉTODOS DE TRACKING (AÑADIDOS) ---
   Future<bool> updateRepartidorLocation(int idRepartidor, double lat, double lon);
   Future<Map<String, dynamic>?> getRepartidorLocation(int idPedido);
-
-
-
-
 }
 

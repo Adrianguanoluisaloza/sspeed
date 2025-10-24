@@ -3,6 +3,7 @@ import 'package:flutter_application_2/models/usuario.dart';
 import 'package:flutter_application_2/screen/checkout_address_screen.dart';
 import 'package:provider/provider.dart';
 import '../models/cart_model.dart';
+import '../routes/app_routes.dart';
 
 // 1. AÑADE EL PARÁMETRO 'usuario'
 class CartScreen extends StatelessWidget {
@@ -11,6 +12,47 @@ class CartScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (usuario.isGuest) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Mi Carrito de Compras'),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.lock_outline,
+                    size: 96, color: Theme.of(context).colorScheme.primary),
+                const SizedBox(height: 16),
+                const Text(
+                  'Inicia sesión para usar el carrito',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Necesitamos tu cuenta para guardar tu carrito y tus pedidos.',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: () =>
+                      Navigator.of(context).pushNamed(AppRoutes.login),
+                  child: const Text('Iniciar sesión'),
+                ),
+                TextButton(
+                  onPressed: () =>
+                      Navigator.of(context).pushNamed(AppRoutes.register),
+                  child: const Text('Crear cuenta'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
     return Consumer<CartModel>(
       builder: (context, cart, child) {
         return Scaffold(
@@ -83,13 +125,9 @@ class CartItemCard extends StatelessWidget {
                 padding: const EdgeInsets.all(8.0),
                 child: Row(children: [
                   ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.network(cartItem.producto.imagenUrl,
-                          width: 70,
-                          height: 70,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
-                          const Icon(Icons.image_not_supported))),
+                    borderRadius: BorderRadius.circular(8),
+                    child: _CartImage(imageUrl: cartItem.producto.imagenUrl),
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                       child: Column(
@@ -134,6 +172,39 @@ class CartItemCard extends StatelessWidget {
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints())
         ]));
+  }
+}
+
+class _CartImage extends StatelessWidget {
+  final String? imageUrl;
+
+  const _CartImage({required this.imageUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    if (imageUrl == null || imageUrl!.isEmpty) {
+      return Container(
+        width: 70,
+        height: 70,
+        color: Colors.grey.shade200,
+        alignment: Alignment.center,
+        child: const Icon(Icons.fastfood, color: Colors.grey),
+      );
+    }
+
+    return Image.network(
+      imageUrl!,
+      width: 70,
+      height: 70,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) => Container(
+        width: 70,
+        height: 70,
+        color: Colors.grey.shade200,
+        alignment: Alignment.center,
+        child: const Icon(Icons.image_not_supported, color: Colors.grey),
+      ),
+    );
   }
 }
 

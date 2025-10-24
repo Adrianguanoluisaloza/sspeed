@@ -71,6 +71,7 @@ class _AdminEditProductScreenState extends State<AdminEditProductScreen> {
         Navigator.pop(context, true);
       }
     }
+    if (!mounted) return; // Evitamos llamar setState cuando la pantalla ya no está activa.
     setState(() => _isLoading = false);
   }
 
@@ -90,6 +91,11 @@ class _AdminEditProductScreenState extends State<AdminEditProductScreen> {
 
     if (confirm != true) return;
 
+    if (!mounted) {
+      // Validamos el contexto tras el diálogo para evitar usarlo cuando ya no existe.
+      return;
+    }
+
     setState(() => _isLoading = true);
     final database = Provider.of<DatabaseService>(context, listen: false);
     final success = await database.deleteProducto(widget.producto!.idProducto);
@@ -103,6 +109,7 @@ class _AdminEditProductScreenState extends State<AdminEditProductScreen> {
         Navigator.pop(context, true);
       }
     }
+    if (!mounted) return;
     setState(() => _isLoading = false);
   }
 
