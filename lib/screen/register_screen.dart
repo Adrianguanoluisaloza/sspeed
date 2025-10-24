@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_application_2/services/database_service.dart';
 import '../routes/app_routes.dart';
-
+import '../services/database_service.dart';
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
@@ -16,11 +15,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
-
-  // --- MEJORA 1: Controlador para el nuevo campo ---
   final _confirmPasswordController = TextEditingController();
 
-  // --- MEJORA 2: Variables de visibilidad separadas ---
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _isLoading = false;
@@ -28,9 +24,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _register() async {
     if (!_formKey.currentState!.validate()) return;
 
+    if (_passwordController.text != _confirmPasswordController.text) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Las contraseñas no coinciden')),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
-    final databaseService =
-        Provider.of<DatabaseService>(context, listen: false);
+    final databaseService = Provider.of<DatabaseService>(context, listen: false);
 
     try {
       final success = await databaseService.register(
@@ -59,7 +61,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         _phoneController.clear();
         _passwordController.clear();
         _confirmPasswordController.clear();
-        focusScope.unfocus(); // Garantizamos que el teclado se oculte y los campos queden limpios.
+        focusScope.unfocus();
         navigator.pushReplacementNamed(AppRoutes.login);
       } else {
         messenger.showSnackBar(
@@ -71,21 +73,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      final messenger = ScaffoldMessenger.of(context);
-      messenger.showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error: ${e.toString()}'),
           backgroundColor: Colors.red,
         ),
       );
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
-
-  bool isLoading = false;
 
   @override
   Widget build(BuildContext context) {
@@ -99,191 +96,153 @@ class _RegisterScreenState extends State<RegisterScreen> {
         child: TweenAnimationBuilder<double>(
           duration: const Duration(milliseconds: 360),
           tween: Tween(begin: 0, end: 1),
-          // Animación tenue para mejorar la transición desde login sin alterar el diseño.
           builder: (context, opacity, child) => Opacity(opacity: opacity, child: child),
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
             child: Form(
               key: _formKey,
               child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text(
-                  'Crea tu cuenta Unite7speed',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.deepOrange,
-                  ),
-                ),
-                const SizedBox(height: 30),
-                Card(
-                  elevation: 8,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      children: [
-                        // --- CAMPOS EXISTENTES (sin cambios) ---
-                        TextFormField(
-                          controller: _nameController,
-                          keyboardType: TextInputType.text,
-                          decoration: const InputDecoration(
-                            labelText: 'Nombre Completo',
-                            prefixIcon: Icon(Icons.person),
-                          ),
-                          validator: (value) => (value == null || value.isEmpty)
-                              ? 'Ingresa tu nombre'
-                              : null,
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _emailController,
-                          keyboardType: TextInputType.emailAddress,
-                          decoration: const InputDecoration(
-                            labelText: 'Correo',
-                            prefixIcon: Icon(Icons.email),
-                          ),
-                          validator: (value) =>
-                          (value == null || !value.contains('@'))
-                              ? 'Ingresa un correo válido'
-                              : null,
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _phoneController,
-                          keyboardType: TextInputType.phone,
-                          decoration: const InputDecoration(
-                            labelText: 'Teléfono',
-                            prefixIcon: Icon(Icons.phone),
-                          ),
-                          validator: (value) =>
-                          (value == null || value.isEmpty)
-                              ? 'Ingresa tu teléfono'
-                              : null,
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _passwordController,
-                          obscureText: _obscurePassword,
-                          decoration: InputDecoration(
-                            labelText: 'Contraseña',
-                            prefixIcon: const Icon(Icons.lock),
-                            suffixIcon: IconButton(
-                              icon: Icon(_obscurePassword
-                                  ? Icons.visibility
-                                  : Icons.visibility_off),
-                              onPressed: () =>
-                                  setState(() => _obscurePassword = !_obscurePassword),
-                            ),
-                          ),
-                          validator: (value) =>
-                          (value == null || value.length < 6)
-                              ? 'Mínimo 6 caracteres'
-                              : null,
-                        ),
-                        const SizedBox(height: 16),
-
-                        // --- MEJORA 3: Nuevo campo "Confirmar Contraseña" ---
-                        TextFormField(
-                          controller: _confirmPasswordController,
-                          obscureText: _obscureConfirmPassword,
-                          decoration: InputDecoration(
-                            labelText: 'Confirmar Contraseña',
-                            prefixIcon: const Icon(Icons.lock_outline),
-                            suffixIcon: IconButton(
-                              icon: Icon(_obscureConfirmPassword
-                                  ? Icons.visibility
-                                  : Icons.visibility_off),
-                              onPressed: () => setState(() =>
-                              _obscureConfirmPassword =
-                              !_obscureConfirmPassword),
-                            ),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Confirma tu contraseña';
-                            }
-                            // Valida que sea igual al campo de contraseña original
-                            if (value != _passwordController.text) {
-                              return 'Las contraseñas no coinciden';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 30),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 50,
-                          child: AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 220),
-                            child: _isLoading
-                                ? const SizedBox(
-                                    key: ValueKey('register_loading'),
-                                    width: 20,
-                                    height: 20,
-                                    child: Center(
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  )
-                                : SizedBox.expand(
-                                    key: const ValueKey('register_button'),
-                                    child: ElevatedButton(
-                                      onPressed: _register,
-                                      child: const Text(
-                                        'Registrarme',
-                                        style: TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                          ),
-                        ),
-                      ],
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    'Crea tu cuenta Unite7speed',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.deepOrange,
                     ),
                   ),
-                ),
-                const SizedBox(height: 20),
-                TextButton(
-                  onPressed: () => Navigator.of(context)
-                      .pushReplacementNamed(AppRoutes.login),
-                  child: const Text('¿Ya tienes cuenta? Inicia sesión',
-                      style: TextStyle(color: Colors.indigo)),
-                ),
-              ],
+                  const SizedBox(height: 30),
+                  Card(
+                    elevation: 8,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        children: [
+                          TextFormField(
+                            controller: _nameController,
+                            keyboardType: TextInputType.text,
+                            decoration: const InputDecoration(
+                              labelText: 'Nombre Completo',
+                              prefixIcon: Icon(Icons.person),
+                            ),
+                            validator: (value) =>
+                            value == null || value.isEmpty ? 'Ingresa tu nombre' : null,
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _emailController,
+                            keyboardType: TextInputType.emailAddress,
+                            decoration: const InputDecoration(
+                              labelText: 'Correo',
+                              prefixIcon: Icon(Icons.email),
+                            ),
+                            validator: (value) =>
+                            value == null || !value.contains('@') ? 'Correo inválido' : null,
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _phoneController,
+                            keyboardType: TextInputType.phone,
+                            decoration: const InputDecoration(
+                              labelText: 'Teléfono',
+                              prefixIcon: Icon(Icons.phone),
+                            ),
+                            validator: (value) =>
+                            value == null || value.isEmpty ? 'Ingresa tu teléfono' : null,
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _passwordController,
+                            obscureText: _obscurePassword,
+                            decoration: InputDecoration(
+                              labelText: 'Contraseña',
+                              prefixIcon: const Icon(Icons.lock),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscurePassword
+                                      ? Icons.visibility
+                                      : Icons.visibility_off,
+                                ),
+                                onPressed: () =>
+                                    setState(() => _obscurePassword = !_obscurePassword),
+                              ),
+                            ),
+                            validator: (value) =>
+                            value == null || value.length < 6 ? 'Mínimo 6 caracteres' : null,
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _confirmPasswordController,
+                            obscureText: _obscureConfirmPassword,
+                            decoration: InputDecoration(
+                              labelText: 'Confirmar Contraseña',
+                              prefixIcon: const Icon(Icons.lock_outline),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscureConfirmPassword
+                                      ? Icons.visibility
+                                      : Icons.visibility_off,
+                                ),
+                                onPressed: () => setState(() =>
+                                _obscureConfirmPassword = !_obscureConfirmPassword),
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Confirma tu contraseña';
+                              }
+                              if (value != _passwordController.text) {
+                                return 'Las contraseñas no coinciden';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 30),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 50,
+                            child: AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 220),
+                              child: _isLoading
+                                  ? const Center(
+                                key: ValueKey('register_loading'),
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                                  : ElevatedButton(
+                                key: const ValueKey('register_button'),
+                                onPressed: _register,
+                                child: const Text(
+                                  'Registrarme',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pushReplacementNamed(AppRoutes.login),
+                    child: const Text(
+                      '¿Ya tienes cuenta? Inicia sesión',
+                      style: TextStyle(color: Colors.indigo),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ],
+          ),
         ),
       ),
-    );
-  }
-
-  void _register() async {
-    if (passwordController.text != confirmPasswordController.text) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Las contraseñas no coinciden')),
-      );
-      return;
-    }
-
-    setState(() => isLoading = true);
-    await Future.delayed(const Duration(seconds: 2)); // Simula registro
-    setState(() => isLoading = false);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Registro exitoso')),
-    );
-
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => const LoginScreen()),
     );
   }
 }
