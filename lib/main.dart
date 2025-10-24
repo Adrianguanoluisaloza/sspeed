@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart' show Permission, PermissionActions, PermissionStatusGetters, openAppSettings;
 import 'package:provider/provider.dart';
 import 'models/cart_model.dart';
 import 'models/session_state.dart';
@@ -17,6 +18,19 @@ void main() {
       child: const MyApp(),
     ),
   );
+  requestLocationPermission(); // Solicita permisos al inicio
+}
+
+Future<void> requestLocationPermission() async {
+  var status = await Permission.locationWhenInUse.request();
+
+  if (status.isGranted) {
+    debugPrint("✅ Permiso de ubicación concedido");
+  } else if (status.isDenied) {
+    debugPrint("❌ Permiso de ubicación denegado");
+  } else if (status.isPermanentlyDenied) {
+    openAppSettings(); // Abre ajustes si el usuario bloqueó permisos
+  }
 }
 
 class MyApp extends StatelessWidget {

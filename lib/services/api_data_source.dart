@@ -36,7 +36,6 @@ class ApiDataSource implements DataSource {
       if (raw == null) return {'success': true};
       if (raw is Map<String, dynamic>) return raw;
       if (raw is List<dynamic>) {
-        // Algunos endpoints regresan listas puras; las envolvemos para no romper llamados existentes.
         return {'success': true, 'data': raw};
       }
       throw const ApiException('Respuesta inesperada del servidor.');
@@ -189,7 +188,7 @@ class ApiDataSource implements DataSource {
         response['usuario'] ?? response['user'] ?? response['data'];
 
     if (rawUser is Map) {
-      return Usuario.fromMap(Map<String, dynamic>.from(rawUser as Map));
+      return Usuario.fromMap(Map<String, dynamic>.from(rawUser));
     }
     return null;
   }
@@ -243,7 +242,7 @@ class ApiDataSource implements DataSource {
     final response = await _post('/admin/productos', producto.toMap());
     if (response['success'] == true && response['producto'] != null) {
       return Producto.fromMap(
-        Map<String, dynamic>.from(response['producto'] as Map),
+        Map<String, dynamic>.from(response['producto']),
       );
     }
     return null;
@@ -330,7 +329,7 @@ class ApiDataSource implements DataSource {
     final payload = data.containsKey('pedido') && data.containsKey('detalles')
         ? data
         : (data['data'] is Map<String, dynamic>
-            ? Map<String, dynamic>.from(data['data'] as Map)
+            ? Map<String, dynamic>.from(data['data'])
             : data);
     if (payload.containsKey('pedido') && payload.containsKey('detalles')) {
       return PedidoDetalle.fromMap(payload);
@@ -398,7 +397,7 @@ class ApiDataSource implements DataSource {
     try {
       final data = await _getMap('/pedidos/$idPedido/tracking');
       if (data['success'] == true && data['ubicacion'] != null) {
-        return Map<String, dynamic>.from(data['ubicacion'] as Map);
+        return Map<String, dynamic>.from(data['ubicacion']);
       }
       return null;
     } catch (e) {
@@ -407,4 +406,3 @@ class ApiDataSource implements DataSource {
     }
   }
 }
-

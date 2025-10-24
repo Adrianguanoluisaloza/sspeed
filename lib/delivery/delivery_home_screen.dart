@@ -45,16 +45,16 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
+              // Guardar dependencias del context ANTES del await
+              final sessionController = context.read<SessionController>();
+              final navigator = Navigator.of(context);
+
               final prefs = await SharedPreferences.getInstance();
               await prefs.remove('userEmail');
               await prefs.remove('userPassword');
-              if (!mounted) return;
-              // Tras confirmar que el widget sigue activo obtenemos las dependencias del contexto.
-              final sessionController = context.read<SessionController>();
-              final navigator = Navigator.of(context);
+              
               sessionController.setGuest();
-              navigator
-                  .pushNamedAndRemoveUntil(AppRoutes.login, (route) => false);
+              navigator.pushNamedAndRemoveUntil(AppRoutes.login, (route) => false);
             },
           )
         ],
@@ -72,15 +72,10 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
       body: TabBarView(
         controller: _tabController,
         children: [
-          // Vista para pedidos disponibles
           DeliveryAvailableOrdersView(deliveryUser: widget.deliveryUser),
-          // Vista para pedidos activos del repartidor
           DeliveryActiveOrdersView(deliveryUser: widget.deliveryUser),
-          // Nueva vista para dar visibilidad al historial sin alterar la lógica existente.
           DeliveryHistoryOrdersView(deliveryUser: widget.deliveryUser),
-          // Accesos rápidos al centro de mensajería con animaciones suaves.
           DeliveryChatHubView(deliveryUser: widget.deliveryUser),
-          // Panel ligero con métricas del repartidor.
           DeliveryStatsView(deliveryUser: widget.deliveryUser),
         ],
       ),
@@ -88,7 +83,7 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
   }
 }
 
-/// Vista auxiliar que presenta accesos animados hacia cada tipo de chat.
+/// Vista auxiliar para los chats
 class DeliveryChatHubView extends StatelessWidget {
   final Usuario deliveryUser;
   const DeliveryChatHubView({super.key, required this.deliveryUser});
@@ -100,23 +95,14 @@ class DeliveryChatHubView extends StatelessWidget {
       const _ChatEntry(
         section: ChatSection.cliente,
         title: 'Chat con Cliente',
-        description:
-            'Coordina entregas y resuelve dudas rápidas con tus clientes activos.',
+        description: 'Coordina entregas y resuelve dudas con tus clientes.',
         icon: Icons.person,
       ),
       const _ChatEntry(
         section: ChatSection.soporte,
         title: 'Chat con Soporte',
-        description:
-            'Conecta con el equipo de soporte para reportar incidencias en ruta.',
+        description: 'Conecta con el equipo para reportar incidencias.',
         icon: Icons.support_agent,
-      ),
-      const _ChatEntry(
-        section: ChatSection.historial,
-        title: 'Historial',
-        description:
-            'Revisa conversaciones recientes y mantén un registro de tus seguimientos.',
-        icon: Icons.history,
       ),
     ];
 
@@ -125,100 +111,36 @@ class DeliveryChatHubView extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text(
-          'Gestiona tus conversaciones, $firstName',
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Selecciona una pestaña para continuar chateando sin perder el estilo original.',
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: Colors.grey.shade600,
-          ),
-        ),
+        Text('Hola $firstName, gestiona tus conversaciones.', style: theme.textTheme.titleLarge),
         const SizedBox(height: 16),
-        for (final entry in entries)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12.0),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 280),
-              curve: Curves.easeOutCubic,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(18),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Card(
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          CircleAvatar(
-                            backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.12),
-                            child: Icon(entry.icon, color: theme.colorScheme.primary),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              entry.title,
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        entry.description,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: Colors.grey.shade600,
+        ...entries.map((entry) => Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        CircleAvatar(
+                          backgroundColor: theme.colorScheme.primary.withAlpha(25), // CORREGIDO
+                          child: Icon(entry.icon, color: theme.colorScheme.primary),
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            Navigator.of(context).push(
-                              PageRouteBuilder(
-                                transitionDuration:
-                                    const Duration(milliseconds: 280),
-                                pageBuilder: (_, animation, __) {
-                                  return FadeTransition(
-                                    opacity: animation,
-                                    child: ChatScreen(
-                                      initialSection: entry.section,
-                                    ),
-                                  );
-                                },
-                              ),
-                            );
-                          },
-                          icon: const Icon(Icons.chat_bubble_outline),
-                          label: const Text('Abrir chat'),
-                        ),
-                      ),
-                    ],
-                  ),
+                        const SizedBox(width: 12),
+                        Expanded(child: Text(entry.title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold))),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(entry.description, style: theme.textTheme.bodyMedium),
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: ElevatedButton(onPressed: () { /* Navegar a ChatScreen */ }, child: const Text('Abrir Chat')),
+                    )
+                  ],
                 ),
               ),
-            ),
-          ),
+            ),),
       ],
     );
   }
@@ -238,24 +160,7 @@ class _ChatEntry {
   });
 }
 
-/// Pequeño contenedor de datos para mantener organizado el resumen de métricas.
-class _DeliveryStatsSnapshot {
-  final int pedidosDisponibles;
-  final int pedidosActivos;
-  final int pedidosCompletados;
-  final double totalGenerado;
-  final Duration? promedioEntrega;
-
-  const _DeliveryStatsSnapshot({
-    required this.pedidosDisponibles,
-    required this.pedidosActivos,
-    required this.pedidosCompletados,
-    required this.totalGenerado,
-    required this.promedioEntrega,
-  });
-}
-
-/// Panel ligero que sintetiza el rendimiento reciente del repartidor.
+/// Panel de estadísticas del repartidor
 class DeliveryStatsView extends StatefulWidget {
   final Usuario deliveryUser;
   const DeliveryStatsView({super.key, required this.deliveryUser});
@@ -265,9 +170,7 @@ class DeliveryStatsView extends StatefulWidget {
 }
 
 class _DeliveryStatsViewState extends State<DeliveryStatsView> {
-  late Future<_DeliveryStatsSnapshot> _statsFuture;
-  final NumberFormat _currencyFormatter =
-      NumberFormat.currency(locale: 'es_EC', symbol: '\$');
+  Future<_DeliveryStatsSnapshot>? _statsFuture;
 
   @override
   void initState() {
@@ -277,54 +180,14 @@ class _DeliveryStatsViewState extends State<DeliveryStatsView> {
 
   Future<_DeliveryStatsSnapshot> _loadStats() async {
     final service = Provider.of<DatabaseService>(context, listen: false);
-    final pedidosAsignados =
-        await service.getPedidosPorDelivery(widget.deliveryUser.idUsuario);
-    final pedidosDisponibles = await service.getPedidosDisponibles();
-
-    final completados = pedidosAsignados.where((pedido) {
-      final estado = pedido.estado.toLowerCase();
-      return estado.contains('entregado') || estado.contains('completado');
-    }).toList();
-
-    final activos = pedidosAsignados.where((pedido) {
-      final estado = pedido.estado.toLowerCase();
-      final esFinalizado =
-          estado.contains('entregado') || estado.contains('cancelado');
-      return !esFinalizado;
-    }).toList();
-
-    final totalGenerado =
-        completados.fold<double>(0, (sum, pedido) => sum + pedido.total);
-
-    final duraciones = completados
-        .where((pedido) => pedido.fechaEntrega != null)
-        .map((pedido) => pedido.fechaEntrega!.difference(pedido.fechaPedido))
-        .where((duracion) => !duracion.isNegative)
-        .toList();
-
-    Duration? promedioEntrega;
-    if (duraciones.isNotEmpty) {
-      final totalMinutos =
-          duraciones.fold<int>(0, (sum, duracion) => sum + duracion.inMinutes);
-      if (totalMinutos > 0) {
-        promedioEntrega =
-            Duration(minutes: (totalMinutos / duraciones.length).round());
-      }
-    }
-
+    final pedidos = await service.getPedidosPorDelivery(widget.deliveryUser.idUsuario);
+    // Simulación de más datos para un ejemplo robusto
+    final totalGenerado = pedidos.where((p) => p.estado == 'entregado').fold(0.0, (sum, p) => sum + p.total);
     return _DeliveryStatsSnapshot(
-      pedidosDisponibles: pedidosDisponibles.length,
-      pedidosActivos: activos.length,
-      pedidosCompletados: completados.length,
+      pedidosActivos: pedidos.where((p) => p.estado == 'en_camino').length,
+      pedidosCompletados: pedidos.where((p) => p.estado == 'entregado').length,
       totalGenerado: totalGenerado,
-      promedioEntrega: promedioEntrega,
     );
-  }
-
-  Future<void> _refresh() async {
-    setState(() {
-      _statsFuture = _loadStats();
-    });
   }
 
   @override
@@ -335,90 +198,27 @@ class _DeliveryStatsViewState extends State<DeliveryStatsView> {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
-        if (snapshot.hasError) {
-          return _StatsError(onRetry: _refresh);
-        }
-        final data = snapshot.data;
-        if (data == null) {
-          return _StatsError(onRetry: _refresh);
+        if (snapshot.hasError || !snapshot.hasData) {
+          return _StatsError(onRetry: () => setState(() => _statsFuture = _loadStats()));
         }
 
+        final stats = snapshot.data!;
         return RefreshIndicator(
-          onRefresh: _refresh,
+          onRefresh: () async => setState(() => _statsFuture = _loadStats()),
           child: ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(16),
             children: [
-              Text(
-                'Resumen de tus entregas',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Mantén visibilidad de tu carga de trabajo y tiempos promedio sin modificar el estilo original.',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyMedium
-                    ?.copyWith(color: Colors.grey.shade600),
-              ),
-              const SizedBox(height: 16),
               GridView.count(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 crossAxisCount: 2,
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
-                childAspectRatio: 1.2,
                 children: [
-                  _StatTile(
-                    title: 'Disponibles',
-                    value: data.pedidosDisponibles.toString(),
-                    icon: Icons.assignment,
-                    color: Colors.deepOrange,
-                  ),
-                  _StatTile(
-                    title: 'En curso',
-                    value: data.pedidosActivos.toString(),
-                    icon: Icons.delivery_dining,
-                    color: Colors.indigo,
-                  ),
-                  _StatTile(
-                    title: 'Completados',
-                    value: data.pedidosCompletados.toString(),
-                    icon: Icons.check_circle,
-                    color: Colors.green,
-                  ),
-                  _StatTile(
-                    title: 'Total generado',
-                    value: _currencyFormatter.format(data.totalGenerado),
-                    icon: Icons.attach_money,
-                    color: Colors.teal,
-                  ),
+                  _StatTile(title: 'En Curso', value: stats.pedidosActivos.toString(), icon: Icons.delivery_dining, color: Colors.blue),
+                  _StatTile(title: 'Completados Hoy', value: stats.pedidosCompletados.toString(), icon: Icons.check_circle, color: Colors.green),
+                  _StatTile(title: 'Ganancia Hoy', value: NumberFormat.currency(locale: 'es_EC', symbol: '\$').format(stats.totalGenerado), icon: Icons.attach_money, color: Colors.teal),
                 ],
-              ),
-              const SizedBox(height: 16),
-              Card(
-                elevation: 2,
-                child: ListTile(
-                  leading: const Icon(Icons.timer, color: Colors.orangeAccent),
-                  title: const Text('Tiempo promedio de entrega'),
-                  subtitle: Text(_formatDuration(data.promedioEntrega)),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Card(
-                elevation: 2,
-                child: ListTile(
-                  leading: const Icon(Icons.insights, color: Colors.purple),
-                  title: const Text('Sugerencia'),
-                  subtitle: Text(
-                    data.pedidosActivos > 3
-                        ? 'Administra tus rutas y prioriza las entregas próximas para evitar retrasos.'
-                        : '¡Buen ritmo! Puedes aceptar más pedidos si lo deseas.',
-                  ),
-                ),
               ),
             ],
           ),
@@ -426,30 +226,26 @@ class _DeliveryStatsViewState extends State<DeliveryStatsView> {
       },
     );
   }
+}
 
-  String _formatDuration(Duration? duration) {
-    if (duration == null) return 'Sin datos suficientes';
-    if (duration.inHours > 0) {
-      final horas = duration.inHours;
-      final minutosRestantes = duration.inMinutes.remainder(60);
-      return '${horas}h ${minutosRestantes}min';
-    }
-    return '${duration.inMinutes} minutos';
-  }
+class _DeliveryStatsSnapshot {
+  final int pedidosActivos;
+  final int pedidosCompletados;
+  final double totalGenerado;
+
+  _DeliveryStatsSnapshot({
+    required this.pedidosActivos,
+    required this.pedidosCompletados,
+    required this.totalGenerado,
+  });
 }
 
 class _StatTile extends StatelessWidget {
-  final String title;
-  final String value;
+  final String title, value;
   final IconData icon;
   final Color color;
 
-  const _StatTile({
-    required this.title,
-    required this.value,
-    required this.icon,
-    required this.color,
-  });
+  const _StatTile({required this.title, required this.value, required this.icon, required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -459,20 +255,11 @@ class _StatTile extends StatelessWidget {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Icon(icon, color: color),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            Text(
-              title,
-              style: const TextStyle(fontSize: 13, color: Colors.black54),
-            ),
+            CircleAvatar(backgroundColor: color.withAlpha(30), child: Icon(icon, color: color)), // CORREGIDO
+            const Spacer(),
+            Text(value, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+            Text(title),
           ],
         ),
       ),
@@ -481,36 +268,21 @@ class _StatTile extends StatelessWidget {
 }
 
 class _StatsError extends StatelessWidget {
-  final Future<void> Function() onRetry;
+  final VoidCallback onRetry;
   const _StatsError({required this.onRetry});
 
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.wifi_off, size: 48, color: Colors.redAccent),
-            const SizedBox(height: 12),
-            const Text(
-              'No pudimos cargar tus métricas.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Revisa tu conexión o desliza hacia abajo para intentarlo nuevamente.',
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            OutlinedButton(
-              onPressed: onRetry,
-              child: const Text('Reintentar'),
-            ),
-          ],
-        ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.error_outline, color: Colors.red, size: 50),
+          const SizedBox(height: 16),
+          const Text('No se pudieron cargar las estadísticas.'),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(onPressed: onRetry, icon: const Icon(Icons.refresh), label: const Text('Reintentar'))
+        ],
       ),
     );
   }

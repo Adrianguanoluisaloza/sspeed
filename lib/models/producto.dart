@@ -1,6 +1,7 @@
 /// Modelo de datos para la tabla `productos` conforme al esquema SQL.
 class Producto {
   final int idProducto;
+  final int? idNegocio; // AÑADIDO
   final String nombre;
   final String? descripcion;
   final double precio;
@@ -8,22 +9,27 @@ class Producto {
   final String? categoria;
   final int? idCategoria;
   final bool disponible;
+  final int? stock; // AÑADIDO
   final DateTime? fechaCreacion;
+  final DateTime? fechaActualizacion; // AÑADIDO
 
   const Producto({
     required this.idProducto,
     required this.nombre,
     required this.precio,
+    this.idNegocio,
     this.descripcion,
     this.imagenUrl,
     this.categoria,
     this.idCategoria,
     this.disponible = true,
+    this.stock,
     this.fechaCreacion,
+    this.fechaActualizacion,
   });
 
   factory Producto.fromMap(Map<String, dynamic> map) {
-    // Compatibilidad con respuestas en distintos formatos provenientes de la API.
+    // Funciones auxiliares para parseo robusto.
     dynamic readValue(List<String> keys) {
       for (final key in keys) {
         if (map.containsKey(key) && map[key] != null) {
@@ -35,17 +41,13 @@ class Producto {
 
     int? parseInt(dynamic value) {
       if (value is num) return value.toInt();
-      if (value is String) {
-        return int.tryParse(value);
-      }
+      if (value is String) return int.tryParse(value);
       return null;
     }
 
     DateTime? parseDate(dynamic value) {
       if (value is DateTime) return value;
-      if (value is String && value.isNotEmpty) {
-        return DateTime.tryParse(value);
-      }
+      if (value is String && value.isNotEmpty) return DateTime.tryParse(value);
       return null;
     }
 
@@ -57,23 +59,26 @@ class Producto {
 
     return Producto(
       idProducto: parseInt(readValue(['id_producto', 'idProducto'])) ?? 0,
+      idNegocio: parseInt(readValue(['id_negocio', 'idNegocio'])), // AÑADIDO
       nombre: readValue(['nombre', 'name'])?.toString() ?? 'Sin nombre',
       descripcion: readValue(['descripcion', 'description'])?.toString(),
       precio: parseDouble(readValue(['precio', 'price'])),
       imagenUrl: readValue(['imagen_url', 'imagenUrl', 'imageUrl'])?.toString(),
       categoria: readValue(['categoria', 'category'])?.toString(),
       idCategoria: parseInt(readValue(['id_categoria', 'idCategoria'])),
+      stock: parseInt(readValue(['stock'])), // AÑADIDO
       disponible: (() {
         final raw = readValue(['disponible', 'isAvailable']);
         if (raw is bool) return raw;
         if (raw is num) return raw != 0;
         if (raw is String) {
-          return raw.toLowerCase() == 'true' || raw == '1';
+            // Acepta 't' de PostgreSQL y 'true'/'1' de JSON/APIs
+            return raw.toLowerCase() == 'true' || raw.toLowerCase() == 't' || raw == '1';
         }
         return true;
       })(),
-      fechaCreacion:
-          parseDate(readValue(['fecha_creacion', 'fechaCreacion', 'createdAt'])),
+      fechaCreacion: parseDate(readValue(['fecha_creacion', 'fechaCreacion', 'created_at'])),
+      fechaActualizacion: parseDate(readValue(['updated_at', 'fechaActualizacion'])), // AÑADIDO
     );
   }
 
@@ -85,7 +90,9 @@ class Producto {
       'imagen_url': imagenUrl,
       'categoria': categoria,
       'id_categoria': idCategoria,
+      'id_negocio': idNegocio, // AÑADIDO
       'disponible': disponible,
+      'stock': stock, // AÑADIDO
     }..removeWhere((key, value) => value == null);
   }
 
