@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_application_2/services/database_service.dart';
 import '../routes/app_routes.dart';
-import '../services/database_service.dart';
+
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
@@ -32,7 +33,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     setState(() => _isLoading = true);
-    final databaseService = Provider.of<DatabaseService>(context, listen: false);
+    final databaseService =
+        Provider.of<DatabaseService>(context, listen: false);
 
     try {
       final success = await databaseService.register(
@@ -61,7 +63,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         _phoneController.clear();
         _passwordController.clear();
         _confirmPasswordController.clear();
-        focusScope.unfocus();
+        focusScope.unfocus(); // Garantizamos que el teclado se oculte y los campos queden limpios.
         navigator.pushReplacementNamed(AppRoutes.login);
       } else {
         messenger.showSnackBar(
@@ -73,7 +75,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.showSnackBar(
         SnackBar(
           content: Text('Error: ${e.toString()}'),
           backgroundColor: Colors.red,
@@ -96,21 +99,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
         child: TweenAnimationBuilder<double>(
           duration: const Duration(milliseconds: 360),
           tween: Tween(begin: 0, end: 1),
+          // Animación tenue para mejorar la transición desde login sin alterar el diseño.
           builder: (context, opacity, child) => Opacity(opacity: opacity, child: child),
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
             child: Form(
               key: _formKey,
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text(
-                    'Crea tu cuenta Unite7speed',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.deepOrange,
-                    ),
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text(
+                  'Crea tu cuenta Unite7speed',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.deepOrange,
+                  ),
+                ),
+                const SizedBox(height: 30),
+                Card(
+                  elevation: 8,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   const SizedBox(height: 30),
                   Card(
@@ -201,29 +211,48 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               return null;
                             },
                           ),
-                          const SizedBox(height: 30),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 50,
-                            child: AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 220),
-                              child: _isLoading
-                                  ? const Center(
-                                key: ValueKey('register_loading'),
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                                  : ElevatedButton(
-                                key: const ValueKey('register_button'),
-                                onPressed: _register,
-                                child: const Text(
-                                  'Registrarme',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Confirma tu contraseña';
+                            }
+                            // Valida que sea igual al campo de contraseña original
+                            if (value != _passwordController.text) {
+                              return 'Las contraseñas no coinciden';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 30),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 50,
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 220),
+                            child: _isLoading
+                                ? const SizedBox(
+                                    key: ValueKey('register_loading'),
+                                    width: 20,
+                                    height: 20,
+                                    child: Center(
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  )
+                                : SizedBox.expand(
+                                    key: const ValueKey('register_button'),
+                                    child: ElevatedButton(
+                                      onPressed: _register,
+                                      child: const Text(
+                                        'Registrarme',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ),
-                            ),
                           ),
                         ],
                       ),
@@ -237,8 +266,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       style: TextStyle(color: Colors.indigo),
                     ),
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 20),
+                TextButton(
+                  onPressed: () => Navigator.of(context)
+                      .pushReplacementNamed(AppRoutes.login),
+                  child: const Text('¿Ya tienes cuenta? Inicia sesión',
+                      style: TextStyle(color: Colors.indigo)),
+                ),
+              ],
             ),
           ),
         ),
