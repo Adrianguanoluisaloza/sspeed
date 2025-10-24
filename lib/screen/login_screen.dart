@@ -14,19 +14,23 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
 
   bool _isLoading = false;
-  bool _obscureText = true;
 
-  // --- FUNCIÓN DE LOGIN ---
   Future<void> _handleLogin() async {
+    // 1. Validar el formulario
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
 
+    // 2. Obtener dependencias del BuildContext ANTES de cualquier 'await'.
+    //    Esta es la única vez que necesitas definirlas.
+    final sessionController = context.read<SessionController>();
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
     final databaseService = Provider.of<DatabaseService>(context, listen: false);
 
     try {
@@ -35,16 +39,16 @@ class _LoginScreenState extends State<LoginScreen> {
         _passwordController.text.trim(),
       );
 
+      // 3. Comprobar si el widget sigue "montado" después del await
       if (!mounted) return;
 
-      final messenger = ScaffoldMessenger.of(context);
-      final navigator = Navigator.of(context);
-      final sessionController = context.read<SessionController>();
+      // --- NO HAY REDUNDANCIA ---
+      // Las variables 'messenger', 'navigator' y 'sessionController'
+      // ya están disponibles desde el ámbito superior.
 
       if (user != null) {
-        // Guardar datos del usuario localmente
         final prefs = await SharedPreferences.getInstance();
-        if (!mounted) return; // Confirmamos que el contexto sigue vivo tras obtener SharedPreferences.
+        if (!mounted) return;
         await prefs.setString('userEmail', user.correo);
         await prefs.setString('userPassword', _passwordController.text.trim());
 
@@ -75,8 +79,10 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     } catch (e) {
-      if (!mounted) return; // Evitamos usar ScaffoldMessenger sin contexto válido tras el await.
-      final messenger = ScaffoldMessenger.of(context);
+      if (!mounted) return;
+
+      // --- NO HAY REDUNDANCIA ---
+      // 'messenger' ya está disponible.
       final fallbackMessage = e is ApiException
           ? e.message
           : 'Error de conexión, verifica tu red e inténtalo nuevamente.';
@@ -88,7 +94,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  // --- INTERFAZ ---
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -100,85 +105,88 @@ class _LoginScreenState extends State<LoginScreen> {
         child: TweenAnimationBuilder<double>(
           duration: const Duration(milliseconds: 350),
           tween: Tween(begin: 0, end: 1),
-          // Pequeña animación de entrada para suavizar la transición desde el splash.
-          builder: (context, opacity, child) => Opacity(opacity: opacity, child: child),
+          builder: (context, opacity, child) =>
+              Opacity(opacity: opacity, child: child),
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),
             child: Form(
               key: _formKey,
               child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                const Icon(Icons.delivery_dining, size: 100, color: Colors.deepOrange),
-                const SizedBox(height: 20),
-                TextFormField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'Correo Electrónico',
-                    prefixIcon: Icon(Icons.email),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Por favor, ingresa tu correo.';
-                    }
-                    if (!value.contains('@')) {
-                      return 'Ingresa un correo válido.';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _passwordController,
-                  obscureText: _obscureText,
-                  decoration: InputDecoration(
-                    labelText: 'Contraseña',
-                    prefixIcon: const Icon(Icons.lock),
-                    suffixIcon: IconButton(
-                      icon: Icon(_obscureText ? Icons.visibility : Icons.visibility_off),
-                      onPressed: () => setState(() => _obscureText = !_obscureText),
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  const Icon(Icons.delivery_dining,
+                      size: 100, color: Colors.deepOrange),
+                  const SizedBox(height: 20),
+
+                  // --- CAMPO DE EMAIL (con validador) ---
+                  TextFormField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(
+                      labelText: 'Correo Electrónico',
+                      prefixIcon: Icon(Icons.email),
                     ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Por favor, ingresa tu correo.';
+                      }
+                      // Validación simple de formato de email
+                      if (!RegExp(r'\S+@\S+\.\S+').hasMatch(value)) {
+                        return 'Por favor, ingresa un correo válido.';
+                      }
+                      return null;
+                    },
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Por favor, ingresa tu contraseña.';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 30),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 250),
-                  child: _isLoading
-                      ? const Center(
-                          key: ValueKey('loading_indicator'),
-                          child: CircularProgressIndicator(),
-                        )
-                      : ElevatedButton(
-                          key: const ValueKey('login_button'),
-                          onPressed: _handleLogin,
-                          child: const Text('INICIAR SESIÓN'),
-                        ),
-                ),
-                const SizedBox(height: 16),
-                TextButton(
-                  onPressed: () => Navigator.of(context).pushNamed(AppRoutes.register),
-                  child: const Text('¿No tienes cuenta? Regístrate aquí'),
-                ),
-              ],
+
+                  // --- CAMPO DE CONTRASEÑA (corregido y añadido) ---
+                  const SizedBox(height: 20),
+                  TextFormField(
+                    controller: _passwordController,
+                    obscureText: true, // Oculta la contraseña
+                    decoration: const InputDecoration(
+                      labelText: 'Contraseña',
+                      prefixIcon: Icon(Icons.lock),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Por favor, ingresa tu contraseña.';
+                      }
+                      return null;
+                    },
+                  ),
+
+                  // --- BOTÓN DE LOGIN (una sola vez) ---
+                  const SizedBox(height: 30),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 250),
+                    child: _isLoading
+                        ? const Center(
+                            key: ValueKey('loading_indicator'),
+                            child: CircularProgressIndicator(),
+                          )
+                        : ElevatedButton(
+                            key: const ValueKey('login_button'),
+                            onPressed: _handleLogin,
+                            child: const Text('INICIAR SESIÓN'),
+                          ),
+                  ),
+
+                  // --- BOTÓN DE REGISTRO (una sola vez) ---
+                  const SizedBox(height: 16),
+                  TextButton(
+                    onPressed: _isLoading 
+                        ? null 
+                        : () => Navigator.of(context).pushNamed(AppRoutes.register),
+                    child: const Text('¿No tienes cuenta? Regístrate aquí'),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
       ),
     );
   }
-
-  @override
-  void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
-    super.dispose();
-  }
 }
+
