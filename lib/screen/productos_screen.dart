@@ -75,6 +75,11 @@ class _ProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final imageUrl = (producto.imagenUrl ?? '').trim();
+    final descripcionVisible = (producto.descripcion ?? 'Sin descripción').trim().isEmpty
+        ? 'Sin descripción'
+        : (producto.descripcion ?? 'Sin descripción').trim();
+    // Resguardamos valores nulos del backend para no romper la UI ni el análisis estático.
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       elevation: 4,
@@ -83,8 +88,8 @@ class _ProductCard extends StatelessWidget {
         leading: CircleAvatar(
           radius: 28,
           backgroundColor: Colors.grey.shade200,
-          backgroundImage: NetworkImage(producto.imagenUrl),
-          child: producto.imagenUrl.isEmpty || producto.imagenUrl.contains('placeholder')
+          backgroundImage: imageUrl.isNotEmpty ? NetworkImage(imageUrl) : null,
+          child: imageUrl.isEmpty || imageUrl.contains('placeholder')
               ? Icon(Icons.fastfood, color: Colors.orange.shade700) // Fallback si es placeholder
               : null,
         ),
@@ -93,7 +98,7 @@ class _ProductCard extends StatelessWidget {
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
         subtitle: Text(
-          producto.descripcion,
+          descripcionVisible,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),

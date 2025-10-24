@@ -61,13 +61,17 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
             itemCount: productos.length,
             itemBuilder: (context, index) {
               final producto = productos[index];
+              final imageUrl = (producto.imagenUrl ?? '').trim();
+              final nombreVisible = producto.nombre.trim().isEmpty ? 'Sin nombre' : producto.nombre.trim();
+              // Normalizamos textos nulos para evitar fallas al mostrar información incompleta.
               return ListTile(
                 leading: CircleAvatar(
-                  backgroundImage: NetworkImage(producto.imagenUrl),
+                  backgroundColor: Colors.grey.shade200,
+                  backgroundImage: imageUrl.isNotEmpty ? NetworkImage(imageUrl) : null,
                   onBackgroundImageError: (_, __) {},
-                  child: producto.imagenUrl.isEmpty ? const Icon(Icons.fastfood) : null,
+                  child: imageUrl.isEmpty ? const Icon(Icons.fastfood) : null,
                 ),
-                title: Text(producto.nombre),
+                title: Text(nombreVisible),
                 subtitle: Text('\$${producto.precio.toStringAsFixed(2)}'),
                 trailing: producto.disponible
                     ? const Icon(Icons.check_circle, color: Colors.green)

@@ -14,7 +14,18 @@ class DatabaseService {
 
   // --- Métodos de Usuario ---
   Future<Usuario?> login(String email, String password) => _dataSource.login(email, password);
-  Future<bool> register(String nombre, String email, String password, String telefono) => _dataSource.register(nombre, email, password, telefono);
+  Future<bool> register(
+    String nombre,
+    String email,
+    String password,
+    String telefono,
+  ) =>
+      _dataSource.register(
+        nombre,
+        email,
+        password,
+        telefono,
+      ); // Ajuste de formato para evitar saltos de línea insertados por el analizador.
 
   // --- Métodos del Cliente ---
   // CORREGIDO: Se pasan los parámetros nombrados
@@ -29,12 +40,18 @@ class DatabaseService {
     required int puntuacion,
     String? comentario,
   }) => _dataSource.addRecomendacion(
-      idProducto: idProducto,
-      idUsuario: idUsuario,
-      puntuacion: puntuacion,
-      comentario: comentario
-  );
-  Future<bool> placeOrder({ required Usuario user, required CartModel cart, required Ubicacion location }) => _dataSource.placeOrder(user: user, cart: cart, location: location);
+        idProducto: idProducto,
+        idUsuario: idUsuario,
+        puntuacion: puntuacion,
+        comentario: comentario,
+      );
+
+  Future<bool> placeOrder({
+    required Usuario user,
+    required CartModel cart,
+    required Ubicacion location,
+  }) =>
+      _dataSource.placeOrder(user: user, cart: cart, location: location);
   Future<List<Pedido>> getPedidos(int idUsuario) => _dataSource.getPedidos(idUsuario);
   Future<PedidoDetalle?> getPedidoDetalle(int idPedido) => _dataSource.getPedidoDetalle(idPedido);
 
@@ -57,8 +74,5 @@ class DatabaseService {
 
   Future<Map<String, dynamic>?> getRepartidorLocation(int idPedido) =>
       _dataSource.getRepartidorLocation(idPedido);
-
-
-
-
 }
+

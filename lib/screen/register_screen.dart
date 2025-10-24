@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_application_2/services/database_service.dart';
+import '../routes/app_routes.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -29,7 +30,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     setState(() => _isLoading = true);
     final databaseService =
-    Provider.of<DatabaseService>(context, listen: false);
+        Provider.of<DatabaseService>(context, listen: false);
 
     try {
       final success = await databaseService.register(
@@ -41,16 +42,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       if (!mounted) return;
 
+      final messenger = ScaffoldMessenger.of(context);
+      final navigator = Navigator.of(context);
+      final focusScope = FocusScope.of(context);
+
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           const SnackBar(
             content: Text('Registro exitoso. ¡Ahora inicia sesión!'),
             backgroundColor: Colors.green,
           ),
         );
-        Navigator.pop(context); // Regresa al login
+        _formKey.currentState?.reset();
+        _nameController.clear();
+        _emailController.clear();
+        _phoneController.clear();
+        _passwordController.clear();
+        _confirmPasswordController.clear();
+        focusScope.unfocus(); // Garantizamos que el teclado se oculte y los campos queden limpios.
+        navigator.pushReplacementNamed(AppRoutes.login);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           const SnackBar(
             content: Text('El correo ya está registrado.'),
             backgroundColor: Colors.orange,
@@ -59,7 +71,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.showSnackBar(
         SnackBar(
           content: Text('Error: ${e.toString()}'),
           backgroundColor: Colors.red,
@@ -91,11 +104,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
         foregroundColor: Colors.white,
       ),
       body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Form(
-            key: _formKey,
-            child: Column(
+        child: TweenAnimationBuilder<double>(
+          duration: const Duration(milliseconds: 360),
+          tween: Tween(begin: 0, end: 1),
+          // Animación tenue para mejorar la transición desde login sin alterar el diseño.
+          builder: (context, opacity, child) => Opacity(opacity: opacity, child: child),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Form(
+              key: _formKey,
+              child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const Text(
@@ -207,18 +225,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         SizedBox(
                           width: double.infinity,
                           height: 50,
-                          child: ElevatedButton(
-                            onPressed: _isLoading ? null : _register,
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 220),
                             child: _isLoading
                                 ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 2, color: Colors.white))
-                                : const Text('Registrarme',
-                                style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold)),
+                                    key: ValueKey('register_loading'),
+                                    width: 20,
+                                    height: 20,
+                                    child: Center(
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  )
+                                : SizedBox.expand(
+                                    key: const ValueKey('register_button'),
+                                    child: ElevatedButton(
+                                      onPressed: _register,
+                                      child: const Text(
+                                        'Registrarme',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
                           ),
                         ),
                       ],
@@ -227,7 +260,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 const SizedBox(height: 20),
                 TextButton(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () => Navigator.of(context)
+                      .pushReplacementNamed(AppRoutes.login),
                   child: const Text('¿Ya tienes cuenta? Inicia sesión',
                       style: TextStyle(color: Colors.indigo)),
                 ),

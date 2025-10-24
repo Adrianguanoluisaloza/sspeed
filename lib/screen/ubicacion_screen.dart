@@ -85,7 +85,10 @@ class _LocationCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    ubicacion.direccion,
+                    // Aseguramos un texto amigable cuando la dirección venga nula desde la API.
+                    (ubicacion.direccion ?? 'Sin datos').trim().isEmpty
+                        ? 'Sin datos'
+                        : (ubicacion.direccion ?? 'Sin datos').trim(),
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                 ),
@@ -104,7 +107,7 @@ class _LocationCard extends StatelessWidget {
             Align(
               alignment: Alignment.centerRight,
               child: Text(
-                'Registro: ${ubicacion.fechaRegistro.day}/${ubicacion.fechaRegistro.month}/${ubicacion.fechaRegistro.year}',
+                _formattedDate(ubicacion),
                 style: const TextStyle(fontSize: 10, color: Colors.grey),
               ),
             ),
@@ -112,5 +115,14 @@ class _LocationCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _formattedDate(Ubicacion ubicacion) {
+    final fecha = ubicacion.fechaRegistro;
+    if (fecha == null) {
+      return 'Registro: Desconocido';
+    }
+    // Protegemos los accesos a day/month/year ante posibles nulos.
+    return 'Registro: ${fecha.day}/${fecha.month}/${fecha.year}';
   }
 }
