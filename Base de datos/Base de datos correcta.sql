@@ -753,36 +753,6 @@ GROUP BY u.id_usuario, u.nombre, u.correo, u.rol, r.nombre;
 REVOKE ALL ON TABLE usuarios FROM PUBLIC;
 GRANT SELECT (id_usuario, id_rol, nombre, correo, rol, telefono, activo, created_at, updated_at) ON usuarios TO PUBLIC;
 
--- =========================================================
--- 10) CONSULTAS ÚTILES (comentadas)
--- =========================================================
--- SELECT * FROM fn_login('juan@example.com','password123');
--- SELECT * FROM vista_pedidos_completos ORDER BY id_pedido DESC LIMIT 5;
--- SELECT * FROM vista_productos_populares LIMIT 5;
--- SELECT * FROM vista_productos_rating LIMIT 5;
--- SELECT * FROM vista_usuarios_permisos ORDER BY id_usuario;
-
--- Reclamar pedido como delivery:
--- SELECT claim_pedido(<id_pedido>, (SELECT id_usuario FROM usuarios WHERE correo='carlos@example.com'));
--- Cambiar estado:
--- SELECT set_estado_pedido(<id_pedido>, 'en camino');
--- SELECT set_estado_pedido(<id_pedido>, 'entregado');
-
--- =========================================================
--- 11) COMANDOS DE LIMPIEZA (para desarrollo)
--- =========================================================
--- Vaciar tablas y reiniciar IDs:
--- TRUNCATE TABLE
---   inventario_movimientos, detalle_pedidos, recomendaciones, mensajes, historial_estados, pedidos,
---   productos, ubicaciones, usuarios, categorias, rol_permisos, permisos, roles, negocios
--- RESTART IDENTITY CASCADE;
-
--- Borrar todo el esquema:
--- DROP SCHEMA public CASCADE;
--- CREATE SCHEMA public;
--- GRANT ALL ON SCHEMA public TO postgres;
--- GRANT ALL ON SCHEMA public TO public;
-
 
 
 
@@ -860,3 +830,4 @@ SELECT table_schema,
 FROM information_schema.columns
 WHERE data_type ILIKE '%timestamzt%'
    OR column_name ILIKE '%timestamzt%';
+
