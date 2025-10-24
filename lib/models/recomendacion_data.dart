@@ -19,6 +19,24 @@ class Recomendacion {
   });
 
   factory Recomendacion.fromMap(Map<String, dynamic> map) {
+    // Se aceptan claves alternativas para mantener compatibilidad con la API existente.
+    dynamic readValue(List<String> keys) {
+      for (final key in keys) {
+        if (map.containsKey(key) && map[key] != null) {
+          return map[key];
+        }
+      }
+      return null;
+    }
+
+    int parseInt(dynamic value) {
+      if (value is num) return value.toInt();
+      if (value is String) {
+        return int.tryParse(value) ?? 0;
+      }
+      return 0;
+    }
+
     DateTime? parseDate(dynamic value) {
       if (value is DateTime) return value;
       if (value is String && value.isNotEmpty) {
@@ -28,12 +46,13 @@ class Recomendacion {
     }
 
     return Recomendacion(
-      idRecomendacion: (map['id_recomendacion'] as num?)?.toInt() ?? 0,
-      idUsuario: (map['id_usuario'] as num?)?.toInt() ?? 0,
-      idProducto: (map['id_producto'] as num?)?.toInt() ?? 0,
-      puntuacion: (map['puntuacion'] as num?)?.toInt() ?? 0,
-      comentario: map['comentario']?.toString(),
-      fechaRecomendacion: parseDate(map['fecha_recomendacion']),
+      idRecomendacion: parseInt(readValue(['id_recomendacion', 'idRecomendacion'])),
+      idUsuario: parseInt(readValue(['id_usuario', 'idUsuario'])),
+      idProducto: parseInt(readValue(['id_producto', 'idProducto'])),
+      puntuacion: parseInt(readValue(['puntuacion', 'rating', 'score'])),
+      comentario: readValue(['comentario', 'comment'])?.toString(),
+      fechaRecomendacion:
+          parseDate(readValue(['fecha_recomendacion', 'fechaRecomendacion'])),
     );
   }
 }

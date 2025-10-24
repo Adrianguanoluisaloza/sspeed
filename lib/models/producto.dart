@@ -23,6 +23,24 @@ class Producto {
   });
 
   factory Producto.fromMap(Map<String, dynamic> map) {
+    // Compatibilidad con respuestas en distintos formatos provenientes de la API.
+    dynamic readValue(List<String> keys) {
+      for (final key in keys) {
+        if (map.containsKey(key) && map[key] != null) {
+          return map[key];
+        }
+      }
+      return null;
+    }
+
+    int? parseInt(dynamic value) {
+      if (value is num) return value.toInt();
+      if (value is String) {
+        return int.tryParse(value);
+      }
+      return null;
+    }
+
     DateTime? parseDate(dynamic value) {
       if (value is DateTime) return value;
       if (value is String && value.isNotEmpty) {
@@ -38,19 +56,24 @@ class Producto {
     }
 
     return Producto(
-      idProducto: (map['id_producto'] as num?)?.toInt() ?? 0,
-      nombre: map['nombre']?.toString() ?? 'Sin nombre',
-      descripcion: map['descripcion']?.toString(),
-      precio: parseDouble(map['precio']),
-      imagenUrl: map['imagen_url']?.toString(),
-      categoria: map['categoria']?.toString(),
-      idCategoria: (map['id_categoria'] as num?)?.toInt(),
-      disponible: map['disponible'] is bool
-          ? map['disponible'] as bool
-          : (map['disponible'] is num
-              ? (map['disponible'] as num) != 0
-              : true),
-      fechaCreacion: parseDate(map['fecha_creacion']),
+      idProducto: parseInt(readValue(['id_producto', 'idProducto'])) ?? 0,
+      nombre: readValue(['nombre', 'name'])?.toString() ?? 'Sin nombre',
+      descripcion: readValue(['descripcion', 'description'])?.toString(),
+      precio: parseDouble(readValue(['precio', 'price'])),
+      imagenUrl: readValue(['imagen_url', 'imagenUrl', 'imageUrl'])?.toString(),
+      categoria: readValue(['categoria', 'category'])?.toString(),
+      idCategoria: parseInt(readValue(['id_categoria', 'idCategoria'])),
+      disponible: (() {
+        final raw = readValue(['disponible', 'isAvailable']);
+        if (raw is bool) return raw;
+        if (raw is num) return raw != 0;
+        if (raw is String) {
+          return raw.toLowerCase() == 'true' || raw == '1';
+        }
+        return true;
+      })(),
+      fechaCreacion:
+          parseDate(readValue(['fecha_creacion', 'fechaCreacion', 'createdAt'])),
     );
   }
 
@@ -84,11 +107,29 @@ class ProductoRankeado {
   });
 
   factory ProductoRankeado.fromMap(Map<String, dynamic> map) {
-    final rating = map['rating_promedio'] as num? ?? 0.0;
-    final reviews = map['total_reviews'] as num? ?? 0;
+    num? readNumeric(List<String> keys) {
+      for (final key in keys) {
+        final value = map[key];
+        if (value is num) return value;
+        if (value is String) {
+          final parsedDouble = double.tryParse(value);
+          if (parsedDouble != null) return parsedDouble;
+          final parsedInt = int.tryParse(value);
+          if (parsedInt != null) return parsedInt;
+        }
+      }
+      return null;
+    }
+
+    final rating = readNumeric(['rating_promedio', 'ratingPromedio']) ?? 0.0;
+    final reviews = readNumeric(['total_reviews', 'totalReviews']) ?? 0;
+
+    final rawId = map['id_producto'] ?? map['idProducto'];
 
     return ProductoRankeado(
-      idProducto: (map['id_producto'] as num?)?.toInt() ?? 0,
+      idProducto: rawId is num
+          ? rawId.toInt()
+          : (rawId is String ? int.tryParse(rawId) ?? 0 : 0),
       nombre: map['nombre']?.toString() ?? 'Producto Desconocido',
       ratingPromedio: rating.toDouble(),
       totalReviews: reviews.toInt(),

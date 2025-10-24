@@ -45,15 +45,13 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
-              // Guardamos las dependencias del contexto antes del primer await para
-              // evitar las advertencias de use_build_context_synchronously.
-              final sessionController = context.read<SessionController>();
-              final navigator = Navigator.of(context);
-
               final prefs = await SharedPreferences.getInstance();
               await prefs.remove('userEmail');
               await prefs.remove('userPassword');
               if (!mounted) return;
+              // Tras confirmar que el widget sigue activo obtenemos las dependencias del contexto.
+              final sessionController = context.read<SessionController>();
+              final navigator = Navigator.of(context);
               sessionController.setGuest();
               navigator
                   .pushNamedAndRemoveUntil(AppRoutes.login, (route) => false);

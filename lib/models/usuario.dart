@@ -28,6 +28,24 @@ class Usuario {
 
   /// Crea una instancia a partir del mapa JSON devuelto por la API.
   factory Usuario.fromMap(Map<String, dynamic> map) {
+    // Compatibilidad dual: aceptamos claves en snake_case o camelCase según la API.
+    dynamic readValue(List<String> keys) {
+      for (final key in keys) {
+        if (map.containsKey(key) && map[key] != null) {
+          return map[key];
+        }
+      }
+      return null;
+    }
+
+    int parseInt(dynamic value) {
+      if (value is num) return value.toInt();
+      if (value is String) {
+        return int.tryParse(value) ?? 0;
+      }
+      return 0;
+    }
+
     DateTime? parseDate(dynamic value) {
       if (value is DateTime) return value;
       if (value is String && value.isNotEmpty) {
@@ -37,16 +55,22 @@ class Usuario {
     }
 
     return Usuario(
-      idUsuario: (map['id_usuario'] as num?)?.toInt() ?? 0,
-      nombre: map['nombre']?.toString() ?? '',
-      correo: map['correo']?.toString() ?? '',
-      rol: map['rol']?.toString() ?? 'cliente',
-      telefono: map['telefono']?.toString(),
-      fechaRegistro: parseDate(map['fecha_registro']),
-      contrasena: map['contrasena']?.toString(),
-      activo: map['activo'] is bool
-          ? map['activo'] as bool
-          : (map['activo'] is num ? (map['activo'] as num) != 0 : true),
+      idUsuario: parseInt(readValue(['id_usuario', 'idUsuario'])),
+      nombre: readValue(['nombre', 'name'])?.toString() ?? '',
+      correo: readValue(['correo', 'email'])?.toString() ?? '',
+      rol: readValue(['rol', 'role'])?.toString() ?? 'cliente',
+      telefono: readValue(['telefono', 'phone'])?.toString(),
+      fechaRegistro: parseDate(readValue(['fecha_registro', 'fechaRegistro'])),
+      contrasena: readValue(['contrasena', 'password'])?.toString(),
+      activo: (() {
+        final raw = readValue(['activo', 'isActive']);
+        if (raw is bool) return raw;
+        if (raw is num) return raw != 0;
+        if (raw is String) {
+          return raw.toLowerCase() == 'true' || raw == '1';
+        }
+        return true;
+      })(),
     );
   }
 

@@ -106,15 +106,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
             child: Form(
               key: _formKey,
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text(
-                    'Crea tu cuenta Unite7speed',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.deepOrange,
-                    ),
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text(
+                  'Crea tu cuenta Unite7speed',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.deepOrange,
+                  ),
+                ),
+                const SizedBox(height: 30),
+                Card(
+                  elevation: 8,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   const SizedBox(height: 30),
                   Card(
@@ -205,38 +211,48 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               return null;
                             },
                           ),
-                          const SizedBox(height: 30),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 50,
-                            child: AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 220),
-                              child: _isLoading
-                                  ? const SizedBox(
-                                      key: ValueKey('register_loading'),
-                                      width: 20,
-                                      height: 20,
-                                      child: Center(
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: Colors.white,
-                                        ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Confirma tu contraseña';
+                            }
+                            // Valida que sea igual al campo de contraseña original
+                            if (value != _passwordController.text) {
+                              return 'Las contraseñas no coinciden';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 30),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 50,
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 220),
+                            child: _isLoading
+                                ? const SizedBox(
+                                    key: ValueKey('register_loading'),
+                                    width: 20,
+                                    height: 20,
+                                    child: Center(
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
                                       ),
-                                    )
-                                  : SizedBox.expand(
-                                      key: const ValueKey('register_button'),
-                                      child: ElevatedButton(
-                                        onPressed: _register,
-                                        child: const Text(
-                                          'Registrarme',
-                                          style: TextStyle(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.bold,
-                                          ),
+                                    ),
+                                  )
+                                : SizedBox.expand(
+                                    key: const ValueKey('register_button'),
+                                    child: ElevatedButton(
+                                      onPressed: _register,
+                                      child: const Text(
+                                        'Registrarme',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
                                         ),
                                       ),
                                     ),
-                            ),
+                                  ),
                           ),
                         ],
                       ),
@@ -250,8 +266,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       style: TextStyle(color: Colors.indigo),
                     ),
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 20),
+                TextButton(
+                  onPressed: () => Navigator.of(context)
+                      .pushReplacementNamed(AppRoutes.login),
+                  child: const Text('¿Ya tienes cuenta? Inicia sesión',
+                      style: TextStyle(color: Colors.indigo)),
+                ),
+              ],
             ),
           ),
         ),

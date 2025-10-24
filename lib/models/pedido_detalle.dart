@@ -21,6 +21,24 @@ class ProductoDetalle {
   });
 
   factory ProductoDetalle.fromMap(Map<String, dynamic> map) {
+    // Adaptamos nombres de campos para consumir respuestas camelCase o snake_case.
+    dynamic readValue(List<String> keys) {
+      for (final key in keys) {
+        if (map.containsKey(key) && map[key] != null) {
+          return map[key];
+        }
+      }
+      return null;
+    }
+
+    int parseInt(dynamic value) {
+      if (value is num) return value.toInt();
+      if (value is String) {
+        return int.tryParse(value) ?? 0;
+      }
+      return 0;
+    }
+
     double parseDouble(dynamic value) {
       if (value is num) return value.toDouble();
       if (value is String) return double.tryParse(value) ?? 0.0;
@@ -28,13 +46,17 @@ class ProductoDetalle {
     }
 
     return ProductoDetalle(
-      idDetalle: (map['id_detalle'] as num?)?.toInt() ?? 0,
-      idProducto: (map['id_producto'] as num?)?.toInt() ?? 0,
-      nombreProducto: map['nombre_producto']?.toString() ?? 'Sin nombre',
-      imagenUrl: map['imagen_url']?.toString(),
-      cantidad: (map['cantidad'] as num?)?.toInt() ?? 0,
-      precioUnitario: parseDouble(map['precio_unitario']),
-      subtotal: parseDouble(map['subtotal']),
+      idDetalle: parseInt(readValue(['id_detalle', 'idDetalle'])),
+      idProducto: parseInt(readValue(['id_producto', 'idProducto'])),
+      nombreProducto:
+          readValue(['nombre_producto', 'nombreProducto', 'productName'])
+                  ?.toString() ??
+              'Sin nombre',
+      imagenUrl: readValue(['imagen_url', 'imagenUrl', 'imageUrl'])?.toString(),
+      cantidad: parseInt(readValue(['cantidad', 'quantity'])),
+      precioUnitario:
+          parseDouble(readValue(['precio_unitario', 'precioUnitario', 'price'])),
+      subtotal: parseDouble(readValue(['subtotal', 'monto'])),
     );
   }
 }

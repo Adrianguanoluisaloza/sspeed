@@ -35,6 +35,10 @@ class ApiDataSource implements DataSource {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       if (raw == null) return {'success': true};
       if (raw is Map<String, dynamic>) return raw;
+      if (raw is List<dynamic>) {
+        // Algunos endpoints regresan listas puras; las envolvemos para no romper llamados existentes.
+        return {'success': true, 'data': raw};
+      }
       throw const ApiException('Respuesta inesperada del servidor.');
     }
 
@@ -53,8 +57,29 @@ class ApiDataSource implements DataSource {
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
       if (raw is List<dynamic>) return raw;
-      if (raw is Map<String, dynamic> && raw['data'] is List<dynamic>) {
-        return raw['data'] as List<dynamic>;
+      if (raw is Map<String, dynamic>) {
+        const candidateKeys = [
+          'data',
+          'productos',
+          'items',
+          'pedidos',
+          'ubicaciones',
+          'detalles',
+          'results',
+          'usuarios',
+          'recomendaciones',
+        ];
+        for (final key in candidateKeys) {
+          final value = raw[key];
+          if (value is List<dynamic>) {
+            return value;
+          }
+        }
+        for (final value in raw.values) {
+          if (value is List<dynamic>) {
+            return value;
+          }
+        }
       }
       throw const ApiException('Formato de lista no válido.');
     }
@@ -156,10 +181,15 @@ class ApiDataSource implements DataSource {
   @override
   Future<Usuario?> login(String email, String password) async {
     final response = await _post('/login', {'correo': email, 'contrasena': password});
-    if (response['success'] == true && response['usuario'] != null) {
-      return Usuario.fromMap(
-        Map<String, dynamic>.from(response['usuario'] as Map),
-      );
+    if (response['success'] == false) {
+      return null;
+    }
+
+    final dynamic rawUser =
+        response['usuario'] ?? response['user'] ?? response['data'];
+
+    if (rawUser is Map) {
+      return Usuario.fromMap(Map<String, dynamic>.from(rawUser as Map));
     }
     return null;
   }
@@ -172,7 +202,15 @@ class ApiDataSource implements DataSource {
       'contrasena': password,
       'telefono': phone,
     });
-    return response['success'] ?? false;
+    final success = response['success'];
+    if (success is bool) {
+      return success;
+    }
+    final status = response['status']?.toString().toLowerCase();
+    if (status != null) {
+      return status == 'ok' || status == 'success';
+    }
+    return (response['usuario'] ?? response['user']) != null;
   }
 
   @override
@@ -264,13 +302,17 @@ class ApiDataSource implements DataSource {
       'precio_unitario': item.producto.precio,
     }).toList();
 
-    final response = await _post('/pedidos', {
+    final payload = {
       'id_cliente': user.idUsuario,
-      'id_ubicacion': location.id,
+      'id_ubicacion': location.id > 0 ? location.id : null,
+      'direccion_entrega':
+          location.direccion ?? 'Sin dirección registrada', // Evitamos violar el NOT NULL del esquema.
       'total': total,
       'metodo_pago': 'efectivo',
       'productos': productosJson,
-    });
+    }..removeWhere((key, value) => value == null);
+
+    final response = await _post('/pedidos', payload);
     return response['success'] ?? false;
   }
 
@@ -285,8 +327,13 @@ class ApiDataSource implements DataSource {
   @override
   Future<PedidoDetalle?> getPedidoDetalle(int idPedido) async {
     final data = await _getMap('/pedidos/$idPedido');
-    if (data.containsKey('pedido') && data.containsKey('detalles')) {
-      return PedidoDetalle.fromMap(data);
+    final payload = data.containsKey('pedido') && data.containsKey('detalles')
+        ? data
+        : (data['data'] is Map<String, dynamic>
+            ? Map<String, dynamic>.from(data['data'] as Map)
+            : data);
+    if (payload.containsKey('pedido') && payload.containsKey('detalles')) {
+      return PedidoDetalle.fromMap(payload);
     }
     throw const ApiException('Estructura de datos de pedido inválida.');
   }

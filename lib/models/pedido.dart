@@ -34,6 +34,24 @@ class Pedido {
   });
 
   factory Pedido.fromMap(Map<String, dynamic> map) {
+    // Normalizamos claves heterogéneas para que coincidan con el esquema de Postgres.
+    dynamic readValue(List<String> keys) {
+      for (final key in keys) {
+        if (map.containsKey(key) && map[key] != null) {
+          return map[key];
+        }
+      }
+      return null;
+    }
+
+    int? parseInt(dynamic value) {
+      if (value is num) return value.toInt();
+      if (value is String) {
+        return int.tryParse(value);
+      }
+      return null;
+    }
+
     DateTime? parseDate(dynamic value) {
       if (value is DateTime) return value;
       if (value is String && value.isNotEmpty) {
@@ -63,31 +81,46 @@ class Pedido {
     }
 
     final coordenadas = parseCoordinates(
-      map['coordenadas_entrega'] ?? map['coordenadas'],
+      readValue(['coordenadas_entrega', 'coordenadasEntrega', 'coordenadas']),
     );
-    final ubicacion = map['ubicacion'] is Map<String, dynamic>
-        ? Map<String, dynamic>.from(map['ubicacion'] as Map)
+    final rawLocation = readValue(['ubicacion', 'location']);
+    final ubicacion = rawLocation is Map
+        ? Map<String, dynamic>.from(rawLocation as Map)
         : null;
 
     final double? latitud = parseDouble(
-      map['latitud'] ?? coordenadas?['latitud'] ?? ubicacion?['latitud'],
+      readValue(['latitud', 'lat']) ??
+          coordenadas?['latitud'] ??
+          coordenadas?['lat'] ??
+          ubicacion?['latitud'] ??
+          ubicacion?['lat'],
     );
     final double? longitud = parseDouble(
-      map['longitud'] ?? coordenadas?['longitud'] ?? ubicacion?['longitud'],
+      readValue(['longitud', 'lng', 'long']) ??
+          coordenadas?['longitud'] ??
+          coordenadas?['lng'] ??
+          ubicacion?['longitud'] ??
+          ubicacion?['lng'],
     );
 
     return Pedido(
-      idPedido: (map['id_pedido'] as num?)?.toInt() ?? 0,
-      idCliente: (map['id_cliente'] as num?)?.toInt() ?? 0,
-      idDelivery: (map['id_delivery'] as num?)?.toInt(),
-      idUbicacion: (map['id_ubicacion'] as num?)?.toInt(),
-      fechaPedido: parseDate(map['fecha_pedido']) ?? DateTime.now(),
-      fechaEntrega: parseDate(map['fecha_entrega']),
-      estado: map['estado']?.toString() ?? 'pendiente',
-      total: parseDouble(map['total']) ?? 0.0,
-      direccionEntrega: map['direccion_entrega']?.toString() ?? 'No especificada',
-      metodoPago: map['metodo_pago']?.toString() ?? 'efectivo',
-      notas: map['notas']?.toString(),
+      idPedido: parseInt(readValue(['id_pedido', 'idPedido'])) ?? 0,
+      idCliente: parseInt(readValue(['id_cliente', 'idCliente'])) ?? 0,
+      idDelivery: parseInt(readValue(['id_delivery', 'idDelivery'])),
+      idUbicacion: parseInt(readValue(['id_ubicacion', 'idUbicacion'])),
+      fechaPedido:
+          parseDate(readValue(['fecha_pedido', 'fechaPedido'])) ?? DateTime.now(),
+      fechaEntrega: parseDate(readValue(['fecha_entrega', 'fechaEntrega'])),
+      estado: readValue(['estado', 'status'])?.toString() ?? 'pendiente',
+      total: parseDouble(readValue(['total', 'montoTotal'])) ?? 0.0,
+      direccionEntrega: readValue(
+            ['direccion_entrega', 'direccionEntrega', 'address'],
+          )?.toString() ??
+          'No especificada',
+      metodoPago: readValue(['metodo_pago', 'metodoPago', 'paymentMethod'])
+              ?.toString() ??
+          'efectivo',
+      notas: readValue(['notas', 'comentarios', 'notes'])?.toString(),
       latitudDestino: latitud,
       longitudDestino: longitud,
       coordenadasEntrega: coordenadas,
