@@ -22,8 +22,11 @@ class _CheckoutAddressScreenState extends State<CheckoutAddressScreen> {
   @override
   void initState() {
     super.initState();
-    _ubicacionesFuture = Provider.of<DatabaseService>(context, listen: false)
-        .getUbicaciones(widget.usuario.idUsuario);
+    // Solo carga ubicaciones si el usuario está autenticado
+    if (widget.usuario.isAuthenticated) {
+      _ubicacionesFuture = Provider.of<DatabaseService>(context, listen: false)
+          .getUbicaciones(widget.usuario.idUsuario);
+    }
   }
 
   @override
@@ -151,7 +154,6 @@ class _CheckoutAddressScreenState extends State<CheckoutAddressScreen> {
       child: SizedBox(
         width: double.infinity,
         child: ElevatedButton(
-          // El botón solo se activa si se ha seleccionado una ubicación
           onPressed: _selectedLocationId == null
               ? null
               : () {
@@ -172,7 +174,6 @@ class _CheckoutAddressScreenState extends State<CheckoutAddressScreen> {
     );
   }
 
-  // Widget de carga con efecto Shimmer
   Widget _buildLoadingShimmer() {
     return Shimmer.fromColors(
       baseColor: Colors.grey.shade300,

@@ -544,7 +544,6 @@ class ApiDataSource implements DataSource {
     return response['success'] ?? false;
   }
 
-  // --- NUEVO MÉTODO IMPLEMENTADO ---
   @override
   Future<Map<String, dynamic>> getAdminStats() async =>
       _tryEndpoints<Map<String, dynamic>>(
@@ -709,3 +708,77 @@ class ApiDataSource implements DataSource {
   }
 }
 
+  @override
+  Future<int?> iniciarConversacion({
+    required int idCliente,
+    int? idDelivery,
+    int? idAdminSoporte,
+    int? idPedido,
+  }) async {
+    final payload = {
+      'id_cliente': idCliente,
+      'id_delivery': idDelivery,
+      'id_admin_soporte': idAdminSoporte,
+      'id_pedido': idPedido,
+    }..removeWhere((key, value) => value == null);
+
+    final response = await _tryEndpoints<Map<String, dynamic>>(
+      ['/chat/iniciar', '/api/chat/iniciar'],
+      (endpoint) => _post(endpoint, payload),
+    );
+    final dynamic idValue =
+        response['id_conversacion'] ?? response['conversationId'] ?? response['id'];
+    if (idValue is int) return idValue;
+    if (idValue is String) return int.tryParse(idValue);
+    return null;
+  }
+
+  @override
+  Future<List<ChatConversation>> getConversaciones(int idUsuario) async {
+    final data = await _tryEndpoints<List<dynamic>>(
+      [
+        '/chat/conversaciones/$idUsuario',
+        '/api/chat/conversaciones/$idUsuario',
+      ],
+      (endpoint) => _get(endpoint),
+    );
+    return data
+        .map((item) =>
+            ChatConversation.fromMap(Map<String, dynamic>.from(item as Map)))
+        .toList();
+  }
+
+  @override
+  Future<List<ChatMessage>> getMensajesDeConversacion(int idConversacion) async {
+    final data = await _tryEndpoints<List<dynamic>>(
+      [
+        '/chat/mensajes/$idConversacion',
+        '/api/chat/mensajes/$idConversacion',
+      ],
+      (endpoint) => _get(endpoint),
+    );
+    return data
+        .map((item) => ChatMessage.fromMap(Map<String, dynamic>.from(item as Map)))
+        .toList();
+  }
+
+  @override
+  Future<bool> enviarMensaje({
+    required int idConversacion,
+    required int idRemitente,
+    required String mensaje,
+  }) async {
+    final response = await _tryEndpoints<Map<String, dynamic>>(
+      ['/chat/mensajes', '/api/chat/mensajes'],
+      (endpoint) => _post(endpoint, {
+            'id_conversacion': idConversacion,
+            'id_remitente': idRemitente,
+            'mensaje': mensaje,
+          }),
+    );
+    final success = response['success'];
+    if (success is bool) return success;
+    final status = response['status']?.toString().toLowerCase();
+    return status == 'ok' || status == 'success';
+  }
+}

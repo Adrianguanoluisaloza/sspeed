@@ -272,4 +272,3 @@ Widget _buildSummaryCard(BuildContext context, CartModel cart, Usuario usuario) 
     ),
   );
 }
-

@@ -4,7 +4,11 @@ import 'package:flutter_application_2/models/usuario.dart';
 import 'package:flutter_application_2/services/database_service.dart';
 import 'package:provider/provider.dart' show Provider;
 
-import 'package:intl/intl.dart'; // Necesitarás añadir `intl: ^0.18.1` a tu pubspec.yaml
+import 'package:intl/intl.dart';
+
+import '../routes/app_routes.dart';
+
+import '../routes/app_routes.dart';
 
 import '../routes/app_routes.dart';
 
@@ -22,8 +26,11 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
   @override
   void initState() {
     super.initState();
-    _pedidosFuture = Provider.of<DatabaseService>(context, listen: false)
-        .getPedidos(widget.usuario.idUsuario);
+    // Solo cargamos los pedidos si el usuario está autenticado.
+    if (widget.usuario.isAuthenticated) {
+      _pedidosFuture = Provider.of<DatabaseService>(context, listen: false)
+          .getPedidos(widget.usuario.idUsuario);
+    }
   }
 
   @override

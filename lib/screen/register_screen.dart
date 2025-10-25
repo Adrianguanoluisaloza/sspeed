@@ -16,17 +16,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
-
-  // --- MEJORA 1: Controlador para el nuevo campo ---
   final _confirmPasswordController = TextEditingController();
 
-  // --- MEJORA 2: Variables de visibilidad separadas ---
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _isLoading = false;
 
   Future<void> _register() async {
+    // Guardamos las dependencias del context ANTES de la pausa asíncrona (await)
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final dbService = Provider.of<DatabaseService>(context, listen: false);
+
     if (!_formKey.currentState!.validate()) return;
+
+    if (_passwordController.text != _confirmPasswordController.text) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Las contraseñas no coinciden')),
+      );
+      return;
+    }
 
     setState(() => _isLoading = true);
     final databaseService =
@@ -81,20 +90,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
       );
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _emailController.dispose();
-    _passwordController.dispose();
-    _phoneController.dispose();
-    _confirmPasswordController.dispose(); // No olvidar el dispose del nuevo controlador
-    super.dispose();
   }
 
   @override
@@ -132,85 +129,88 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      children: [
-                        // --- CAMPOS EXISTENTES (sin cambios) ---
-                        TextFormField(
-                          controller: _nameController,
-                          keyboardType: TextInputType.text,
-                          decoration: const InputDecoration(
-                            labelText: 'Nombre Completo',
-                            prefixIcon: Icon(Icons.person),
-                          ),
-                          validator: (value) => (value == null || value.isEmpty)
-                              ? 'Ingresa tu nombre'
-                              : null,
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _emailController,
-                          keyboardType: TextInputType.emailAddress,
-                          decoration: const InputDecoration(
-                            labelText: 'Correo',
-                            prefixIcon: Icon(Icons.email),
-                          ),
-                          validator: (value) =>
-                          (value == null || !value.contains('@'))
-                              ? 'Ingresa un correo válido'
-                              : null,
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _phoneController,
-                          keyboardType: TextInputType.phone,
-                          decoration: const InputDecoration(
-                            labelText: 'Teléfono',
-                            prefixIcon: Icon(Icons.phone),
-                          ),
-                          validator: (value) =>
-                          (value == null || value.isEmpty)
-                              ? 'Ingresa tu teléfono'
-                              : null,
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _passwordController,
-                          obscureText: _obscurePassword,
-                          decoration: InputDecoration(
-                            labelText: 'Contraseña',
-                            prefixIcon: const Icon(Icons.lock),
-                            suffixIcon: IconButton(
-                              icon: Icon(_obscurePassword
-                                  ? Icons.visibility
-                                  : Icons.visibility_off),
-                              onPressed: () =>
-                                  setState(() => _obscurePassword = !_obscurePassword),
+                  const SizedBox(height: 30),
+                  Card(
+                    elevation: 8,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        children: [
+                          TextFormField(
+                            controller: _nameController,
+                            keyboardType: TextInputType.text,
+                            decoration: const InputDecoration(
+                              labelText: 'Nombre Completo',
+                              prefixIcon: Icon(Icons.person),
                             ),
+                            validator: (value) =>
+                            value == null || value.isEmpty ? 'Ingresa tu nombre' : null,
                           ),
-                          validator: (value) =>
-                          (value == null || value.length < 6)
-                              ? 'Mínimo 6 caracteres'
-                              : null,
-                        ),
-                        const SizedBox(height: 16),
-
-                        // --- MEJORA 3: Nuevo campo "Confirmar Contraseña" ---
-                        TextFormField(
-                          controller: _confirmPasswordController,
-                          obscureText: _obscureConfirmPassword,
-                          decoration: InputDecoration(
-                            labelText: 'Confirmar Contraseña',
-                            prefixIcon: const Icon(Icons.lock_outline),
-                            suffixIcon: IconButton(
-                              icon: Icon(_obscureConfirmPassword
-                                  ? Icons.visibility
-                                  : Icons.visibility_off),
-                              onPressed: () => setState(() =>
-                              _obscureConfirmPassword =
-                              !_obscureConfirmPassword),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _emailController,
+                            keyboardType: TextInputType.emailAddress,
+                            decoration: const InputDecoration(
+                              labelText: 'Correo',
+                              prefixIcon: Icon(Icons.email),
                             ),
+                            validator: (value) =>
+                            value == null || !value.contains('@') ? 'Correo inválido' : null,
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _phoneController,
+                            keyboardType: TextInputType.phone,
+                            decoration: const InputDecoration(
+                              labelText: 'Teléfono',
+                              prefixIcon: Icon(Icons.phone),
+                            ),
+                            validator: (value) =>
+                            value == null || value.isEmpty ? 'Ingresa tu teléfono' : null,
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _passwordController,
+                            obscureText: _obscurePassword,
+                            decoration: InputDecoration(
+                              labelText: 'Contraseña',
+                              prefixIcon: const Icon(Icons.lock),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                                ),
+                                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                              ),
+                            ),
+                            validator: (value) =>
+                            value == null || value.length < 6 ? 'Mínimo 6 caracteres' : null,
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _confirmPasswordController,
+                            obscureText: _obscureConfirmPassword,
+                            decoration: InputDecoration(
+                              labelText: 'Confirmar Contraseña',
+                              prefixIcon: const Icon(Icons.lock_outline),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscureConfirmPassword ? Icons.visibility : Icons.visibility_off,
+                                ),
+                                onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Confirma tu contraseña';
+                              }
+                              if (value != _passwordController.text) {
+                                return 'Las contraseñas no coinciden';
+                              }
+                              return null;
+                            },
                           ),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
@@ -255,8 +255,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                     ),
                                   ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pushReplacementNamed(AppRoutes.login),
+                    child: const Text(
+                      '¿Ya tienes cuenta? Inicia sesión',
+                      style: TextStyle(color: Colors.indigo),
                     ),
                   ),
                 ),

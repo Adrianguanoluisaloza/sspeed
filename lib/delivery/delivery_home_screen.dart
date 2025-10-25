@@ -36,6 +36,23 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
     super.dispose();
   }
 
+  Future<void> _handleLogout() async {
+    final navigator = Navigator.of(context);
+    final sessionController = context.read<SessionController>();
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+
+    if (mounted) {
+        sessionController.clearUser();
+        navigator.pushNamedAndRemoveUntil(
+        AppRoutes.mainNavigator, 
+        (route) => false, 
+        arguments: Usuario.noAuth(),
+        );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -61,6 +78,7 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
           )
         ],
         bottom: TabBar(
+          isScrollable: true,
           controller: _tabController,
           tabs: const [
             Tab(text: 'Pedidos Disponibles'),
@@ -74,9 +92,7 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
       body: TabBarView(
         controller: _tabController,
         children: [
-          // Vista para pedidos disponibles
           DeliveryAvailableOrdersView(deliveryUser: widget.deliveryUser),
-          // Vista para pedidos activos del repartidor
           DeliveryActiveOrdersView(deliveryUser: widget.deliveryUser),
           // Nueva vista para dar visibilidad al historial sin alterar la lógica existente.
           DeliveryHistoryOrdersView(deliveryUser: widget.deliveryUser),

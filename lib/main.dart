@@ -17,6 +17,19 @@ void main() {
       child: const MyApp(),
     ),
   );
+  requestLocationPermission(); // Solicita permisos al inicio
+}
+
+Future<void> requestLocationPermission() async {
+  var status = await Permission.locationWhenInUse.request();
+
+  if (status.isGranted) {
+    debugPrint("✅ Permiso de ubicación concedido");
+  } else if (status.isDenied) {
+    debugPrint("❌ Permiso de ubicación denegado");
+  } else if (status.isPermanentlyDenied) {
+    openAppSettings(); // Abre ajustes si el usuario bloqueó permisos
+  }
 }
 
 class MyApp extends StatelessWidget {
@@ -87,4 +100,3 @@ class MyApp extends StatelessWidget {
     );
   }
 }
-

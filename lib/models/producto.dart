@@ -1,6 +1,7 @@
 /// Modelo de datos para la tabla `productos` conforme al esquema SQL.
 class Producto {
   final int idProducto;
+  final int? idNegocio;
   final String nombre;
   final String? descripcion;
   final double precio;
@@ -79,6 +80,7 @@ class Producto {
 
   Map<String, dynamic> toMap() {
     return {
+      'id_negocio': idNegocio,
       'nombre': nombre,
       'descripcion': descripcion,
       'precio': precio,

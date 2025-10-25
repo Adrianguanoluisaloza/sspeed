@@ -30,40 +30,42 @@ class _ProductosScreenState extends State<ProductosScreen> {
         backgroundColor: Colors.white,
         elevation: 0.5,
       ),
-      body: FutureBuilder<List<Producto>>(
-        future: _productosFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            debugPrint('Error al cargar productos: ${snapshot.error}');
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(20.0),
-                child: Text(
-                  'Error al cargar productos. Revisa la conexión a Neon y las credenciales.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.red),
+      body: SafeArea(
+        child: FutureBuilder<List<Producto>>(
+          future: _productosFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (snapshot.hasError) {
+              debugPrint('Error al cargar productos: ${snapshot.error}');
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(20.0),
+                  child: Text(
+                    'Error al cargar productos. Revisa la conexión a Neon y las credenciales.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.red),
+                  ),
                 ),
-              ),
+              );
+            }
+            final productos = snapshot.data ?? [];
+            if (productos.isEmpty) {
+              return const Center(
+                child: Text('No hay productos disponibles.'),
+              );
+            }
+            return ListView.builder(
+              padding: const EdgeInsets.only(top: 8.0),
+              itemCount: productos.length,
+              itemBuilder: (context, index) {
+                final producto = productos[index];
+                return _ProductCard(producto: producto);
+              },
             );
-          }
-          final productos = snapshot.data ?? [];
-          if (productos.isEmpty) {
-            return const Center(
-              child: Text('No hay productos disponibles.'),
-            );
-          }
-          return ListView.builder(
-            padding: const EdgeInsets.only(top: 8.0),
-            itemCount: productos.length,
-            itemBuilder: (context, index) {
-              final producto = productos[index];
-              return _ProductCard(producto: producto);
-            },
-          );
-        },
+          },
+        ),
       ),
     );
   }
