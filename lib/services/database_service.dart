@@ -1,4 +1,6 @@
 import 'package:flutter_application_2/models/cart_model.dart';
+import 'package:flutter_application_2/models/chat_conversation.dart';
+import 'package:flutter_application_2/models/chat_message.dart';
 import 'package:flutter_application_2/models/pedido.dart';
 import 'package:flutter_application_2/models/pedido_detalle.dart';
 import 'package:flutter_application_2/models/producto.dart';
@@ -12,9 +14,23 @@ class DatabaseService {
   final DataSource _dataSource;
   DatabaseService() : _dataSource = ApiDataSource();
 
+  void setAuthToken(String? token) => _dataSource.setAuthToken(token);
+
   // --- Métodos de Usuario ---
   Future<Usuario?> login(String email, String password) => _dataSource.login(email, password);
-  Future<bool> register(String nombre, String email, String password, String telefono) => _dataSource.register(nombre, email, password, telefono);
+  Future<bool> register(
+    String nombre,
+    String email,
+    String password,
+    String telefono,
+  ) =>
+      _dataSource.register(
+        nombre,
+        email,
+        password,
+        telefono,
+      ); // Ajuste de formato para evitar saltos de línea insertados por el analizador.
+  Future<Usuario?> updateUsuario(Usuario usuario) => _dataSource.updateUsuario(usuario);
 
   // --- Métodos del Cliente ---
   // CORREGIDO: Se pasan los parámetros nombrados
@@ -29,12 +45,18 @@ class DatabaseService {
     required int puntuacion,
     String? comentario,
   }) => _dataSource.addRecomendacion(
-      idProducto: idProducto,
-      idUsuario: idUsuario,
-      puntuacion: puntuacion,
-      comentario: comentario
-  );
-  Future<bool> placeOrder({ required Usuario user, required CartModel cart, required Ubicacion location }) => _dataSource.placeOrder(user: user, cart: cart, location: location);
+        idProducto: idProducto,
+        idUsuario: idUsuario,
+        puntuacion: puntuacion,
+        comentario: comentario,
+      );
+
+  Future<bool> placeOrder({
+    required Usuario user,
+    required CartModel cart,
+    required Ubicacion location,
+  }) =>
+      _dataSource.placeOrder(user: user, cart: cart, location: location);
   Future<List<Pedido>> getPedidos(int idUsuario) => _dataSource.getPedidos(idUsuario);
   Future<PedidoDetalle?> getPedidoDetalle(int idPedido) => _dataSource.getPedidoDetalle(idPedido);
 
@@ -58,7 +80,35 @@ class DatabaseService {
   Future<Map<String, dynamic>?> getRepartidorLocation(int idPedido) =>
       _dataSource.getRepartidorLocation(idPedido);
 
+  // --- MÉTODOS DE CHAT UNIFICADOS ---
+  Future<int?> iniciarConversacion({
+    required int idCliente,
+    int? idDelivery,
+    int? idAdminSoporte,
+    int? idPedido,
+  }) =>
+      _dataSource.iniciarConversacion(
+        idCliente: idCliente,
+        idDelivery: idDelivery,
+        idAdminSoporte: idAdminSoporte,
+        idPedido: idPedido,
+      );
 
+  Future<List<ChatConversation>> getConversaciones(int idUsuario) =>
+      _dataSource.getConversaciones(idUsuario);
 
+  Future<List<ChatMessage>> getMensajesDeConversacion(int idConversacion) =>
+      _dataSource.getMensajesDeConversacion(idConversacion);
 
+  Future<bool> enviarMensaje({
+    required int idConversacion,
+    required int idRemitente,
+    required String mensaje,
+  }) =>
+      _dataSource.enviarMensaje(
+        idConversacion: idConversacion,
+        idRemitente: idRemitente,
+        mensaje: mensaje,
+      );
 }
+

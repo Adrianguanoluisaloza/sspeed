@@ -5,7 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_application_2/models/ubicacion.dart';
 import 'package:flutter_application_2/models/usuario.dart';
 import 'package:flutter_application_2/services/database_service.dart';
-import 'order_history_screen.dart'; // <-- AÑADIDO
+import '../models/session_state.dart';
+import '../routes/app_routes.dart';
 
 class ProfileScreen extends StatefulWidget {
   final Usuario usuario;
@@ -16,14 +17,17 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  late Future<List<Ubicacion>> _ubicacionesFuture;
+  Future<List<Ubicacion>>? _ubicacionesFuture;
+
+  bool get _isGuest => widget.usuario.isGuest;
 
   @override
   void initState() {
     super.initState();
-    // Cargar ubicaciones del usuario
-    _ubicacionesFuture = Provider.of<DatabaseService>(context, listen: false)
-        .getUbicaciones(widget.usuario.idUsuario);
+    if (!_isGuest) {
+      _ubicacionesFuture = Provider.of<DatabaseService>(context, listen: false)
+          .getUbicaciones(widget.usuario.idUsuario);
+    }
   }
 
   // --- Método para cerrar sesión ---
@@ -31,14 +35,59 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('userEmail');
     await prefs.remove('userPassword');
+    await prefs.remove('authToken');
 
     if (!mounted) return;
-    Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+    context.read<DatabaseService>().setAuthToken(null);
+    context.read<SessionController>().setGuest();
+    Navigator.of(context)
+        .pushNamedAndRemoveUntil(AppRoutes.login, (route) => false);
   }
   // ---------------------------------
 
   @override
   Widget build(BuildContext context) {
+    if (_isGuest) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Mi Perfil'),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.person_outline,
+                    size: 96, color: Theme.of(context).colorScheme.primary),
+                const SizedBox(height: 16),
+                const Text(
+                  'Explora más iniciando sesión',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Guarda direcciones, consulta tu historial de pedidos y personaliza tu experiencia.',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: () =>
+                      Navigator.of(context).pushNamed(AppRoutes.login),
+                  child: const Text('Iniciar sesión'),
+                ),
+                TextButton(
+                  onPressed: () =>
+                      Navigator.of(context).pushNamed(AppRoutes.register),
+                  child: const Text('Crear una cuenta'),
+                )
+              ],
+            ),
+          ),
+        ),
+      );
+    }
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mi Perfil y Ubicaciones'),
@@ -78,12 +127,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 title: const Text('Historial de Pedidos'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) =>
-                          OrderHistoryScreen(usuario: widget.usuario),
-                    ),
+                  Navigator.of(context).pushNamed(
+                    AppRoutes.orderHistory,
+                    arguments: widget.usuario,
                   );
                 },
               ),
@@ -153,7 +199,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       child: ListTile(
                         leading:
                         const Icon(Icons.place, color: Colors.green),
-                        title: Text(ubicacion.direccion),
+                        title: Text(ubicacion.direccion ?? 'Dirección sin especificar'),
                         subtitle: Text(
                             'Lat: ${ubicacion.latitud.toStringAsFixed(4)}, Lon: ${ubicacion.longitud.toStringAsFixed(4)}'),
                         trailing: IconButton(
@@ -191,3 +237,4 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 }
+
