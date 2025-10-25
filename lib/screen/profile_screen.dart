@@ -30,8 +30,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // --- Método para cerrar sesión ---
   Future<void> _handleLogout() async {
+    final navigator = Navigator.of(context);
+    final session = context.read<SessionController>();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('userEmail');
     await prefs.remove('userPassword');
@@ -43,7 +44,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     Navigator.of(context)
         .pushNamedAndRemoveUntil(AppRoutes.login, (route) => false);
   }
-  // ---------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -90,9 +90,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Mi Perfil y Ubicaciones'),
-        backgroundColor: Colors.deepOrange,
-        foregroundColor: Colors.white,
+        title: const Text('Mi Perfil'),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -101,26 +99,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
           children: <Widget>[
             // Información del Usuario
             Card(
-              elevation: 4,
+              elevation: 2,
               child: ListTile(
                 leading: CircleAvatar(
                   backgroundColor: Colors.deepOrange,
                   child: Text(
-                    widget.usuario.nombre.isNotEmpty
-                        ? widget.usuario.nombre[0].toUpperCase()
-                        : 'U',
-                    style: const TextStyle(color: Colors.white),
+                    widget.usuario.nombre.isNotEmpty ? widget.usuario.nombre[0].toUpperCase() : 'U',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                   ),
                 ),
-                title: Text(widget.usuario.nombre),
-                subtitle: Text(
-                    'Correo: ${widget.usuario.correo}\nRol: ${widget.usuario.rol}'),
+                title: Text(widget.usuario.nombre, style: const TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text('Correo: ${widget.usuario.correo}'),
               ),
             ),
-
             const SizedBox(height: 20),
 
-            // --- NUEVO BOTÓN: HISTORIAL DE PEDIDOS ---
+            // Acciones de la cuenta
             Card(
               child: ListTile(
                 leading: const Icon(Icons.receipt_long, color: Colors.deepOrange),
@@ -134,60 +128,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 },
               ),
             ),
-            // ------------------------------------------
-
             const SizedBox(height: 20),
 
             // Sección de Ubicaciones
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Mis Ubicaciones Guardadas',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.deepOrange,
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.add_location_alt,
-                      color: Colors.deepOrange),
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content:
-                          Text('Añadir Ubicación (Función en desarrollo)')),
-                    );
-                  },
-                ),
-              ],
-            ),
+            Text('Mis Ubicaciones Guardadas', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
             const Divider(),
-
-            // Lista de ubicaciones
             FutureBuilder<List<Ubicacion>>(
               future: _ubicacionesFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const Center(child: Padding(padding: EdgeInsets.all(20.0), child: CircularProgressIndicator()));
                 }
                 if (snapshot.hasError) {
-                  return Center(
-                      child: Text(
-                          'Error al cargar ubicaciones: ${snapshot.error}'));
+                  return Center(child: Padding(padding: const EdgeInsets.all(20.0), child: Text('Error al cargar ubicaciones: ${snapshot.error}')));
                 }
                 if (!snapshot.hasData || snapshot.data!.isEmpty) {
                   return const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(20.0),
-                      child: Text('No has guardado ninguna ubicación.'),
-                    ),
+                    child: Padding(padding: EdgeInsets.all(20.0), child: Text('No has guardado ninguna ubicación.')),
                   );
                 }
-
                 final ubicaciones = snapshot.data!;
-
                 return ListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
@@ -195,7 +155,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   itemBuilder: (context, index) {
                     final ubicacion = ubicaciones[index];
                     return Card(
-                      margin: const EdgeInsets.only(bottom: 8.0),
+                      margin: const EdgeInsets.only(top: 8.0),
                       child: ListTile(
                         leading:
                         const Icon(Icons.place, color: Colors.green),
@@ -214,10 +174,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 );
               },
             ),
-
             const SizedBox(height: 30),
 
-            // --- BOTÓN DE CERRAR SESIÓN ---
+            // Botón de Cerrar Sesión
             Center(
               child: ElevatedButton.icon(
                 onPressed: _handleLogout,
@@ -226,8 +185,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red,
                   foregroundColor: Colors.white,
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
                 ),
               ),
             ),

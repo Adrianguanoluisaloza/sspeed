@@ -9,7 +9,6 @@ import '../models/ubicacion.dart';
 import 'api_data_source.dart';
 import 'data_source.dart';
 
-/// CLASE DE SERVICIO ÚNICA PARA INYECTAR CON PROVIDER.
 class DatabaseService {
   final DataSource _dataSource;
   DatabaseService() : _dataSource = ApiDataSource();
@@ -33,13 +32,12 @@ class DatabaseService {
   Future<Usuario?> updateUsuario(Usuario usuario) => _dataSource.updateUsuario(usuario);
 
   // --- Métodos del Cliente ---
-  // CORREGIDO: Se pasan los parámetros nombrados
   Future<List<Producto>> getProductos({String? query, String? categoria}) =>
       _dataSource.getProductos(query: query, categoria: categoria);
 
   Future<List<Ubicacion>> getUbicaciones(int idUsuario) => _dataSource.getUbicaciones(idUsuario);
   Future<List<ProductoRankeado>> getRecomendaciones() => _dataSource.getRecomendaciones();
-  Future<bool> addRecomendacion({ // <-- AÑADIDO
+  Future<bool> addRecomendacion({
     required int idProducto,
     required int idUsuario,
     required int puntuacion,
@@ -68,12 +66,14 @@ class DatabaseService {
   Future<bool> updateProducto(Producto producto) => _dataSource.updateProducto(producto);
   Future<bool> deleteProducto(int idProducto) => _dataSource.deleteProducto(idProducto);
   Future<Map<String, dynamic>> getAdminStats() => _dataSource.getAdminStats();
-  // --- MÉTODOS DE DELIVERY AÑADIDOS ---
+
+  // --- Métodos de Delivery ---
   Future<List<Pedido>> getPedidosDisponibles() => _dataSource.getPedidosDisponibles();
   Future<bool> asignarPedido(int idPedido, int idDelivery) => _dataSource.asignarPedido(idPedido, idDelivery);
   Future<List<Pedido>> getPedidosPorDelivery(int idDelivery) => _dataSource.getPedidosPorDelivery(idDelivery);
+  Future<Map<String, dynamic>> getDeliveryStats(int idDelivery) => _dataSource.getDeliveryStats(idDelivery);
 
-  // --- MÉTODOS DE TRACKING (LOS QUE FALTABAN) ---
+  // --- Métodos de Tracking ---
   Future<bool> updateRepartidorLocation(int idRepartidor, double lat, double lon) =>
       _dataSource.updateRepartidorLocation(idRepartidor, lat, lon);
 

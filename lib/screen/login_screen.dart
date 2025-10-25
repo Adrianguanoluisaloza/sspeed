@@ -14,19 +14,21 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
 
   bool _isLoading = false;
-  bool _obscureText = true;
+  bool _obscurePassword = true;
 
-  // --- FUNCIÓN DE LOGIN ---
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
 
+    final sessionController = context.read<SessionController>();
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
     final databaseService = Provider.of<DatabaseService>(context, listen: false);
 
     try {
@@ -77,6 +79,7 @@ class _LoginScreenState extends State<LoginScreen> {
             arguments: user,
           );
         }
+        navigator.pushNamedAndRemoveUntil(targetRoute, (route) => false, arguments: user);
       } else {
         databaseService.setAuthToken(null);
         messenger.showSnackBar(
@@ -94,13 +97,15 @@ class _LoginScreenState extends State<LoginScreen> {
         SnackBar(content: Text(fallbackMessage)),
       );
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
-  // --- INTERFAZ ---
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Bienvenido'),
@@ -129,26 +134,62 @@ class _LoginScreenState extends State<LoginScreen> {
                     labelText: 'Correo Electrónico',
                     prefixIcon: Icon(Icons.email),
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Por favor, ingresa tu correo.';
-                    }
-                    if (!value.contains('@')) {
-                      return 'Ingresa un correo válido.';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _passwordController,
-                  obscureText: _obscureText,
-                  decoration: InputDecoration(
-                    labelText: 'Contraseña',
-                    prefixIcon: const Icon(Icons.lock),
-                    suffixIcon: IconButton(
-                      icon: Icon(_obscureText ? Icons.visibility : Icons.visibility_off),
-                      onPressed: () => setState(() => _obscureText = !_obscureText),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Unite7speed',
+                    style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Tu comida favorita a un clic',
+                    style: TextStyle(fontSize: 16, color: Colors.white70),
+                  ),
+                  const SizedBox(height: 40),
+                  Card(
+                    elevation: 8,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          children: [
+                            TextFormField(
+                              controller: _emailController,
+                              keyboardType: TextInputType.emailAddress,
+                              decoration: const InputDecoration(labelText: 'Correo electrónico', prefixIcon: Icon(Icons.email_outlined)),
+                              validator: (val) => !(val?.contains('@') ?? false) ? 'Ingresa un correo válido' : null,
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _passwordController,
+                              obscureText: _obscurePassword,
+                              decoration: InputDecoration(
+                                labelText: 'Contraseña',
+                                prefixIcon: const Icon(Icons.lock_outline),
+                                suffixIcon: IconButton(
+                                  icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                                ),
+                              ),
+                              validator: (val) => (val?.isEmpty ?? true) ? 'Ingresa tu contraseña' : null,
+                            ),
+                            const SizedBox(height: 24),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: _isLoading ? null : _handleLogin,
+                                style: theme.elevatedButtonTheme.style?.copyWith(
+                                  padding: MaterialStateProperty.all(const EdgeInsets.symmetric(vertical: 16)),
+                                ),
+                                child: _isLoading
+                                    ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 3, color: Colors.white))
+                                    : const Text('Ingresar'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                   validator: (value) {
@@ -182,13 +223,24 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       ),
+      bottomNavigationBar: _buildRegisterButton(context),
     );
   }
 
-  @override
-  void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
-    super.dispose();
+  Widget _buildRegisterButton(BuildContext context) {
+    return Container(
+      color: const Color(0xFF1E3A8A), // Color azul oscuro del fondo
+      padding: const EdgeInsets.only(bottom: 24, top: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Text('¿No tienes cuenta? ', style: TextStyle(color: Colors.white70)),
+          GestureDetector(
+            onTap: () => Navigator.of(context).pushNamed(AppRoutes.register),
+            child: const Text('Regístrate', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 }

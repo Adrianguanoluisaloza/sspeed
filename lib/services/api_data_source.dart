@@ -544,7 +544,6 @@ class ApiDataSource implements DataSource {
     return response['success'] ?? false;
   }
 
-  // --- NUEVO MÉTODO IMPLEMENTADO ---
   @override
   Future<Map<String, dynamic>> getAdminStats() async =>
       _tryEndpoints<Map<String, dynamic>>(
@@ -708,4 +707,3 @@ class ApiDataSource implements DataSource {
     return status == 'ok' || status == 'success';
   }
 }
-
