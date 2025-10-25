@@ -87,4 +87,29 @@ class ChatConversation {
       'mensajes': mensajes.map((m) => m.toMap()).toList(),
     }..removeWhere((key, value) => value == null);
   }
+
+  /// Permite clonar la conversación actualizando únicamente los campos
+  /// necesarios, útil cuando sincronizamos los mensajes más recientes desde
+  /// la API de chat.
+  ChatConversation copyWith({
+    int? idConversacion,
+    int? idCliente,
+    int? idDelivery,
+    int? idAdminSoporte,
+    int? idPedido,
+    String? ultimoMensaje,
+    DateTime? fechaActualizacion,
+    List<ChatMessage>? mensajes,
+  }) {
+    return ChatConversation(
+      idConversacion: idConversacion ?? this.idConversacion,
+      idCliente: idCliente ?? this.idCliente,
+      idDelivery: idDelivery ?? this.idDelivery,
+      idAdminSoporte: idAdminSoporte ?? this.idAdminSoporte,
+      idPedido: idPedido ?? this.idPedido,
+      ultimoMensaje: ultimoMensaje ?? this.ultimoMensaje,
+      fechaActualizacion: fechaActualizacion ?? this.fechaActualizacion,
+      mensajes: mensajes ?? this.mensajes,
+    );
+  }
 }
