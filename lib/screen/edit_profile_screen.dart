@@ -12,7 +12,6 @@ class EditProfileScreen extends StatefulWidget {
 class _EditProfileScreenState extends State<EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
-  late TextEditingController _emailController;
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
@@ -20,13 +19,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.usuario.nombre);
-    _emailController = TextEditingController(text: widget.usuario.correo);
   }
 
   @override
   void dispose() {
     _nameController.dispose();
-    _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -58,13 +55,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 controller: _nameController,
                 decoration: const InputDecoration(labelText: 'Nombre'),
                 validator: (value) => value!.isEmpty ? 'El nombre no puede estar vacío' : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _emailController,
-                decoration: const InputDecoration(labelText: 'Correo Electrónico'),
-                keyboardType: TextInputType.emailAddress,
-                validator: (value) => !value!.contains('@') ? 'Correo no válido' : null,
               ),
               const SizedBox(height: 24),
               const Divider(),

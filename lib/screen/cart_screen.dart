@@ -12,7 +12,8 @@ class CartScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (usuario.isGuest) {
+    // CORRECCIÓN: Se usa la nueva lógica de autenticación
+    if (!usuario.isAuthenticated) {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Mi Carrito de Compras'),
@@ -272,4 +273,3 @@ Widget _buildSummaryCard(BuildContext context, CartModel cart, Usuario usuario) 
     ),
   );
 }
-

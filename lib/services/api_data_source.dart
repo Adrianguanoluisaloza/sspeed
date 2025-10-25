@@ -21,21 +21,10 @@ class ApiDataSource implements DataSource {
 
   ApiDataSource({http.Client? httpClient}) : _httpClient = httpClient ?? http.Client();
 
-  /// Normalizamos la URL base una única vez para evitar dobles barras cuando
-  /// el valor viene con o sin `/` al final (caso frecuente al usar túneles o IPs LAN).
-  late final String _normalizedBaseUrl =
-      _baseUrl.endsWith('/') ? _baseUrl.substring(0, _baseUrl.length - 1) : _baseUrl;
-
   static const Duration _timeout = Duration(seconds: 15);
 
   Map<String, String> get _jsonHeaders =>
       const {'Content-Type': 'application/json; charset=UTF-8'};
-
-  Uri _buildUri(String endpoint) {
-    final normalizedEndpoint =
-        endpoint.startsWith('/') ? endpoint : '/$endpoint';
-    return Uri.parse('$_normalizedBaseUrl$normalizedEndpoint');
-  }
 
   Map<String, dynamic> _parseMapResponse(http.Response response) {
     final raw = response.bodyBytes.isEmpty
@@ -47,7 +36,6 @@ class ApiDataSource implements DataSource {
       if (raw == null) return {'success': true};
       if (raw is Map<String, dynamic>) return raw;
       if (raw is List<dynamic>) {
-        // Algunos endpoints regresan listas puras; las envolvemos para no romper llamados existentes.
         return {'success': true, 'data': raw};
       }
       throw const ApiException('Respuesta inesperada del servidor.');
@@ -120,7 +108,7 @@ class ApiDataSource implements DataSource {
 
   Future<Map<String, dynamic>> _post(
       String endpoint, Map<String, dynamic> data) async {
-    final url = _buildUri(endpoint);
+    final url = Uri.parse('$_baseUrl$endpoint');
     debugPrint('🌍 POST: $url');
     debugPrint('   -> Body: ${jsonEncode(data)}');
     try {
@@ -136,7 +124,7 @@ class ApiDataSource implements DataSource {
 
   Future<Map<String, dynamic>> _put(
       String endpoint, Map<String, dynamic> data) async {
-    final url = _buildUri(endpoint);
+    final url = Uri.parse('$_baseUrl$endpoint');
     debugPrint('🌍 PUT: $url');
     debugPrint('   -> Body: ${jsonEncode(data)}');
     try {
@@ -151,7 +139,7 @@ class ApiDataSource implements DataSource {
   }
 
   Future<Map<String, dynamic>> _delete(String endpoint) async {
-    final url = _buildUri(endpoint);
+    final url = Uri.parse('$_baseUrl$endpoint');
     debugPrint('🗑️ DELETE: $url');
     try {
       final response = await _httpClient
@@ -165,7 +153,7 @@ class ApiDataSource implements DataSource {
   }
 
   Future<List<dynamic>> _get(String endpoint) async {
-    final uri = _buildUri(endpoint);
+    final uri = Uri.parse('$_baseUrl$endpoint');
     debugPrint('🌍 GET List: $uri');
     try {
       final response = await _httpClient.get(uri).timeout(_timeout);
@@ -177,7 +165,7 @@ class ApiDataSource implements DataSource {
   }
 
   Future<Map<String, dynamic>> _getMap(String endpoint) async {
-    final url = _buildUri(endpoint);
+    final url = Uri.parse('$_baseUrl$endpoint');
     debugPrint('🌍 GET Map: $url');
     try {
       final response = await _httpClient.get(url).timeout(_timeout);
@@ -200,7 +188,7 @@ class ApiDataSource implements DataSource {
         response['usuario'] ?? response['user'] ?? response['data'];
 
     if (rawUser is Map) {
-      return Usuario.fromMap(Map<String, dynamic>.from(rawUser as Map));
+      return Usuario.fromMap(Map<String, dynamic>.from(rawUser));
     }
     return null;
   }
@@ -254,7 +242,7 @@ class ApiDataSource implements DataSource {
     final response = await _post('/admin/productos', producto.toMap());
     if (response['success'] == true && response['producto'] != null) {
       return Producto.fromMap(
-        Map<String, dynamic>.from(response['producto'] as Map),
+        Map<String, dynamic>.from(response['producto']),
       );
     }
     return null;
@@ -341,7 +329,7 @@ class ApiDataSource implements DataSource {
     final payload = data.containsKey('pedido') && data.containsKey('detalles')
         ? data
         : (data['data'] is Map<String, dynamic>
-            ? Map<String, dynamic>.from(data['data'] as Map)
+            ? Map<String, dynamic>.from(data['data'])
             : data);
     if (payload.containsKey('pedido') && payload.containsKey('detalles')) {
       return PedidoDetalle.fromMap(payload);
@@ -363,10 +351,13 @@ class ApiDataSource implements DataSource {
     return response['success'] ?? false;
   }
 
-  // --- NUEVO MÉTODO IMPLEMENTADO ---
   @override
-  Future<Map<String, dynamic>> getAdminStats() async =>
-      _getMap('/admin/stats');
+  Future<Map<String, dynamic>> getAdminStats() => _getMap('/admin/stats');
+
+  // --- IMPLEMENTACIÓN DEL NUEVO MÉTODO ---
+  @override
+  Future<Map<String, dynamic>> getDeliveryStats(int idDelivery) =>
+      _getMap('/delivery/stats/$idDelivery');
 
   @override
   Future<List<Pedido>> getPedidosDisponibles() async {

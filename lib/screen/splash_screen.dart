@@ -21,38 +21,43 @@ class _SplashScreenState extends State<SplashScreen> {
     super.initState();
     _checkLoginStatus();
   }
+
   Future<void> _checkLoginStatus() async {
-    await Future.delayed(const Duration(milliseconds: 1200));
+    await Future.delayed(const Duration(milliseconds: 1500));
     if (!mounted) return;
+
     final prefs = await SharedPreferences.getInstance();
-    if (!mounted) return; // Validamos nuevamente antes de acceder al contexto tras obtener preferencias asíncronas.
+    if (!mounted) return;
+
     final userEmail = prefs.getString('userEmail');
     final userPassword = prefs.getString('userPassword');
+
     final databaseService = context.read<DatabaseService>();
     final session = context.read<SessionController>();
+    final navigator = Navigator.of(context);
 
     if (userEmail != null && userPassword != null) {
       try {
         final user = await databaseService.login(userEmail, userPassword);
-        if (!mounted) return;
         if (user != null && user.estaActivo) {
           session.setUser(user);
-          _navigateForUser(user);
-          return;
+          // Si el login es exitoso, navega a la pantalla correspondiente
+          _navigateForUser(user, navigator);
+          return; 
         }
       } on ApiException catch (_) {
-        // Ignoramos, el flujo continuará como invitado
+        // Si la API falla, no hacemos nada y dejamos que siga el flujo no-autenticado.
       } catch (_) {
-        // Cualquier otro error redirige al flujo invitado
+        // Cualquier otro error, también.
       }
     }
-
-    if (!mounted) return;
-    session.setGuest();
-    _navigateAsGuest();
+    
+    // SI NO HAY LOGIN, SIEMPRE NAVEGA A LA PANTALLA PRINCIPAL CON UN USUARIO NO AUTENTICADO
+    session.clearUser();
+    navigator.pushReplacementNamed(AppRoutes.mainNavigator, arguments: Usuario.noAuth());
   }
 
-  void _navigateForUser(Usuario user) {
+  void _navigateForUser(Usuario user, NavigatorState navigator) {
     String targetRoute;
     switch (user.rol) {
       case 'admin':
@@ -64,19 +69,11 @@ class _SplashScreenState extends State<SplashScreen> {
       default:
         targetRoute = AppRoutes.mainNavigator;
     }
-
-    Navigator.of(context).pushReplacementNamed(targetRoute, arguments: user);
-  }
-
-  void _navigateAsGuest() {
-    final guest = context.read<SessionController>().usuario;
-    Navigator.of(context)
-        .pushReplacementNamed(AppRoutes.mainNavigator, arguments: guest);
+    navigator.pushReplacementNamed(targetRoute, arguments: user);
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -93,21 +90,13 @@ class _SplashScreenState extends State<SplashScreen> {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.12), // Reemplazo recomendado para evitar deprecaciones.
+                  color: Colors.white.withAlpha(30),
                   borderRadius: BorderRadius.circular(24),
                 ),
-                child: const Icon(Icons.delivery_dining,
-                    size: 120, color: Colors.white),
+                child: const Icon(Icons.delivery_dining, size: 120, color: Colors.white),
               ),
               const SizedBox(height: 24),
-              Text(
-                'Unite7speed Delivery',
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.8,
-                ),
-              ),
+              Text('Unite7speed Delivery', style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
               const SizedBox(height: 40),
               const CircularProgressIndicator(color: Colors.white),
             ],
@@ -117,4 +106,3 @@ class _SplashScreenState extends State<SplashScreen> {
     );
   }
 }
-
