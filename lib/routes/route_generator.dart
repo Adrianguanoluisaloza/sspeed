@@ -3,16 +3,15 @@ import 'package:flutter/material.dart';
 import '../admin/admin_home_screen.dart';
 import '../delivery/delivery_home_screen.dart';
 import '../models/usuario.dart';
-import '../screen/edit_profile_screen.dart';
 import '../screen/login_screen.dart';
 import '../screen/main_navigator.dart';
 import '../screen/order_detail_screen.dart';
 import '../screen/order_history_screen.dart';
 import '../screen/register_screen.dart';
 import '../screen/splash_screen.dart';
-import '../screen/tracking_simulation_screen.dart'; // IMPORTAMOS LA NUEVA PANTALLA
 import 'app_routes.dart';
 
+/// Generador de rutas con animaciones suaves para mantener transiciones consistentes.
 class RouteGenerator {
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -28,21 +27,6 @@ class RouteGenerator {
           return _fade(settings, MainNavigator(usuario: usuario));
         }
         return _redirectToLogin(settings);
-      case AppRoutes.editProfile:
-        final usuario = settings.arguments;
-        if (usuario is Usuario) {
-          return _slideUp(settings, EditProfileScreen(usuario: usuario));
-        }
-        return _redirectToLogin(settings);
-
-      // --- RUTA NUEVA PARA SIMULACIÓN DE TRACKING ---
-      case AppRoutes.trackingSimulation:
-        final idPedido = settings.arguments;
-        if (idPedido is int) {
-          return _fade(settings, TrackingSimulationScreen(idPedido: idPedido));
-        }
-        return _redirectToLogin(settings);
-
       case AppRoutes.adminHome:
         final usuario = settings.arguments;
         if (usuario is Usuario) {
@@ -72,6 +56,7 @@ class RouteGenerator {
     }
   }
 
+  /// Ruta de emergencia: redirige a login cuando faltan argumentos obligatorios.
   static Route<dynamic> _redirectToLogin(RouteSettings settings) {
     return _fade(settings, const LoginScreen());
   }

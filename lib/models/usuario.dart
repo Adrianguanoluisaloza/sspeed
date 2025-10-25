@@ -1,4 +1,8 @@
 /// Modelo de datos para la tabla `usuarios`.
+///
+/// Se alinea estrictamente con el esquema definido en
+/// `delivery_db_corrected.sql`, incorporando los campos agregados
+/// posteriormente como `fecha_registro` y `activo`.
 class Usuario {
   final int idUsuario;
   final String nombre;
@@ -7,6 +11,9 @@ class Usuario {
   final String? telefono;
   final DateTime? fechaRegistro;
   final bool activo;
+  final String? contrasena;
+  final bool esInvitado;
+  final String? token;
 
   const Usuario({
     required this.idUsuario,
@@ -15,28 +22,15 @@ class Usuario {
     required this.rol,
     this.telefono,
     this.fechaRegistro,
+    this.contrasena,
     this.activo = true,
+    this.esInvitado = false,
+    this.token,
   });
-
-  /// Devuelve `true` si el usuario está autenticado (ID > 0).
-  bool get isAuthenticated => idUsuario > 0;
-
-  /// Devuelve `true` si la cuenta del usuario está activa.
-  bool get estaActivo => activo;
-
-  /// Constructor para un usuario no autenticado.
-  factory Usuario.noAuth() {
-    return const Usuario(
-      idUsuario: 0, // Un ID de 0 representa a un usuario no autenticado
-      nombre: 'Visitante',
-      correo: '',
-      rol: 'ninguno',
-      activo: false,
-    );
-  }
 
   /// Crea una instancia a partir del mapa JSON devuelto por la API.
   factory Usuario.fromMap(Map<String, dynamic> map) {
+    // Compatibilidad dual: aceptamos claves en snake_case o camelCase según la API.
     dynamic readValue(List<String> keys) {
       for (final key in keys) {
         if (map.containsKey(key) && map[key] != null) {
@@ -48,13 +42,17 @@ class Usuario {
 
     int parseInt(dynamic value) {
       if (value is num) return value.toInt();
-      if (value is String) return int.tryParse(value) ?? 0;
+      if (value is String) {
+        return int.tryParse(value) ?? 0;
+      }
       return 0;
     }
 
     DateTime? parseDate(dynamic value) {
       if (value is DateTime) return value;
-      if (value is String && value.isNotEmpty) return DateTime.tryParse(value);
+      if (value is String && value.isNotEmpty) {
+        return DateTime.tryParse(value);
+      }
       return null;
     }
 
@@ -65,6 +63,7 @@ class Usuario {
       rol: readValue(['rol', 'role'])?.toString() ?? 'cliente',
       telefono: readValue(['telefono', 'phone'])?.toString(),
       fechaRegistro: parseDate(readValue(['fecha_registro', 'fechaRegistro'])),
+      contrasena: readValue(['contrasena', 'password'])?.toString(),
       activo: (() {
         final raw = readValue(['activo', 'isActive']);
         if (raw is bool) return raw;
@@ -74,10 +73,24 @@ class Usuario {
         }
         return true;
       })(),
+      token: readValue(['token', 'access_token', 'jwt'])?.toString(),
     );
   }
 
-  /// Conversión a mapa para peticiones POST/PUT.
+  /// Instancia utilizada para el modo invitado (sin autenticación).
+  factory Usuario.guest() {
+    return Usuario(
+      idUsuario: 0,
+      nombre: 'Invitado',
+      correo: 'invitado@local',
+      rol: 'invitado',
+      activo: true,
+      esInvitado: true,
+      token: null,
+    );
+  }
+
+  /// Conversión a mapa para peticiones POST/PUT cuando sea necesario.
   Map<String, dynamic> toMap() {
     return {
       'id_usuario': idUsuario,
@@ -87,6 +100,40 @@ class Usuario {
       'telefono': telefono,
       'fecha_registro': fechaRegistro?.toIso8601String(),
       'activo': activo,
+      'contrasena': contrasena,
+      'token': token,
     }..removeWhere((key, value) => value == null);
+  }
+
+  bool get estaActivo => activo;
+  bool get isGuest => esInvitado;
+
+  /// Método auxiliar para actualizar propiedades opcionales sin perder la
+  /// información original del usuario autenticado (por ejemplo, al adjuntar
+  /// el token JWT proveniente de la API unificada).
+  Usuario copyWith({
+    int? idUsuario,
+    String? nombre,
+    String? correo,
+    String? rol,
+    String? telefono,
+    DateTime? fechaRegistro,
+    bool? activo,
+    String? contrasena,
+    bool? esInvitado,
+    String? token,
+  }) {
+    return Usuario(
+      idUsuario: idUsuario ?? this.idUsuario,
+      nombre: nombre ?? this.nombre,
+      correo: correo ?? this.correo,
+      rol: rol ?? this.rol,
+      telefono: telefono ?? this.telefono,
+      fechaRegistro: fechaRegistro ?? this.fechaRegistro,
+      contrasena: contrasena ?? this.contrasena,
+      activo: activo ?? this.activo,
+      esInvitado: esInvitado ?? this.esInvitado,
+      token: token ?? this.token,
+    );
   }
 }

@@ -21,43 +21,47 @@ class _SplashScreenState extends State<SplashScreen> {
     super.initState();
     _checkLoginStatus();
   }
-
   Future<void> _checkLoginStatus() async {
-    await Future.delayed(const Duration(milliseconds: 1500));
+    await Future.delayed(const Duration(milliseconds: 1200));
     if (!mounted) return;
-
     final prefs = await SharedPreferences.getInstance();
-    if (!mounted) return;
-
+    if (!mounted) return; // Validamos nuevamente antes de acceder al contexto tras obtener preferencias asíncronas.
     final userEmail = prefs.getString('userEmail');
     final userPassword = prefs.getString('userPassword');
-
+    final storedToken = prefs.getString('authToken');
     final databaseService = context.read<DatabaseService>();
     final session = context.read<SessionController>();
-    final navigator = Navigator.of(context);
+
+    databaseService.setAuthToken(storedToken);
 
     if (userEmail != null && userPassword != null) {
       try {
         final user = await databaseService.login(userEmail, userPassword);
+        if (!mounted) return;
         if (user != null && user.estaActivo) {
+          databaseService.setAuthToken(user.token);
+          if (user.token != null && user.token!.isNotEmpty) {
+            await prefs.setString('authToken', user.token!);
+          }
           session.setUser(user);
-          // Si el login es exitoso, navega a la pantalla correspondiente
-          _navigateForUser(user, navigator);
-          return; 
+          _navigateForUser(user);
+          return;
         }
       } on ApiException catch (_) {
-        // Si la API falla, no hacemos nada y dejamos que siga el flujo no-autenticado.
+        // Ignoramos, el flujo continuará como invitado
       } catch (_) {
-        // Cualquier otro error, también.
+        // Cualquier otro error redirige al flujo invitado
       }
     }
-    
-    // SI NO HAY LOGIN, SIEMPRE NAVEGA A LA PANTALLA PRINCIPAL CON UN USUARIO NO AUTENTICADO
-    session.clearUser();
-    navigator.pushReplacementNamed(AppRoutes.mainNavigator, arguments: Usuario.noAuth());
+
+    if (!mounted) return;
+    await prefs.remove('authToken');
+    databaseService.setAuthToken(null);
+    session.setGuest();
+    _navigateAsGuest();
   }
 
-  void _navigateForUser(Usuario user, NavigatorState navigator) {
+  void _navigateForUser(Usuario user) {
     String targetRoute;
     switch (user.rol) {
       case 'admin':
@@ -69,11 +73,19 @@ class _SplashScreenState extends State<SplashScreen> {
       default:
         targetRoute = AppRoutes.mainNavigator;
     }
-    navigator.pushReplacementNamed(targetRoute, arguments: user);
+
+    Navigator.of(context).pushReplacementNamed(targetRoute, arguments: user);
+  }
+
+  void _navigateAsGuest() {
+    final guest = context.read<SessionController>().usuario;
+    Navigator.of(context)
+        .pushReplacementNamed(AppRoutes.mainNavigator, arguments: guest);
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -90,13 +102,21 @@ class _SplashScreenState extends State<SplashScreen> {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: Colors.white.withAlpha(30),
+                  color: Colors.white.withValues(alpha: 0.12), // Reemplazo recomendado para evitar deprecaciones.
                   borderRadius: BorderRadius.circular(24),
                 ),
-                child: const Icon(Icons.delivery_dining, size: 120, color: Colors.white),
+                child: const Icon(Icons.delivery_dining,
+                    size: 120, color: Colors.white),
               ),
               const SizedBox(height: 24),
-              Text('Unite7speed Delivery', style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
+              Text(
+                'Unite7speed Delivery',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                ),
+              ),
               const SizedBox(height: 40),
               const CircularProgressIndicator(color: Colors.white),
             ],
@@ -106,3 +126,4 @@ class _SplashScreenState extends State<SplashScreen> {
     );
   }
 }
+

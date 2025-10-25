@@ -31,8 +31,7 @@ class _CheckoutAddressScreenState extends State<CheckoutAddressScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // CORRECCIÓN: Usamos la nueva lógica !isAuthenticated en lugar de isGuest
-    if (!widget.usuario.isAuthenticated) {
+    if (widget.usuario.isGuest) {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Seleccionar Dirección'),
@@ -193,3 +192,4 @@ class _CheckoutAddressScreenState extends State<CheckoutAddressScreen> {
     );
   }
 }
+

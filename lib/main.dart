@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:permission_handler/permission_handler.dart'; // PAQUETE AÑADIDO
-
 import 'models/cart_model.dart';
 import 'models/session_state.dart';
 import 'services/database_service.dart';
@@ -79,7 +77,7 @@ class MyApp extends StatelessWidget {
         elevation: 3,
         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      ), 
+      ), // Ajustamos a CardThemeData para cumplir con Material 3.
       inputDecorationTheme: InputDecorationTheme(
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
@@ -97,6 +95,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: theme,
       initialRoute: AppRoutes.splash,
+      // Centralizamos toda la navegación para conseguir transiciones consistentes.
       onGenerateRoute: RouteGenerator.generateRoute,
     );
   }

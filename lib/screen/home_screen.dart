@@ -7,6 +7,7 @@ import 'package:shimmer/shimmer.dart';
 import '../models/cart_model.dart';
 import '../models/producto.dart';
 import '../services/database_service.dart';
+import '../routes/app_routes.dart';
 import 'cart_screen.dart' show CartScreen;
 import 'product_detail_screen.dart';
 import 'widgets/login_required_dialog.dart';
@@ -27,19 +28,18 @@ class _HomeScreenState extends State<HomeScreen> {
   String _selectedCategory = "Todos";
   Timer? _debounce;
 
-  // CORRECCIÓN: Se amplía la lista de categorías a más de 10
+  bool get _isGuest => widget.usuario.isGuest;
+
   final List<String> _categories = const [
     'Todos',
     'Pizzas',
     'Hamburguesas',
     'Acompañamientos',
     'Bebidas',
-    'Postres',
     'Ensaladas',
     'Pastas',
     'Mexicana',
     'Japonesa',
-    'Mariscos',
   ];
 
   @override
@@ -59,10 +59,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _loadProducts() {
     final query = _searchController.text.trim();
-    final categoryFilter = _selectedCategory == 'Todos' ? '' : _selectedCategory;
+    final categoryFilter = _selectedCategory == 'Todos' ? null : _selectedCategory;
     setState(() {
       _productosFuture = _databaseService.getProductos(
-        query: query,
+        query: query.isEmpty ? null : query,
         categoria: categoryFilter,
       );
     });
@@ -89,37 +89,181 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  void _handleCartTap() {
+    if (_isGuest) {
+      showLoginRequiredDialog(context);
+      return;
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CartScreen(usuario: widget.usuario),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final firstName = widget.usuario.nombre.split(' ').first;
     return Scaffold(
       appBar: AppBar(
-        title: Text('Hola, ${!widget.usuario.isAuthenticated ? 'invitado' : firstName}'),
+        titleSpacing: 16,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Hola, ${_isGuest ? 'invitado' : firstName}',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 4),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              child: Chip(
+                key: ValueKey(_isGuest),
+                backgroundColor: Colors.white.withValues(alpha: 0.2), // Reemplazamos withOpacity por la alternativa recomendada sin modificar el estilo original.
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                label: Text(
+                  _isGuest ? 'Modo invitado' : 'Sesión activa',
+                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                ),
+                avatar: Icon(
+                  _isGuest ? Icons.visibility_off : Icons.verified,
+                  size: 16,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
         actions: [
+          if (_isGuest)
+            TextButton(
+              onPressed: () =>
+                  Navigator.of(context).pushNamed(AppRoutes.login),
+              child: const Text('Iniciar sesión', style: TextStyle(color: Colors.white)),
+            ),
+          if (_isGuest)
+            TextButton(
+              onPressed: () =>
+                  Navigator.of(context).pushNamed(AppRoutes.register),
+              child: const Text('Registrarse', style: TextStyle(color: Colors.white70)),
+            ),
           Consumer<CartModel>(
-            builder: (context, cart, child) => Badge(
-              label: Text(cart.items.length.toString()),
-              isLabelVisible: cart.items.isNotEmpty,
-              child: IconButton(icon: const Icon(Icons.shopping_cart), onPressed: _handleCartTap),
+            builder: (context, cart, child) => Stack(
+              alignment: Alignment.center,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.shopping_cart),
+                  onPressed: _handleCartTap,
+                ),
+                if (cart.items.isNotEmpty)
+                  Positioned(
+                    right: 8,
+                    top: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                      child: Text(
+                        '${cart.items.length}',
+                        style: const TextStyle(color: Colors.white, fontSize: 10),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: _refresh,
-        child: CustomScrollView(
-          slivers: <Widget>[
-            SliverToBoxAdapter(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildSearchBar(),
-                  _buildCategoryList(),
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(16, 24, 16, 8),
-                    child: Text('Nuestro Menú', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                  ),
-                ],
+        onRefresh: () async {
+          _searchController.clear();
+          setState(() {
+            _selectedCategory = "Todos";
+            _recomendacionesFuture = _databaseService.getRecomendaciones();
+          });
+          _loadProducts();
+        },
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildSearchBar(),
+              _buildCategoryList(),
+              const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Text('Recomendaciones para ti',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              ),
+              SizedBox(
+                height: 120,
+                child: FutureBuilder<List<ProductoRankeado>>(
+                  future: _recomendacionesFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const RecommendationsListLoading();
+                    }
+                    if (snapshot.hasError) {
+                      return InfoState(
+                        icon: Icons.sentiment_dissatisfied,
+                        title: 'No se pudo cargar',
+                        message: 'Intenta actualizar las recomendaciones.',
+                        actionLabel: 'Reintentar',
+                        onAction: () {
+                          setState(() {
+                            _recomendacionesFuture =
+                                _databaseService.getRecomendaciones();
+                          });
+                        },
+                      );
+                    }
+                    if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                      return const InfoState(
+                        icon: Icons.star_border,
+                        title: 'Sin recomendaciones',
+                        message:
+                            'Cuando agregues reseñas verás sugerencias aquí.',
+                      );
+                    }
+                    return _buildRecommendationsList(snapshot.data!);
+                  },
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Text('Todos los Productos',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              ),
+              FutureBuilder<List<Producto>>(
+                future: _productosFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const ProductsGridLoading();
+                  }
+                  if (snapshot.hasError) {
+                    return InfoState(
+                      icon: Icons.cloud_off,
+                      title: 'Error al cargar productos',
+                      message: 'Revisa tu conexión e intenta nuevamente.',
+                      actionLabel: 'Reintentar',
+                      onAction: _loadProducts,
+                    );
+                  }
+                  if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                    return const InfoState(
+                      icon: Icons.search_off,
+                      title: 'No encontramos productos',
+                      message:
+                          'Prueba con otra búsqueda o categoría disponible.',
+                    );
+                  }
+                  return _buildProductsGrid(snapshot.data!);
+                },
               ),
             ),
             _buildProductsGrid(),
@@ -138,7 +282,13 @@ class _HomeScreenState extends State<HomeScreen> {
           hintText: 'Buscar...',
           prefixIcon: const Icon(Icons.search),
           suffixIcon: _searchController.text.isNotEmpty
-              ? IconButton(icon: const Icon(Icons.clear), onPressed: () => _searchController.clear())
+              ? IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    _searchController.clear();
+                    _loadProducts(); // Forzamos el refresco inmediato al limpiar el buscador para evitar estados inconsistentes.
+                  },
+                )
               : null,
         ),
       ),
@@ -204,6 +354,33 @@ class _HomeScreenState extends State<HomeScreen> {
       },
     );
   }
+
+  Widget _buildProductsGrid(List<Producto> productos) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 350),
+      child: GridView.builder(
+        key: ValueKey(productos.length + productos.hashCode),
+        physics: const NeverScrollableScrollPhysics(),
+        shrinkWrap: true,
+        padding: const EdgeInsets.all(16),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          childAspectRatio: 0.75,
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
+        ),
+        itemCount: productos.length,
+        itemBuilder: (context, index) {
+          final producto = productos[index];
+          return ProductCard(
+            producto: producto,
+            usuario: widget.usuario,
+            isGuest: _isGuest,
+          );
+        },
+      ),
+    );
+  }
 }
 
 // --- WIDGETS AUXILIARES ---
@@ -213,7 +390,12 @@ class ProductCard extends StatelessWidget {
   final Usuario usuario;
   final bool isGuest;
 
-  const ProductCard({required this.producto, required this.usuario, required this.isGuest, super.key});
+  const ProductCard({
+    required this.producto,
+    required this.usuario,
+    required this.isGuest,
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -225,21 +407,48 @@ class ProductCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Expanded(child: Hero(tag: 'product-${producto.idProducto}', child: _ProductImage(imageUrl: producto.imagenUrl))),
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(producto.nombre, style: const TextStyle(fontWeight: FontWeight.bold), maxLines: 2, overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 4),
-                  Text('\$${producto.precio.toStringAsFixed(2)}', style: TextStyle(color: Colors.green.shade800, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 4),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(onPressed: isGuest ? () => showLoginRequiredDialog(context) : () => cart.addToCart(producto), child: const Text('Añadir')),
-                  ),
-                ],
+            Expanded(
+              flex: 3,
+              child: Hero(
+                tag: 'product-${producto.idProducto}',
+                child: _ProductImage(imageUrl: producto.imagenUrl),
+              ),
+            ),
+            Expanded(
+              flex: 4,
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(producto.nombre,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis),
+                    const Spacer(),
+                    Text('\$${producto.precio.toStringAsFixed(2)}',
+                        style: TextStyle(
+                            color: Colors.green.shade800,
+                            fontWeight: FontWeight.bold)),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: isGuest
+                            ? () => showLoginRequiredDialog(context)
+                            : () {
+                                cart.addToCart(producto);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('${producto.nombre} añadido'),
+                                    duration: const Duration(seconds: 1),
+                                  ),
+                                );
+                              },
+                        child: const Text('Añadir'),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -251,8 +460,45 @@ class ProductCard extends StatelessWidget {
 
 class _ProductImage extends StatelessWidget {
   final String? imageUrl;
-  const _ProductImage({this.imageUrl});
+  const _ProductImage({required this.imageUrl});
 
+  @override
+  Widget build(BuildContext context) {
+    if (imageUrl == null || imageUrl!.isEmpty) {
+      return _ImagePlaceholder(icon: Icons.fastfood);
+    }
+
+    return Image.network(
+      imageUrl!,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) =>
+          _ImagePlaceholder(icon: Icons.image_not_supported),
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return Container(
+          color: Colors.grey.shade200,
+          child: const Center(child: CircularProgressIndicator()),
+        );
+      },
+    );
+  }
+}
+
+class _ImagePlaceholder extends StatelessWidget {
+  final IconData icon;
+  const _ImagePlaceholder({required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.grey.shade200,
+      child: Icon(icon, color: Colors.grey.shade400, size: 40),
+    );
+  }
+}
+
+class ProductsGridLoading extends StatelessWidget {
+  const ProductsGridLoading({super.key});
   @override
   Widget build(BuildContext context) {
     if (imageUrl == null || imageUrl!.isEmpty) return _ImagePlaceholder();
@@ -262,7 +508,58 @@ class _ProductImage extends StatelessWidget {
   }
 }
 
-class _ImagePlaceholder extends StatelessWidget {
+class InfoState extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String message;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  const InfoState({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.message,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 48, color: theme.colorScheme.primary),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey.shade600),
+            ),
+            if (actionLabel != null && onAction != null) ...[
+              const SizedBox(height: 16),
+              OutlinedButton(onPressed: onAction, child: Text(actionLabel!)),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ProductCardSkeleton extends StatelessWidget {
+  const ProductCardSkeleton({super.key});
   @override
   Widget build(BuildContext context) => Container(color: Colors.grey.shade200, child: Icon(Icons.fastfood, color: Colors.grey.shade400, size: 40));
 }
@@ -295,3 +592,4 @@ class ProductsGridLoading extends StatelessWidget {
       )
   );
 }
+

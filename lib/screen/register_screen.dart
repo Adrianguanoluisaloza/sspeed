@@ -38,14 +38,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     setState(() => _isLoading = true);
+    final databaseService =
+        Provider.of<DatabaseService>(context, listen: false);
 
     try {
-      final success = await dbService.register(
+      // Nos aseguramos de no enviar un token previo al crear una cuenta nueva.
+      databaseService.setAuthToken(null);
+      final success = await databaseService.register(
         _nameController.text.trim(),
         _emailController.text.trim(),
         _passwordController.text,
         _phoneController.text.trim(),
       );
+
+      if (!mounted) return;
+
+      final messenger = ScaffoldMessenger.of(context);
+      final navigator = Navigator.of(context);
+      final focusScope = FocusScope.of(context);
 
       if (success) {
         messenger.showSnackBar(
@@ -60,7 +70,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         _phoneController.clear();
         _passwordController.clear();
         _confirmPasswordController.clear();
-        FocusScope.of(context).unfocus();
+        focusScope.unfocus(); // Garantizamos que el teclado se oculte y los campos queden limpios.
         navigator.pushReplacementNamed(AppRoutes.login);
       } else {
         messenger.showSnackBar(
@@ -71,6 +81,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         );
       }
     } catch (e) {
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
       messenger.showSnackBar(
         SnackBar(
           content: Text('Error: ${e.toString()}'),
@@ -94,21 +106,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
         child: TweenAnimationBuilder<double>(
           duration: const Duration(milliseconds: 360),
           tween: Tween(begin: 0, end: 1),
+          // Animación tenue para mejorar la transición desde login sin alterar el diseño.
           builder: (context, opacity, child) => Opacity(opacity: opacity, child: child),
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
             child: Form(
               key: _formKey,
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text(
-                    'Crea tu cuenta Unite7speed',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.deepOrange,
-                    ),
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text(
+                  'Crea tu cuenta Unite7speed',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.deepOrange,
+                  ),
+                ),
+                const SizedBox(height: 30),
+                Card(
+                  elevation: 8,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   const SizedBox(height: 30),
                   Card(
@@ -193,19 +212,38 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               return null;
                             },
                           ),
-                          const SizedBox(height: 30),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 50,
-                            child: AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 220),
-                              child: _isLoading
-                                  ? const Center(
-                                      key: ValueKey('loading'),
-                                      child: CircularProgressIndicator(color: Colors.white),
-                                    )
-                                  : ElevatedButton(
-                                      key: const ValueKey('register_button'),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Confirma tu contraseña';
+                            }
+                            // Valida que sea igual al campo de contraseña original
+                            if (value != _passwordController.text) {
+                              return 'Las contraseñas no coinciden';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 30),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 50,
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 220),
+                            child: _isLoading
+                                ? const SizedBox(
+                                    key: ValueKey('register_loading'),
+                                    width: 20,
+                                    height: 20,
+                                    child: Center(
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  )
+                                : SizedBox.expand(
+                                    key: const ValueKey('register_button'),
+                                    child: ElevatedButton(
                                       onPressed: _register,
                                       child: const Text(
                                         'Registrarme',
@@ -215,7 +253,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                         ),
                                       ),
                                     ),
-                            ),
+                                  ),
                           ),
                         ],
                       ),
@@ -229,8 +267,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       style: TextStyle(color: Colors.indigo),
                     ),
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 20),
+                TextButton(
+                  onPressed: () => Navigator.of(context)
+                      .pushReplacementNamed(AppRoutes.login),
+                  child: const Text('¿Ya tienes cuenta? Inicia sesión',
+                      style: TextStyle(color: Colors.indigo)),
+                ),
+              ],
             ),
           ),
         ),

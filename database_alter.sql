@@ -1,6 +1,31 @@
 -- Script auxiliar para exponer métricas del panel administrativo.
 -- Mantiene compatibilidad con delivery_db_corrr.sql sin modificar sus tablas base.
 
+-- Columnas opcionales para rastrear la ubicación actual de repartidores.
+ALTER TABLE usuarios
+    ADD COLUMN IF NOT EXISTS latitud_actual DECIMAL(10,6),
+    ADD COLUMN IF NOT EXISTS longitud_actual DECIMAL(10,6);
+
+-- Inicializamos la última ubicación conocida del repartidor usando la data
+-- histórica de la tabla `ubicaciones` para que la app móvil tenga un punto
+-- de partida en la simulación.
+WITH ubicaciones_delivery AS (
+    SELECT DISTINCT ON (u.id_usuario)
+        u.id_usuario,
+        ub.latitud,
+        ub.longitud
+    FROM usuarios u
+    JOIN ubicaciones ub ON ub.id_usuario = u.id_usuario
+    WHERE u.rol = 'delivery'
+    ORDER BY u.id_usuario, ub.fecha_registro DESC, ub.id_ubicacion DESC
+)
+UPDATE usuarios u
+SET latitud_actual = ud.latitud,
+    longitud_actual = ud.longitud
+FROM ubicaciones_delivery ud
+WHERE u.id_usuario = ud.id_usuario
+  AND (u.latitud_actual IS NULL OR u.longitud_actual IS NULL);
+
 -- Vista con métricas diarias y acumuladas para el panel de administración.
 CREATE OR REPLACE VIEW vw_admin_resumen_diario AS
 WITH pedidos_data AS (

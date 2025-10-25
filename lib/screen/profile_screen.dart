@@ -19,72 +19,75 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   Future<List<Ubicacion>>? _ubicacionesFuture;
 
+  bool get _isGuest => widget.usuario.isGuest;
+
   @override
   void initState() {
     super.initState();
-    // Solo carga ubicaciones si el usuario está autenticado
-    if(widget.usuario.isAuthenticated) {
-      _loadUbicaciones();
+    if (!_isGuest) {
+      _ubicacionesFuture = Provider.of<DatabaseService>(context, listen: false)
+          .getUbicaciones(widget.usuario.idUsuario);
     }
-  }
-
-  void _loadUbicaciones() {
-    _ubicacionesFuture = Provider.of<DatabaseService>(context, listen: false)
-        .getUbicaciones(widget.usuario.idUsuario);
   }
 
   Future<void> _handleLogout() async {
     final navigator = Navigator.of(context);
     final session = context.read<SessionController>();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
+    await prefs.remove('userEmail');
+    await prefs.remove('userPassword');
+    await prefs.remove('authToken');
 
-    if (mounted) {
-      session.clearUser(); // CORRECCIÓN: Se usa el método correcto
-      navigator.pushNamedAndRemoveUntil(AppRoutes.login, (route) => false);
-    }
+    if (!mounted) return;
+    context.read<DatabaseService>().setAuthToken(null);
+    context.read<SessionController>().setGuest();
+    Navigator.of(context)
+        .pushNamedAndRemoveUntil(AppRoutes.login, (route) => false);
   }
 
   @override
   Widget build(BuildContext context) {
-    // Si el usuario no está autenticado, muestra una pantalla para iniciar sesión.
-    if (!widget.usuario.isAuthenticated) {
-      return _buildLoggedOutScreen(context);
-    }
-    
-    // Si está autenticado, muestra la pantalla normal del perfil.
-    return _buildLoggedInScreen(context);
-  }
-
-  Widget _buildLoggedOutScreen(BuildContext context) {
-    return Scaffold(
-       appBar: AppBar(
-        title: const Text('Mi Perfil'),
-      ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.person_off_outlined, size: 96, color: Theme.of(context).colorScheme.primary),
-              const SizedBox(height: 16),
-              const Text('Inicia sesión para ver tu perfil', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-              const SizedBox(height: 8),
-              const Text('Guarda direcciones, edita tu perfil y consulta tu historial de pedidos.', textAlign: TextAlign.center),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () => Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.login, (route) => false),
-                child: const Text('Iniciar Sesión o Registrarse'),
-              ),
-            ],
+    if (_isGuest) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Mi Perfil'),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.person_outline,
+                    size: 96, color: Theme.of(context).colorScheme.primary),
+                const SizedBox(height: 16),
+                const Text(
+                  'Explora más iniciando sesión',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Guarda direcciones, consulta tu historial de pedidos y personaliza tu experiencia.',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: () =>
+                      Navigator.of(context).pushNamed(AppRoutes.login),
+                  child: const Text('Iniciar sesión'),
+                ),
+                TextButton(
+                  onPressed: () =>
+                      Navigator.of(context).pushNamed(AppRoutes.register),
+                  child: const Text('Crear una cuenta'),
+                )
+              ],
+            ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildLoggedInScreen(BuildContext context) {
+      );
+    }
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mi Perfil'),
@@ -113,22 +116,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
             // Acciones de la cuenta
             Card(
-              child: Column(
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.edit, color: Colors.deepOrange),
-                    title: const Text('Editar Perfil'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => Navigator.of(context).pushNamed(AppRoutes.editProfile, arguments: widget.usuario),
-                  ),
-                  const Divider(height: 1),
-                  ListTile(
-                    leading: const Icon(Icons.receipt_long, color: Colors.deepOrange),
-                    title: const Text('Historial de Pedidos'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => Navigator.of(context).pushNamed(AppRoutes.orderHistory, arguments: widget.usuario),
-                  ),
-                ],
+              child: ListTile(
+                leading: const Icon(Icons.receipt_long, color: Colors.deepOrange),
+                title: const Text('Historial de Pedidos'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.of(context).pushNamed(
+                    AppRoutes.orderHistory,
+                    arguments: widget.usuario,
+                  );
+                },
               ),
             ),
             const SizedBox(height: 20),
@@ -160,9 +157,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     return Card(
                       margin: const EdgeInsets.only(top: 8.0),
                       child: ListTile(
-                        leading: const Icon(Icons.place, color: Colors.green),
+                        leading:
+                        const Icon(Icons.place, color: Colors.green),
                         title: Text(ubicacion.direccion ?? 'Dirección sin especificar'),
-                        subtitle: Text('Lat: ${ubicacion.latitud.toStringAsFixed(4)}, Lon: ${ubicacion.longitud.toStringAsFixed(4)}'),
+                        subtitle: Text(
+                            'Lat: ${ubicacion.latitud.toStringAsFixed(4)}, Lon: ${ubicacion.longitud.toStringAsFixed(4)}'),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.redAccent),
+                          onPressed: () {
+                            // TODO: lógica de eliminación
+                          },
+                        ),
                       ),
                     );
                   },
@@ -189,3 +194,4 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 }
+

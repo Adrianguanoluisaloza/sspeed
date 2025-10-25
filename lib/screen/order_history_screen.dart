@@ -8,6 +8,8 @@ import 'package:intl/intl.dart';
 
 import '../routes/app_routes.dart';
 
+import '../routes/app_routes.dart';
+
 class OrderHistoryScreen extends StatefulWidget {
   final Usuario usuario;
   const OrderHistoryScreen({super.key, required this.usuario});
@@ -31,8 +33,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // CORRECCIÓN: Usamos la nueva lógica !isAuthenticated
-    if (!widget.usuario.isAuthenticated) {
+    if (widget.usuario.isGuest) {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Mis Pedidos'),
@@ -43,14 +44,23 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.receipt_long, size: 96, color: Theme.of(context).colorScheme.primary),
+                Icon(Icons.receipt_long,
+                    size: 96, color: Theme.of(context).colorScheme.primary),
                 const SizedBox(height: 16),
-                const Text('Inicia sesión para ver tu historial', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                const Text(
+                  'Inicia sesión para ver tu historial',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
                 const SizedBox(height: 8),
-                const Text('Aquí aparecerán tus pedidos completados y en curso.', textAlign: TextAlign.center),
+                const Text(
+                  'Aquí aparecerán tus pedidos completados y en curso.',
+                  textAlign: TextAlign.center,
+                ),
                 const SizedBox(height: 24),
                 ElevatedButton(
-                  onPressed: () => Navigator.of(context).pushNamed(AppRoutes.login),
+                  onPressed: () =>
+                      Navigator.of(context).pushNamed(AppRoutes.login),
                   child: const Text('Iniciar sesión'),
                 ),
               ],
@@ -59,8 +69,6 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
         ),
       );
     }
-    
-    // Pantalla para usuarios autenticados
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mis Pedidos'),
@@ -167,3 +175,4 @@ class OrderCard extends StatelessWidget {
     );
   }
 }
+
