@@ -17,55 +17,34 @@ class CheckoutAddressScreen extends StatefulWidget {
 
 class _CheckoutAddressScreenState extends State<CheckoutAddressScreen> {
   late Future<List<Ubicacion>> _ubicacionesFuture;
-  int? _selectedLocationId; // Para guardar el ID de la ubicación seleccionada
+  Ubicacion? _selectedLocation; // Guardamos el objeto Ubicacion completo
 
   @override
   void initState() {
     super.initState();
-    // Solo carga ubicaciones si el usuario está autenticado
     if (widget.usuario.isAuthenticated) {
       _ubicacionesFuture = Provider.of<DatabaseService>(context, listen: false)
           .getUbicaciones(widget.usuario.idUsuario);
     }
   }
 
+  // CORRECCIÓN: Ahora navega a la pantalla de checkout en lugar de mostrar un SnackBar.
+  void _continueToPayment() {
+    if (_selectedLocation != null) {
+      Navigator.of(context).pushNamed(
+        AppRoutes.checkout,
+        arguments: {
+          'usuario': widget.usuario,
+          'ubicacion': _selectedLocation!,
+        },
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (widget.usuario.isGuest) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('Seleccionar Dirección'),
-        ),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.lock_outline,
-                    size: 96, color: Theme.of(context).colorScheme.primary),
-                const SizedBox(height: 16),
-                const Text(
-                  'Necesitas iniciar sesión para continuar',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Así podremos asociar la dirección a tus pedidos.',
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: () =>
-                      Navigator.of(context).pushNamed(AppRoutes.login),
-                  child: const Text('Iniciar sesión'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
+    if (!widget.usuario.isAuthenticated) {
+      return _buildLoggedOutView(); // No necesita contexto
     }
     return Scaffold(
       appBar: AppBar(
@@ -81,20 +60,11 @@ class _CheckoutAddressScreenState extends State<CheckoutAddressScreen> {
                   return _buildLoadingShimmer();
                 }
                 if (snapshot.hasError) {
-                  return const Center(
-                      child: Text('Error al cargar las ubicaciones.'));
+                  return const Center(child: Text('Error al cargar las ubicaciones.'));
                 }
                 if (!snapshot.hasData || snapshot.data!.isEmpty) {
                   return const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.location_off, size: 80, color: Colors.grey),
-                        SizedBox(height: 16),
-                        Text('No tienes ubicaciones guardadas.',
-                            style: TextStyle(fontSize: 18)),
-                      ],
-                    ),
+                    child: Text('No tienes ubicaciones guardadas.'),
                   );
                 }
 
@@ -117,33 +87,14 @@ class _CheckoutAddressScreenState extends State<CheckoutAddressScreen> {
   }
 
   Widget _buildLocationCard(Ubicacion ubicacion) {
-    final bool isSelected = _selectedLocationId == ubicacion.id;
+    final bool isSelected = _selectedLocation?.id == ubicacion.id;
     return Card(
       color: isSelected ? Colors.deepOrange.shade100 : Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: isSelected ? Colors.deepOrange : Colors.grey.shade300,
-          width: 2,
-        ),
-      ),
       child: ListTile(
-        onTap: () {
-          setState(() {
-            _selectedLocationId = ubicacion.id;
-          });
-        },
-        leading: Icon(
-          Icons.location_on,
-          color: isSelected ? Colors.deepOrange : Colors.grey,
-        ),
-        title: Text(ubicacion.direccion ?? 'Dirección sin especificar',
-            style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text(
-            'Lat: ${ubicacion.latitud.toStringAsFixed(4)}, Lon: ${ubicacion.longitud.toStringAsFixed(4)}'),
-        trailing: isSelected
-            ? const Icon(Icons.check_circle, color: Colors.deepOrange)
-            : null,
+        onTap: () => setState(() => _selectedLocation = ubicacion),
+        leading: Icon(Icons.location_on, color: isSelected ? Colors.deepOrange : Colors.grey),
+        title: Text(ubicacion.direccion ?? 'Dirección sin especificar', style: const TextStyle(fontWeight: FontWeight.bold)),
+        trailing: isSelected ? const Icon(Icons.check_circle, color: Colors.deepOrange) : null,
       ),
     );
   }
@@ -154,20 +105,7 @@ class _CheckoutAddressScreenState extends State<CheckoutAddressScreen> {
       child: SizedBox(
         width: double.infinity,
         child: ElevatedButton(
-          onPressed: _selectedLocationId == null
-              ? null
-              : () {
-            // TODO: Navegar a la pantalla de resumen y pago.
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                  content: Text(
-                      'Continuando con ubicación ID: $_selectedLocationId')),
-            );
-          },
-          style: ElevatedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 15),
-            textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
+          onPressed: _selectedLocation == null ? null : _continueToPayment, // Llama al nuevo método
           child: const Text('Continuar al Pago'),
         ),
       ),
@@ -181,15 +119,32 @@ class _CheckoutAddressScreenState extends State<CheckoutAddressScreen> {
       child: ListView.builder(
         padding: const EdgeInsets.all(8),
         itemCount: 5,
-        itemBuilder: (context, index) => Card(
-          child: ListTile(
-            leading: const Icon(Icons.location_on),
-            title: Container(height: 16, width: 200, color: Colors.white),
-            subtitle: Container(height: 14, width: 150, color: Colors.white),
+        itemBuilder: (_, __) => Card(child: ListTile(title: Container(height: 20, color: Colors.white))),
+      ),
+    );
+  }
+
+  Widget _buildLoggedOutView() {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Seleccionar Dirección')),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.lock_outline, size: 96, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(height: 16),
+              const Text('Necesitas iniciar sesión para continuar', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pushNamed(AppRoutes.login),
+                child: const Text('Iniciar sesión'),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 }
-

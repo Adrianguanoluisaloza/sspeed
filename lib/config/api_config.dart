@@ -10,7 +10,7 @@ class AppConfig {
 
   // 👉 NEON PostgREST (tu endpoint)
   static const String _neonRestBase =
-      'https://ep-quiet-thunder-ady30ys2.apirest.c-2.us-east-1.aws.neon.tech/neondb/rest/v1';
+      'https://ep-quiet-thunder-ady30ys2-pooler.c-2.us-east-1.aws.neon.tech:5432/neondb?sslmode=require';
 
   static String? _manualOverride;
 

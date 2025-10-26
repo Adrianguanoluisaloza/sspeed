@@ -7,34 +7,41 @@ plugins {
 
 android {
     namespace = "com.example.flutter_application_2"
+
+    // Estos valores los expone el plugin de Flutter; están OK en Kotlin DSL
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
+    // Recomendado hoy: Java/Kotlin 17. Si quieres mantener 11, deja como lo tenías.
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
-
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+        jvmTarget = JavaVersion.VERSION_17.toString()
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.example.flutter_application_2"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        minSdk = flutter.minSdkVersion       // ✅ Kotlin DSL (no usar minSdkVersion 21)
+        targetSdk = flutter.targetSdkVersion // ✅
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
+            // Firma de debug para salir del paso. Cambia luego por tu firma de release.
             signingConfig = signingConfigs.getByName("debug")
+            // Si agregas ProGuard:
+            // isMinifyEnabled = true
+            // proguardFiles(
+            //     getDefaultProguardFile("proguard-android-optimize.txt"),
+            //     "proguard-rules.pro"
+            // )
+        }
+        debug {
+            // Ajustes opcionales de debug
         }
     }
 }
@@ -42,7 +49,10 @@ android {
 flutter {
     source = "../.."
 }
-defaultConfig {
-    ...
-    minSdkVersion 21
-}
+
+// ❌ NO pongas NADA más fuera de android{} / flutter{}.
+// El bloque que te estaba rompiendo era este (elíminalo por completo):
+// defaultConfig {
+//     ...
+//     minSdkVersion 21
+// }
