@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:permission_handler/permission_handler.dart' show openAppSettings, Permission, PermissionActions, PermissionStatusGetters;
 import 'package:provider/provider.dart';
+import 'package:permission_handler/permission_handler.dart';
+
 import 'models/cart_model.dart';
 import 'models/session_state.dart';
 import 'services/database_service.dart';
@@ -18,18 +19,13 @@ void main() {
       child: const MyApp(),
     ),
   );
-  requestLocationPermission(); // Solicita permisos al inicio
+  requestLocationPermission();
 }
 
 Future<void> requestLocationPermission() async {
   var status = await Permission.locationWhenInUse.request();
-
-  if (status.isGranted) {
-    debugPrint("✅ Permiso de ubicación concedido");
-  } else if (status.isDenied) {
-    debugPrint("❌ Permiso de ubicación denegado");
-  } else if (status.isPermanentlyDenied) {
-    openAppSettings(); // Abre ajustes si el usuario bloqueó permisos
+  if (status.isPermanentlyDenied) {
+    openAppSettings();
   }
 }
 
@@ -38,65 +34,72 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const Color primaryOrange = Color(0xFFFF6F3C);
-    const Color accentTeal = Color(0xFF0D9488);
+    // Paleta de colores principal
+    const Color primaryColor = Color(0xFFF97316); // Naranja Vibrante
+    const Color accentColor = Color(0xFF1E3A8A);  // Azul Oscuro
+    const Color backgroundColor = Color(0xFFF0F2F5); // Un gris muy claro
 
     final theme = ThemeData(
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: primaryOrange,
-        primary: primaryOrange,
-        secondary: accentTeal,
+        seedColor: primaryColor,
+        primary: primaryColor,
+        secondary: accentColor,
+        background: backgroundColor,
       ),
-      scaffoldBackgroundColor: const Color(0xFFF5F6FA),
-      fontFamily: 'Inter',
+      scaffoldBackgroundColor: backgroundColor,
+      fontFamily: 'Inter', // Asegúrate de tener esta fuente en tu pubspec.yaml y carpeta de assets
+
+      // Estilo de AppBar
       appBarTheme: const AppBarTheme(
-        backgroundColor: primaryOrange,
+        backgroundColor: primaryColor,
         foregroundColor: Colors.white,
-        elevation: 0,
-        titleTextStyle: TextStyle(
-          color: Colors.white,
-          fontSize: 20,
-          fontWeight: FontWeight.w700,
-        ),
+        elevation: 2,
+        shadowColor: Colors.black26,
+        titleTextStyle: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
       ),
+
+      // Estilo de Botones Elevados
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: primaryOrange,
+          backgroundColor: primaryColor,
           foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 0.5),
         ),
       ),
-      snackBarTheme: const SnackBarThemeData(
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: primaryOrange,
-        contentTextStyle: TextStyle(color: Colors.white),
-      ),
+
+      // Estilo de Tarjetas
       cardTheme: CardThemeData(
-        elevation: 3,
-        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        elevation: 2,
+        margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      ), // Ajustamos a CardThemeData para cumplir con Material 3.
+        clipBehavior: Clip.antiAlias, // Previene que los hijos se desborden
+      ),
+
+      // Estilo de Campos de Texto
       inputDecorationTheme: InputDecorationTheme(
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide.none,
-        ),
         filled: true,
         fillColor: Colors.white,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-        hintStyle: TextStyle(color: Colors.grey.shade500),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: primaryColor, width: 2),
+        ),
+        // CORRECCIÓN: Se usa withAlpha en lugar de withOpacity
+        prefixIconColor: primaryColor.withAlpha(179),
       ),
     );
 
     return MaterialApp(
-      title: 'Unite7speed Delivery App',
+      title: 'Unite7speed',
       debugShowCheckedModeBanner: false,
       theme: theme,
       initialRoute: AppRoutes.splash,
-      // Centralizamos toda la navegación para conseguir transiciones consistentes.
       onGenerateRoute: RouteGenerator.generateRoute,
     );
   }

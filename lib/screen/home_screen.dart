@@ -1,271 +1,351 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shimmer/shimmer.dart';
 
-import '../models/producto.dart';
-import '../models/session_state.dart';
 import '../models/cart_model.dart';
+import '../models/producto.dart';
+import '../models/usuario.dart';
 import '../services/database_service.dart';
-
+import 'widgets/login_required_dialog.dart';
 import 'product_detail_screen.dart';
 import 'cart_screen.dart';
-import 'login_screen.dart';
-import 'order_history_screen.dart';
-import 'profile_screen.dart';
-import 'chat_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final Usuario usuario;
+  const HomeScreen({super.key, required this.usuario});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  late Future<List<Producto>> _productosFuture;
+  late Future<List<ProductoRankeado>> _recomendacionesFuture;
+  late DatabaseService _databaseService;
+
   final TextEditingController _searchController = TextEditingController();
-  List<Producto> _productos = [];
-  List<Producto> _filtered = [];
-  bool _loading = true;
-  String? _error;
+  String _selectedCategory = "Todos";
+  Timer? _debounce;
+
+  final List<String> _categories = const [
+    'Todos', 'Pizzas', 'Hamburguesas', 'Acompañamientos', 'Bebidas',
+    'Postres', 'Ensaladas', 'Pastas', 'Mexicana', 'Japonesa', 'Mariscos',
+  ];
 
   @override
   void initState() {
     super.initState();
-    _loadProductos();
+    _databaseService = Provider.of<DatabaseService>(context, listen: false);
+    _loadData();
+    _searchController.addListener(_onSearchChanged);
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _debounce?.cancel();
     super.dispose();
   }
 
-  Future<void> _loadProductos() async {
+  void _loadData() {
+    _loadProducts();
     setState(() {
-      _loading = true;
-      _error = null;
+      _recomendacionesFuture = _databaseService.getRecomendaciones();
     });
-    try {
-      final db = context.read<DatabaseService>();
-      final items = await db.getProductos();
-      setState(() {
-        _productos = items;
-        _filtered = items;
-      });
-    } catch (e) {
-      setState(() {
-        _error = e.toString();
-      });
-    } finally {
-      if (mounted) setState(() => _loading = false);
+  }
+
+  void _loadProducts() {
+    final query = _searchController.text.trim();
+    final categoryFilter = _selectedCategory == 'Todos' ? '' : _selectedCategory;
+    setState(() {
+      _productosFuture = _databaseService.getProductos(query: query, categoria: categoryFilter);
+    });
+  }
+
+  void _onSearchChanged() {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), _loadProducts);
+  }
+
+  void _handleCartTap() {
+    if (!widget.usuario.isAuthenticated) {
+      showLoginRequiredDialog(context);
+    } else {
+      Navigator.push(context, MaterialPageRoute(builder: (context) => CartScreen(usuario: widget.usuario)));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final session = context.watch<SessionController>();
+    final firstName = widget.usuario.nombre.split(' ').first;
+    final theme = Theme.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Sspeed Delivery'),
+        title: Text('Hola, ${!widget.usuario.isAuthenticated ? 'invitado' : firstName}'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.shopping_cart),
-            onPressed: () {
-              Navigator.of(context).push(MaterialPageRoute(
-                builder: (ctx) => CartScreen(usuario: session.usuario),
-              ));
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.person),
-            onPressed: () {
-              if (session.isAuthenticated) {
-                Navigator.of(context).push(MaterialPageRoute(
-                  builder: (ctx) => ProfileScreen(usuario: session.usuario),
-                ));
-              } else {
-                Navigator.of(context).push(MaterialPageRoute(
-                  builder: (ctx) => const LoginScreen(),
-                ));
-              }
-            },
+          Consumer<CartModel>(
+            builder: (context, cart, child) => Badge(
+              label: Text(cart.items.length.toString()),
+              isLabelVisible: cart.items.isNotEmpty,
+              child: IconButton(icon: const Icon(Icons.shopping_cart_outlined), onPressed: _handleCartTap),
+            ),
           ),
         ],
       ),
-      drawer: Drawer(
-        child: ListView(
+      body: RefreshIndicator(
+        onRefresh: () async => _loadData(),
+        child: CustomScrollView(
+          slivers: <Widget>[
+            SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildSearchBar(),
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    child: Text('Recomendaciones para ti', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  ),
+                  _buildRecommendationsList(),
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(16, 24, 16, 8),
+                    child: Text('Nuestro Menú', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  ),
+                  _buildCategoryList(),
+                ],
+              ),
+            ),
+            _buildProductsGrid(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+        child: TextField(
+          controller: _searchController,
+          decoration: InputDecoration(
+            hintText: 'Buscar pizzas, hamburguesas...',
+            prefixIcon: const Icon(Icons.search),
+            suffixIcon: _searchController.text.isNotEmpty
+                ? IconButton(icon: const Icon(Icons.clear), onPressed: () => _searchController.clear())
+                : null,
+          ),
+        ),
+      );
+
+  Widget _buildCategoryList() => SizedBox(
+        height: 50,
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          itemCount: _categories.length,
+          itemBuilder: (context, index) {
+            final category = _categories[index];
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4.0),
+              child: ChoiceChip(
+                label: Text(category),
+                selected: category == _selectedCategory,
+                onSelected: (selected) {
+                  if (selected) {
+                    setState(() => _selectedCategory = category);
+                    _loadProducts();
+                  }
+                },
+              ),
+            );
+          },
+        ),
+      );
+
+  Widget _buildRecommendationsList() => SizedBox(
+    height: 180,
+    child: FutureBuilder<List<ProductoRankeado>>(
+      future: _recomendacionesFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const RecommendationsLoading();
+        }
+        if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
+          return const SizedBox.shrink(); // No muestra nada si hay error o está vacío
+        }
+        final recomendaciones = snapshot.data!;
+        return ListView.builder(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          itemCount: recomendaciones.length,
+          itemBuilder: (context, index) => RecommendationCard(producto: recomendaciones[index]),
+        );
+      },
+    ),
+  );
+
+  Widget _buildProductsGrid() => FutureBuilder<List<Producto>>(
+        future: _productosFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const SliverToBoxAdapter(child: ProductsGridLoading());
+          }
+          if (snapshot.hasError) {
+            return SliverFillRemaining(child: InfoMessage(icon: Icons.cloud_off, message: 'Error al cargar los productos.\n${snapshot.error}'));
+          }
+          if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            return const SliverFillRemaining(child: InfoMessage(icon: Icons.search_off, message: 'No se encontraron productos.'));
+          }
+          final productos = snapshot.data!;
+          return SliverPadding(
+            padding: const EdgeInsets.all(16),
+            sliver: SliverGrid.builder(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2, childAspectRatio: 0.75, crossAxisSpacing: 16, mainAxisSpacing: 16,
+              ),
+              itemCount: productos.length,
+              itemBuilder: (context, index) => ProductCard(producto: productos[index], usuario: widget.usuario),
+            ),
+          );
+        },
+      );
+}
+
+// --- WIDGETS AUXILIARES ---
+
+class RecommendationCard extends StatelessWidget {
+  final ProductoRankeado producto;
+  const RecommendationCard({super.key, required this.producto});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 250,
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(producto.nombre, style: const TextStyle(fontWeight: FontWeight.bold), maxLines: 2, overflow: TextOverflow.ellipsis),
+              const Spacer(),
+              Row(
+                children: [
+                  Icon(Icons.star, color: Colors.amber, size: 20),
+                  const SizedBox(width: 4),
+                  Text(producto.ratingPromedio.toStringAsFixed(1), style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text(' (${producto.totalReviews} reseñas)', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(child: const Text('Ver Producto'), onPressed: () { /* TODO: Navegar al detalle */ }),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class ProductCard extends StatelessWidget {
+  final Producto producto;
+  final Usuario usuario;
+
+  const ProductCard({required this.producto, required this.usuario, super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final cart = Provider.of<CartModel>(context, listen: false);
+    return GestureDetector(
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ProductDetailScreen(producto: producto, usuario: usuario))),
+      child: Card(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            DrawerHeader(
-              child: Text(session.isAuthenticated
-                  ? 'Bienvenido, ${session.usuario.nombre}'
-                  : 'Bienvenido'),
-            ),
-            ListTile(
-              title: const Text('Inicio'),
-              onTap: () => Navigator.of(context).pop(),
-            ),
-            ListTile(
-              title: const Text('Mis Pedidos'),
-              onTap: () {
-                Navigator.of(context).push(MaterialPageRoute(
-                  builder: (ctx) => OrderHistoryScreen(usuario: session.usuario),
-                ));
-              },
-            ),
-            ListTile(
-              title: const Text('Soporte (Chat)'),
-              onTap: () {
-                Navigator.of(context).push(MaterialPageRoute(
-                  builder: (ctx) => ChatScreen(initialSection: ChatSection.soporte),
-                ));
-              },
+            Expanded(child: Hero(tag: 'product-${producto.idProducto}', child: _ProductImage(imageUrl: producto.imagenUrl))),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(producto.nombre, style: const TextStyle(fontWeight: FontWeight.bold), maxLines: 2, overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 4),
+                  Text('\$${producto.precio.toStringAsFixed(2)}', style: TextStyle(color: Colors.green.shade800, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(onPressed: !usuario.isAuthenticated ? () => showLoginRequiredDialog(context) : () => cart.addToCart(producto), child: const Text('Añadir')),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
       ),
-      body: Column(
-        children: [
-          // Búsqueda
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                labelText: 'Buscar productos...',
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.search),
-                  onPressed: () {
-                    final query = _searchController.text;
-                    if (query.isNotEmpty) {
-                      setState(() {
-                        _filtered = _productos
-                            .where((p) => p.nombre.toLowerCase().contains(query.toLowerCase()))
-                            .toList();
-                      });
-                    } else {
-                      setState(() => _filtered = _productos);
-                    }
-                  },
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(25.0),
-                ),
-              ),
-              onSubmitted: (query) {
-                if (query.isNotEmpty) {
-                  setState(() {
-                    _filtered = _productos
-                        .where((p) => p.nombre.toLowerCase().contains(query.toLowerCase()))
-                        .toList();
-                  });
-                } else {
-                  setState(() => _filtered = _productos);
-                }
-              },
-            ),
-          ),
-
-          // Banner simple
-          Container(
-            height: 140,
-            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              gradient: LinearGradient(colors: [Colors.orange.shade300, Colors.deepOrange.shade400]),
-            ),
-            child: const Center(
-              child: Text(
-                'Promociones',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
-              ),
-            ),
-          ),
-
-          // Lista de Productos
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : _error != null
-                    ? Center(child: Text('Error: $_error'))
-                    : _filtered.isEmpty
-                        ? const Center(child: Text('No se encontraron productos.'))
-                        : GridView.builder(
-                            padding: const EdgeInsets.all(10.0),
-                            itemCount: _filtered.length,
-                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              childAspectRatio: 3 / 4,
-                              crossAxisSpacing: 10,
-                              mainAxisSpacing: 10,
-                            ),
-                            itemBuilder: (ctx, i) => Card(
-                              elevation: 4.0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(15.0),
-                              ),
-                              child: InkWell(
-                                onTap: () {
-                                  Navigator.of(context).push(MaterialPageRoute(
-                                    builder: (ctx) => ProductDetailScreen(
-                                      producto: _filtered[i],
-                                      usuario: session.usuario,
-                                    ),
-                                  ));
-                                },
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
-                                    Expanded(
-                                      child: ClipRRect(
-                                        borderRadius: const BorderRadius.vertical(top: Radius.circular(15.0)),
-                                        child: Image.network(
-                                          _filtered[i].imagenUrl ?? '',
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (context, error, stackTrace) =>
-                                              Icon(Icons.fastfood, size: 80, color: Colors.grey[400]),
-                                        ),
-                                      ),
-                                    ),
-                                    Padding(
-                                      padding: const EdgeInsets.all(8.0),
-                                      child: Text(
-                                        _filtered[i].nombre,
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                                      child: Text(
-                                        '\$${_filtered[i].precio.toStringAsFixed(2)}',
-                                        style: TextStyle(color: Colors.green[700], fontSize: 15, fontWeight: FontWeight.w600),
-                                      ),
-                                    ),
-                                    Padding(
-                                      padding: const EdgeInsets.all(4.0),
-                                      child: ElevatedButton.icon(
-                                        icon: const Icon(Icons.add_shopping_cart, size: 18),
-                                        label: const Text('Añadir'),
-                                        onPressed: () {
-                                          context.read<CartModel>().addToCart(_filtered[i]);
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(
-                                              content: Text('${_filtered[i].nombre} añadido al carrito!'),
-                                              duration: const Duration(seconds: 2),
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-          ),
-        ],
-      ),
     );
   }
+}
+
+class _ProductImage extends StatelessWidget {
+  final String? imageUrl;
+  const _ProductImage({this.imageUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    if (imageUrl == null || imageUrl!.isEmpty) return const _ImagePlaceholder();
+    return Image.network(imageUrl!, fit: BoxFit.cover, errorBuilder: (c, e, s) => const _ImagePlaceholder(), loadingBuilder: (c, child, progress) {
+      return progress == null ? child : const Center(child: CircularProgressIndicator());
+    });
+  }
+}
+
+class _ImagePlaceholder extends StatelessWidget {
+  const _ImagePlaceholder();
+  @override
+  Widget build(BuildContext context) => Container(color: Colors.grey.shade200, child: Icon(Icons.fastfood, color: Colors.grey.shade400, size: 40));
+}
+
+class InfoMessage extends StatelessWidget {
+  final IconData icon;
+  final String message;
+  const InfoMessage({super.key, required this.icon, required this.message});
+
+  @override
+  Widget build(BuildContext context) => Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+    Icon(icon, size: 48, color: Theme.of(context).colorScheme.primary.withOpacity(0.6)),
+    const SizedBox(height: 12),    
+    Text(message, textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey[600])),
+  ]));
+}
+
+class RecommendationsLoading extends StatelessWidget {
+  const RecommendationsLoading({super.key});
+  @override
+  Widget build(BuildContext context) => Shimmer.fromColors(
+      baseColor: Colors.grey.shade300, highlightColor: Colors.grey.shade100,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        itemCount: 3,
+        itemBuilder: (c, i) => const SizedBox(width: 250, child: Card()),
+      )
+  );
+}
+
+class ProductsGridLoading extends StatelessWidget {
+  const ProductsGridLoading({super.key});
+  @override
+  Widget build(BuildContext context) => Shimmer.fromColors(
+      baseColor: Colors.grey.shade300, highlightColor: Colors.grey.shade100,
+      child: GridView.builder(
+        physics: const NeverScrollableScrollPhysics(), shrinkWrap: true,
+        padding: const EdgeInsets.all(16),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: 0.75, crossAxisSpacing: 16, mainAxisSpacing: 16),
+        itemCount: 6,
+        itemBuilder: (c, i) => const Card(),
+      )
+  );
 }

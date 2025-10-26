@@ -162,3 +162,18 @@ SELECT
     p.disponible
 FROM productos p
 WHERE p.disponible IS TRUE;
+
+-- 6) Columnas adicionales para 'productos' sin duplicar (alinear con necesidades futuras)
+ALTER TABLE productos
+    ADD COLUMN IF NOT EXISTS proveedor VARCHAR(100),
+    ADD COLUMN IF NOT EXISTS codigo_barras VARCHAR(50),
+    ADD COLUMN IF NOT EXISTS descuento NUMERIC(5,2) DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS destacado BOOLEAN DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS unidad_medida VARCHAR(20),
+    ADD COLUMN IF NOT EXISTS fecha_expiracion DATE,
+    ADD COLUMN IF NOT EXISTS costo NUMERIC(10,2),
+    ADD COLUMN IF NOT EXISTS ganancia NUMERIC(10,2),
+    ADD COLUMN IF NOT EXISTS rating NUMERIC(3,2) DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS etiquetas TEXT[],
+    ADD COLUMN IF NOT EXISTS ultima_compra TIMESTAMP WITH TIME ZONE,
+    ADD COLUMN IF NOT EXISTS ultima_actualizacion TIMESTAMP WITH TIME ZONE;

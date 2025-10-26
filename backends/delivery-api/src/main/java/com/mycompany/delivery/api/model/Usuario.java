@@ -1,35 +1,38 @@
 package com.mycompany.delivery.api.model;
 
-import java.sql.Timestamp;
-
 /**
- * Modelo que representa la tabla 'usuarios'.
+ * Modelo que representa a un usuario dentro del sistema Delivery.
+ * Compatible con controladores y repositorios actualizados.
  */
 public class Usuario {
 
     private int idUsuario;
     private String nombre;
     private String correo;
-    private String contrasena; // Con 'n'
-    private String rol;
+    private String contrasena;
     private String telefono;
-    private boolean activo; // Coincide con la columna 'activo'
-    private Timestamp fechaRegistro;
+    private String rol; // cliente, admin, delivery, etc.
+    private boolean activo = true;
 
+    // ===========================
+    // CONSTRUCTORES
+    // ===========================
     public Usuario() {
     }
 
-    public Usuario(int idUsuario, String nombre, String correo, String contrasena, String rol, String telefono, boolean activo, Timestamp fechaRegistro) {
-        // Constructor útil para mapear resultados JDBC sin exponer setters innecesarios.
+    public Usuario(int idUsuario, String nombre, String correo, String contrasena, String telefono, String rol, boolean activo) {
         this.idUsuario = idUsuario;
         this.nombre = nombre;
         this.correo = correo;
         this.contrasena = contrasena;
-        this.rol = rol;
         this.telefono = telefono;
+        this.rol = rol;
         this.activo = activo;
-        this.fechaRegistro = fechaRegistro;
     }
+
+    // ===========================
+    // GETTERS Y SETTERS
+    // ===========================
 
     public int getIdUsuario() {
         return idUsuario;
@@ -63,20 +66,20 @@ public class Usuario {
         this.contrasena = contrasena;
     }
 
-    public String getRol() {
-        return rol;
-    }
-
-    public void setRol(String rol) {
-        this.rol = rol;
-    }
-
     public String getTelefono() {
         return telefono;
     }
 
     public void setTelefono(String telefono) {
         this.telefono = telefono;
+    }
+
+    public String getRol() {
+        return rol;
+    }
+
+    public void setRol(String rol) {
+        this.rol = rol;
     }
 
     public boolean isActivo() {
@@ -87,11 +90,31 @@ public class Usuario {
         this.activo = activo;
     }
 
-    public Timestamp getFechaRegistro() {
-        return fechaRegistro;
+    // ===========================
+    // MÉTODOS AUXILIARES
+    // ===========================
+
+    public boolean isAdmin() {
+        return "admin".equalsIgnoreCase(rol);
     }
 
-    public void setFechaRegistro(Timestamp fechaRegistro) {
-        this.fechaRegistro = fechaRegistro;
+    public boolean isDelivery() {
+        return "delivery".equalsIgnoreCase(rol);
+    }
+
+    public boolean isCliente() {
+        return "cliente".equalsIgnoreCase(rol);
+    }
+
+    @Override
+    public String toString() {
+        return "Usuario{" +
+                "idUsuario=" + idUsuario +
+                ", nombre='" + nombre + '\'' +
+                ", correo='" + correo + '\'' +
+                ", telefono='" + telefono + '\'' +
+                ", rol='" + rol + '\'' +
+                ", activo=" + activo +
+                '}';
     }
 }

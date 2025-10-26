@@ -19,9 +19,10 @@ class _MainNavigatorState extends State<MainNavigator> {
   @override
   void initState() {
     super.initState();
-    // Definimos las pantallas aquí para poder pasar el objeto 'usuario'
+    // Se define la lista de pantallas que el navegador controlará
     _widgetOptions = <Widget>[
-      const HomeScreen(),                                 // 0: Inicio
+      // CORRECCIÓN: Se pasa el objeto `usuario` a la HomeScreen
+      HomeScreen(usuario: widget.usuario),                 // 0: Inicio
       ChatScreen(initialSection: ChatSection.soporte), // 1: Chat de Soporte
       ProfileScreen(usuario: widget.usuario),              // 2: Perfil
     ];
@@ -43,23 +44,24 @@ class _MainNavigatorState extends State<MainNavigator> {
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
-            icon: Icon(Icons.home),
+            icon: Icon(Icons.home_outlined),
+            activeIcon: Icon(Icons.home),
             label: 'Inicio',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.support_agent),
+            icon: Icon(Icons.support_agent_outlined),
+            activeIcon: Icon(Icons.support_agent),
             label: 'Soporte',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.person),
+            icon: Icon(Icons.person_outline),
+            activeIcon: Icon(Icons.person),
             label: 'Perfil',
           ),
         ],
         currentIndex: _selectedIndex,
-        selectedItemColor: Colors.deepOrange,
         onTap: _onItemTapped,
       ),
     );
   }
 }
-

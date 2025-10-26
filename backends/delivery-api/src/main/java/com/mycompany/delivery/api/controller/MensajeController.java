@@ -4,56 +4,45 @@ import com.mycompany.delivery.api.model.Mensaje;
 import com.mycompany.delivery.api.repository.MensajeRepository;
 import com.mycompany.delivery.api.util.ApiException;
 import com.mycompany.delivery.api.util.ApiResponse;
+
 import java.sql.SQLException;
 import java.util.List;
 
 /**
- * Controlador de mensajes con validaciones básicas para evitar datos vacíos.
+ * Controlador que gestiona el envío y recuperación de mensajes
+ * asociados a pedidos o chats entre cliente y repartidor.
  */
 public class MensajeController {
 
     private final MensajeRepository repo = new MensajeRepository();
 
+    // ===========================
+    // ENVIAR MENSAJE
+    // ===========================
     public ApiResponse<Void> enviarMensaje(Mensaje mensaje) {
-        validarMensaje(mensaje);
+        if (mensaje == null) throw new ApiException(400, "Mensaje inválido");
+        if (mensaje.getIdPedido() <= 0 || mensaje.getIdRemitente() <= 0 || mensaje.getMensaje() == null || mensaje.getMensaje().isBlank()) {
+            throw new ApiException(400, "Faltan datos requeridos del mensaje");
+        }
         try {
-            boolean enviado = repo.enviarMensaje(mensaje);
-            if (!enviado) {
-                throw new ApiException(500, "No se pudo enviar el mensaje");
-            }
-            System.out.println("ℹ️ Mensaje enviado para pedido: " + mensaje.getIdPedido());
-            return ApiResponse.success(201, "Mensaje enviado", null);
+            boolean ok = repo.insertarMensaje(mensaje);
+            if (!ok) throw new ApiException(500, "No se pudo guardar el mensaje");
+            return ApiResponse.success("Mensaje enviado correctamente");
         } catch (SQLException e) {
-            System.err.println("❌ Error guardando mensaje: " + e.getMessage());
             throw new ApiException(500, "Error al enviar el mensaje", e);
         }
     }
 
+    // ===========================
+    // OBTENER MENSAJES POR PEDIDO
+    // ===========================
     public ApiResponse<List<Mensaje>> getMensajesPorPedido(int idPedido) {
-        if (idPedido <= 0) {
-            throw new ApiException(400, "Identificador de pedido inválido");
-        }
+        if (idPedido <= 0) throw new ApiException(400, "Identificador de pedido inválido");
         try {
-            List<Mensaje> mensajes = repo.listarMensajesPorPedido(idPedido);
-            return ApiResponse.success(200, "Mensajes recuperados", mensajes);
+            List<Mensaje> mensajes = repo.obtenerMensajesPorPedido(idPedido);
+            return ApiResponse.success(200, "Mensajes obtenidos", mensajes);
         } catch (SQLException e) {
-            System.err.println("❌ Error consultando mensajes: " + e.getMessage());
-            throw new ApiException(500, "No se pudieron obtener los mensajes", e);
-        }
-    }
-
-    private void validarMensaje(Mensaje mensaje) {
-        if (mensaje == null) {
-            throw new ApiException(400, "El cuerpo de la solicitud es obligatorio");
-        }
-        if (mensaje.getIdPedido() <= 0) {
-            throw new ApiException(400, "El pedido es obligatorio");
-        }
-        if (mensaje.getIdRemitente() <= 0) {
-            throw new ApiException(400, "El remitente es obligatorio");
-        }
-        if (mensaje.getMensaje() == null || mensaje.getMensaje().isBlank()) {
-            throw new ApiException(400, "El mensaje no puede estar vacío");
+            throw new ApiException(500, "Error al obtener mensajes", e);
         }
     }
 }

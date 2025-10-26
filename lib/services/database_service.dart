@@ -9,78 +9,119 @@ import '../models/ubicacion.dart';
 import 'api_data_source.dart';
 import 'data_source.dart';
 
-class DatabaseService {
+class DatabaseService implements DataSource {
   final DataSource _dataSource;
   DatabaseService() : _dataSource = ApiDataSource();
 
+  @override
   void setAuthToken(String? token) => _dataSource.setAuthToken(token);
 
   // --- Métodos de Usuario ---
+  @override
   Future<Usuario?> login(String email, String password) => _dataSource.login(email, password);
-  Future<bool> register(
-    String nombre,
-    String email,
-    String password,
-    String telefono,
-  ) =>
-      _dataSource.register(
-        nombre,
-        email,
-        password,
-        telefono,
-      ); // Ajuste de formato para evitar saltos de línea insertados por el analizador.
+
+  @override
+  Future<bool> register(String name, String email, String password, String phone) =>
+      _dataSource.register(name, email, password, phone);
+
+  // MÉTODO AÑADIDO PARA ACTUALIZAR EL USUARIO
+  @override
   Future<Usuario?> updateUsuario(Usuario usuario) => _dataSource.updateUsuario(usuario);
 
   // --- Métodos del Cliente ---
+  @override
   Future<List<Producto>> getProductos({String? query, String? categoria}) =>
       _dataSource.getProductos(query: query, categoria: categoria);
 
+  @override
   Future<List<Ubicacion>> getUbicaciones(int idUsuario) => _dataSource.getUbicaciones(idUsuario);
+
+  @override
   Future<List<ProductoRankeado>> getRecomendaciones() => _dataSource.getRecomendaciones();
+
+  @override
   Future<bool> addRecomendacion({
     required int idProducto,
     required int idUsuario,
     required int puntuacion,
     String? comentario,
-  }) => _dataSource.addRecomendacion(
+  }) =>
+      _dataSource.addRecomendacion(
         idProducto: idProducto,
         idUsuario: idUsuario,
         puntuacion: puntuacion,
         comentario: comentario,
       );
 
+  @override
   Future<bool> placeOrder({
     required Usuario user,
     required CartModel cart,
     required Ubicacion location,
   }) =>
       _dataSource.placeOrder(user: user, cart: cart, location: location);
+
+  @override
   Future<List<Pedido>> getPedidos(int idUsuario) => _dataSource.getPedidos(idUsuario);
-  Future<PedidoDetalle?> getPedidoDetalle(int idPedido) => _dataSource.getPedidoDetalle(idPedido);
+
+  @override
+  Future<PedidoDetalle?> getPedidoDetalle(int idPedido) =>
+      _dataSource.getPedidoDetalle(idPedido);
 
   // --- Métodos de Administración ---
-  Future<List<Pedido>> getPedidosPorEstado(String estado) => _dataSource.getPedidosPorEstado(estado);
-  Future<bool> updatePedidoEstado(int idPedido, String nuevoEstado) => _dataSource.updatePedidoEstado(idPedido, nuevoEstado);
+  @override
+  Future<List<Pedido>> getPedidosPorEstado(String estado) =>
+      _dataSource.getPedidosPorEstado(estado);
+
+  @override
+  Future<bool> updatePedidoEstado(int idPedido, String nuevoEstado) =>
+      _dataSource.updatePedidoEstado(idPedido, nuevoEstado);
+
+  @override
   Future<List<Producto>> getAllProductosAdmin() => _dataSource.getAllProductosAdmin();
-  Future<Producto?> createProducto(Producto producto) => _dataSource.createProducto(producto);
-  Future<bool> updateProducto(Producto producto) => _dataSource.updateProducto(producto);
+
+  @override
+  Future<Producto?> createProducto(Producto producto) =>
+      _dataSource.createProducto(producto);
+
+  @override
+  Future<bool> updateProducto(Producto producto) =>
+      _dataSource.updateProducto(producto);
+
+  @override
   Future<bool> deleteProducto(int idProducto) => _dataSource.deleteProducto(idProducto);
+
+  @override
   Future<Map<String, dynamic>> getAdminStats() => _dataSource.getAdminStats();
 
   // --- Métodos de Delivery ---
-  Future<List<Pedido>> getPedidosDisponibles() => _dataSource.getPedidosDisponibles();
-  Future<bool> asignarPedido(int idPedido, int idDelivery) => _dataSource.asignarPedido(idPedido, idDelivery);
-  Future<List<Pedido>> getPedidosPorDelivery(int idDelivery) => _dataSource.getPedidosPorDelivery(idDelivery);
-  Future<Map<String, dynamic>> getDeliveryStats(int idDelivery) => _dataSource.getDeliveryStats(idDelivery);
+  @override
+  Future<List<Pedido>> getPedidosDisponibles() =>
+      _dataSource.getPedidosDisponibles();
+
+  @override
+  Future<bool> asignarPedido(int idPedido, int idDelivery) =>
+      _dataSource.asignarPedido(idPedido, idDelivery);
+
+  @override
+  Future<List<Pedido>> getPedidosPorDelivery(int idDelivery) =>
+      _dataSource.getPedidosPorDelivery(idDelivery);
+
+  @override
+  Future<Map<String, dynamic>> getDeliveryStats(int idDelivery) =>
+      _dataSource.getDeliveryStats(idDelivery);
 
   // --- Métodos de Tracking ---
+  @override
   Future<bool> updateRepartidorLocation(int idRepartidor, double lat, double lon) =>
       _dataSource.updateRepartidorLocation(idRepartidor, lat, lon);
 
+  @override
   Future<Map<String, dynamic>?> getRepartidorLocation(int idPedido) =>
       _dataSource.getRepartidorLocation(idPedido);
-
-  // --- MÉTODOS DE CHAT UNIFICADOS ---
+      
+  // --- Módulo de Chat ---
+  @override
   Future<int?> iniciarConversacion({
     required int idCliente,
     int? idDelivery,
@@ -94,12 +135,15 @@ class DatabaseService {
         idPedido: idPedido,
       );
 
+  @override
   Future<List<ChatConversation>> getConversaciones(int idUsuario) =>
       _dataSource.getConversaciones(idUsuario);
 
+  @override
   Future<List<ChatMessage>> getMensajesDeConversacion(int idConversacion) =>
       _dataSource.getMensajesDeConversacion(idConversacion);
 
+  @override
   Future<bool> enviarMensaje({
     required int idConversacion,
     required int idRemitente,
@@ -111,4 +155,3 @@ class DatabaseService {
         mensaje: mensaje,
       );
 }
-

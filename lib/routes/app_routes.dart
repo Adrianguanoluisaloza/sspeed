@@ -8,5 +8,8 @@ class AppRoutes {
   static const deliveryHome = '/delivery/home';
   static const orderDetail = '/orders/detail';
   static const orderHistory = '/orders/history';
-  static const editProfile = '/profile/edit'; // RUTA AÑADIDA
+  static const editProfile = '/profile/edit';
+  static const trackingSimulation = '/tracking/simulation';
+  static const checkout = '/checkout'; // RUTA AÑADIDA
+  static const orderSuccess = '/order_success'; // RUTA AÑADIDA
 }

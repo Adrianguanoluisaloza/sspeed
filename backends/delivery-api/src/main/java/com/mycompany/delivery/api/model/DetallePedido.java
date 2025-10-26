@@ -1,20 +1,25 @@
 package com.mycompany.delivery.api.model;
 
+/**
+ * Representa el detalle de un producto dentro de un pedido.
+ * Incluye precio unitario y subtotal para simplificar el cálculo total en el backend.
+ */
 public class DetallePedido {
 
     private int idDetalle;
     private int idPedido;
     private int idProducto;
     private int cantidad;
-    // Guardamos el precio unitario para responder a Flutter sin recalcular en el cliente.
     private double precioUnitario;
     private double subtotal;
 
+    // ===========================
+    // CONSTRUCTORES
+    // ===========================
     public DetallePedido() {
     }
 
     public DetallePedido(int idDetalle, int idPedido, int idProducto, int cantidad, double precioUnitario, double subtotal) {
-        // Constructor ayuda a inicializar los detalles sin dejar campos nulos.
         this.idDetalle = idDetalle;
         this.idPedido = idPedido;
         this.idProducto = idProducto;
@@ -22,6 +27,10 @@ public class DetallePedido {
         this.precioUnitario = precioUnitario;
         this.subtotal = subtotal;
     }
+
+    // ===========================
+    // GETTERS Y SETTERS
+    // ===========================
 
     public int getIdDetalle() {
         return idDetalle;
@@ -69,5 +78,25 @@ public class DetallePedido {
 
     public void setSubtotal(double subtotal) {
         this.subtotal = subtotal;
+    }
+
+    // ===========================
+    // MÉTODOS AUXILIARES
+    // ===========================
+
+    public double calcularSubtotal() {
+        return this.precioUnitario * this.cantidad;
+    }
+
+    @Override
+    public String toString() {
+        return "DetallePedido{" +
+                "idDetalle=" + idDetalle +
+                ", idPedido=" + idPedido +
+                ", idProducto=" + idProducto +
+                ", cantidad=" + cantidad +
+                ", precioUnitario=" + precioUnitario +
+                ", subtotal=" + subtotal +
+                '}';
     }
 }

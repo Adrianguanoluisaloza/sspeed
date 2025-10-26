@@ -1,8 +1,7 @@
 package com.mycompany.delivery.api.util;
 
 /**
- * Excepción controlada para notificar errores a la capa HTTP sin perder el stack trace.
- * Usamos RuntimeException para simplificar propagación en lambdas Spark.
+ * ✅ Excepción personalizada para manejar errores controlados dentro de la API.
  */
 public class ApiException extends RuntimeException {
 
@@ -27,11 +26,6 @@ public class ApiException extends RuntimeException {
         this.details = details;
     }
 
-    public int getStatus() {
-        return status;
-    }
-
-    public Object getDetails() {
-        return details;
-    }
+    public int getStatus() { return status; }
+    public Object getDetails() { return details; }
 }

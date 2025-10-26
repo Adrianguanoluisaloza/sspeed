@@ -3,15 +3,19 @@ import 'package:flutter/material.dart';
 import '../admin/admin_home_screen.dart';
 import '../delivery/delivery_home_screen.dart';
 import '../models/usuario.dart';
+import '../models/ubicacion.dart';
+import '../screen/edit_profile_screen.dart';
 import '../screen/login_screen.dart';
 import '../screen/main_navigator.dart';
 import '../screen/order_detail_screen.dart';
 import '../screen/order_history_screen.dart';
 import '../screen/register_screen.dart';
 import '../screen/splash_screen.dart';
+import '../screen/tracking_simulation_screen.dart';
+import '../screen/checkout_screen.dart'; // IMPORTAMOS
+import '../screen/order_success_screen.dart'; // IMPORTAMOS
 import 'app_routes.dart';
 
-/// Generador de rutas con animaciones suaves para mantener transiciones consistentes.
 class RouteGenerator {
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -22,11 +26,31 @@ class RouteGenerator {
       case AppRoutes.register:
         return _slideUp(settings, const RegisterScreen());
       case AppRoutes.mainNavigator:
+        final usuario = settings.arguments as Usuario? ?? Usuario.noAuth();
+        return _fade(settings, MainNavigator(usuario: usuario));
+      case AppRoutes.editProfile:
         final usuario = settings.arguments;
         if (usuario is Usuario) {
-          return _fade(settings, MainNavigator(usuario: usuario));
+          return _slideUp(settings, EditProfileScreen(usuario: usuario));
         }
         return _redirectToLogin(settings);
+      case AppRoutes.trackingSimulation:
+        final idPedido = settings.arguments;
+        if (idPedido is int) {
+          return _fade(settings, TrackingSimulationScreen(idPedido: idPedido));
+        }
+        return _redirectToLogin(settings);
+
+      // --- RUTAS DE CHECKOUT AÑADIDAS ---
+      case AppRoutes.checkout:
+        final args = settings.arguments as Map<String, dynamic>?;
+        if (args != null && args['usuario'] is Usuario && args['ubicacion'] is Ubicacion) {
+          return _slideUp(settings, CheckoutScreen(usuario: args['usuario'], ubicacion: args['ubicacion']));
+        }
+        return _redirectToLogin(settings);
+      case AppRoutes.orderSuccess:
+        return _fade(settings, const OrderSuccessScreen());
+
       case AppRoutes.adminHome:
         final usuario = settings.arguments;
         if (usuario is Usuario) {
@@ -56,7 +80,6 @@ class RouteGenerator {
     }
   }
 
-  /// Ruta de emergencia: redirige a login cuando faltan argumentos obligatorios.
   static Route<dynamic> _redirectToLogin(RouteSettings settings) {
     return _fade(settings, const LoginScreen());
   }

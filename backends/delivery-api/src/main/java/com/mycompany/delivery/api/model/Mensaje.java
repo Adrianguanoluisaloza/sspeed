@@ -2,6 +2,10 @@ package com.mycompany.delivery.api.model;
 
 import java.sql.Timestamp;
 
+/**
+ * Modelo que representa un mensaje dentro del sistema de pedidos o chat.
+ * Puede ser enviado por el cliente, el delivery o el administrador.
+ */
 public class Mensaje {
 
     private int idMensaje;
@@ -14,7 +18,6 @@ public class Mensaje {
     }
 
     public Mensaje(int idMensaje, int idPedido, int idRemitente, String mensaje, Timestamp fechaEnvio) {
-        // Constructor completo para registrar logs de chat sin omitir datos.
         this.idMensaje = idMensaje;
         this.idPedido = idPedido;
         this.idRemitente = idRemitente;
@@ -60,5 +63,16 @@ public class Mensaje {
 
     public void setFechaEnvio(Timestamp fechaEnvio) {
         this.fechaEnvio = fechaEnvio;
+    }
+
+    @Override
+    public String toString() {
+        return "Mensaje{" +
+                "idMensaje=" + idMensaje +
+                ", idPedido=" + idPedido +
+                ", idRemitente=" + idRemitente +
+                ", mensaje='" + mensaje + '\'' +
+                ", fechaEnvio=" + fechaEnvio +
+                '}';
     }
 }

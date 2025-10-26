@@ -1,36 +1,34 @@
 import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform, kIsWeb;
 
-/// Configuración centralizada para determinar la URL base de la API.
-///
-/// Se alinea con los entornos más comunes (web, emuladores y escritorio)
-/// sin alterar la lógica previa, pero ofrece una detección automática del
-/// host correcto para evitar errores de conexión en Android/iOS.
 class AppConfig {
   AppConfig._();
 
+  // Bases por plataforma (local)
   static const String _webAndDesktopBase = 'http://localhost:4567';
   static const String _androidEmulatorBase = 'http://10.0.2.2:4567';
   static const String _iosSimulatorBase = 'http://localhost:4567';
 
+  // 👉 NEON PostgREST (tu endpoint)
+  static const String _neonRestBase =
+      'https://ep-quiet-thunder-ady30ys2.apirest.c-2.us-east-1.aws.neon.tech/neondb/rest/v1';
+
   static String? _manualOverride;
 
-  /// Permite sobrescribir manualmente la URL base (por ejemplo, cuando se
-  /// expone la API con Ngrok o una IP LAN). El valor se mantiene en memoria
-  /// para la sesión actual de la aplicación.
+  /// Activa la base de Neon para todo el runtime
+  static void useNeonRest() {
+    _manualOverride = _neonRestBase;
+  }
+
+  /// Override manual (Ngrok / LAN / Prod)
   static void overrideBaseUrl(String baseUrl) {
     _manualOverride = baseUrl.trim().isEmpty ? null : baseUrl.trim();
   }
 
-  /// Resuelve dinámicamente la URL base según la plataforma en ejecución.
-  /// De esta forma Android utiliza `10.0.2.2` (emulador) mientras que web y
-  /// escritorio permanecen en `localhost`.
+  /// Resuelve la URL base
   static String get baseUrl {
-    if (_manualOverride != null) {
-      return _manualOverride!;
-    }
-    if (kIsWeb) {
-      return _webAndDesktopBase;
-    }
+    if (_manualOverride != null) return _manualOverride!;
+    if (kIsWeb) return _webAndDesktopBase;
+
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
         return _androidEmulatorBase;
@@ -44,7 +42,5 @@ class AppConfig {
     }
   }
 
-  /// Ayuda visual que recuerda la IP LAN típica al probar en dispositivos
-  /// físicos; no se usa directamente para no interferir con la autodetección.
   static const String lanExample = 'http://192.168.1.100:4567';
 }

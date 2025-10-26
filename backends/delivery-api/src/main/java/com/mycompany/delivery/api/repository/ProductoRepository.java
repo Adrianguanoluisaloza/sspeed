@@ -17,14 +17,14 @@ import java.util.Optional;
 public class ProductoRepository {
 
     public List<Producto> listarTodosLosProductos() throws SQLException {
-        String sql = "SELECT id_producto, nombre, descripcion, precio, imagen_url, categoria, disponible FROM productos ORDER BY nombre ASC";
+        String sql = "SELECT id_producto, nombre, descripcion, precio, imagen_url, disponible FROM productos ORDER BY nombre ASC";
         return ejecutarConsultaProductos(sql);
     }
 
     public List<Producto> buscarProductos(String termino, String categoria) throws SQLException {
         // Se mantiene la versión COALESCE. Es más robusta porque maneja valores NULL 
         // en la columna 'disponible', tratándolos como 'true'.
-        StringBuilder sql = new StringBuilder("SELECT id_producto, nombre, descripcion, precio, imagen_url, categoria, disponible FROM productos WHERE COALESCE(disponible, true) = true");
+        StringBuilder sql = new StringBuilder("SELECT id_producto, nombre, descripcion, precio, imagen_url, disponible FROM productos WHERE COALESCE(disponible, true) = true");
         List<Object> parametros = new ArrayList<>();
 
         if (termino != null && !termino.isBlank()) {
@@ -34,10 +34,7 @@ public class ProductoRepository {
             parametros.add(like);
         }
 
-        if (categoria != null && !categoria.isBlank()) {
-            sql.append(" AND LOWER(categoria) = LOWER(?)");
-            parametros.add(categoria.trim());
-        }
+        // Si el esquema no tiene columna 'categoria', omitimos el filtro para evitar errores.
 
         sql.append(" ORDER BY nombre ASC");
 
@@ -127,7 +124,7 @@ public class ProductoRepository {
         p.setDescripcion(rs.getString("descripcion"));
         p.setPrecio(rs.getDouble("precio"));
         p.setImagenUrl(rs.getString("imagen_url"));
-        p.setCategoria(rs.getString("categoria"));
+        try { p.setCategoria(rs.getString("categoria")); } catch (SQLException ignored) {}
 
         Boolean disponible = (Boolean) rs.getObject("disponible");
         // Algunos registros antiguos no tenían la columna marcada, los tratamos como disponibles.

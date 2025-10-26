@@ -9,6 +9,7 @@ class Producto {
   final String? categoria;
   final int? idCategoria;
   final bool disponible;
+  final int? stock; // CAMPO AÑADIDO
   final DateTime? fechaCreacion;
 
   const Producto({
@@ -21,45 +22,37 @@ class Producto {
     this.categoria,
     this.idCategoria,
     this.disponible = true,
+    this.stock, // CAMPO AÑADIDO
     this.fechaCreacion,
   });
 
   factory Producto.fromMap(Map<String, dynamic> map) {
-    // Compatibilidad con respuestas en distintos formatos provenientes de la API.
+    // Funciones de parseo robustas
     dynamic readValue(List<String> keys) {
       for (final key in keys) {
-        if (map.containsKey(key) && map[key] != null) {
-          return map[key];
-        }
+        if (map.containsKey(key) && map[key] != null) return map[key];
       }
       return null;
     }
-
     int? parseInt(dynamic value) {
       if (value is num) return value.toInt();
-      if (value is String) {
-        return int.tryParse(value);
-      }
+      if (value is String) return int.tryParse(value);
       return null;
     }
-
-    DateTime? parseDate(dynamic value) {
-      if (value is DateTime) return value;
-      if (value is String && value.isNotEmpty) {
-        return DateTime.tryParse(value);
-      }
-      return null;
-    }
-
     double parseDouble(dynamic value) {
       if (value is num) return value.toDouble();
       if (value is String) return double.tryParse(value) ?? 0.0;
       return 0.0;
     }
+    DateTime? parseDate(dynamic value) {
+      if (value is DateTime) return value;
+      if (value is String && value.isNotEmpty) return DateTime.tryParse(value);
+      return null;
+    }
 
     return Producto(
-      idNegocio: parseInt(readValue(['id_negocio', 'idNegocio'])),
       idProducto: parseInt(readValue(['id_producto', 'idProducto'])) ?? 0,
+      idNegocio: parseInt(readValue(['id_negocio', 'idNegocio'])),
       nombre: readValue(['nombre', 'name'])?.toString() ?? 'Sin nombre',
       descripcion: readValue(['descripcion', 'description'])?.toString(),
       precio: parseDouble(readValue(['precio', 'price'])),
@@ -70,18 +63,17 @@ class Producto {
         final raw = readValue(['disponible', 'isAvailable']);
         if (raw is bool) return raw;
         if (raw is num) return raw != 0;
-        if (raw is String) {
-          return raw.toLowerCase() == 'true' || raw == '1';
-        }
+        if (raw is String) return raw.toLowerCase() == 'true' || raw == '1';
         return true;
       })(),
-      fechaCreacion:
-          parseDate(readValue(['fecha_creacion', 'fechaCreacion', 'createdAt'])),
+      stock: parseInt(readValue(['stock'])), // CAMPO AÑADIDO
+      fechaCreacion: parseDate(readValue(['fecha_creacion', 'fechaCreacion', 'createdAt'])),
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
+      'id_producto': idProducto,
       'id_negocio': idNegocio,
       'nombre': nombre,
       'descripcion': descripcion,
@@ -90,6 +82,7 @@ class Producto {
       'categoria': categoria,
       'id_categoria': idCategoria,
       'disponible': disponible,
+      'stock': stock, // CAMPO AÑADIDO
     }..removeWhere((key, value) => value == null);
   }
 
@@ -110,33 +103,25 @@ class ProductoRankeado {
     required this.totalReviews,
   });
 
+  // CORRECCIÓN: Se añade el factory constructor que faltaba
   factory ProductoRankeado.fromMap(Map<String, dynamic> map) {
     num? readNumeric(List<String> keys) {
       for (final key in keys) {
         final value = map[key];
         if (value is num) return value;
         if (value is String) {
-          final parsedDouble = double.tryParse(value);
-          if (parsedDouble != null) return parsedDouble;
-          final parsedInt = int.tryParse(value);
-          if (parsedInt != null) return parsedInt;
+          final parsed = num.tryParse(value);
+          if (parsed != null) return parsed;
         }
       }
       return null;
     }
 
-    final rating = readNumeric(['rating_promedio', 'ratingPromedio']) ?? 0.0;
-    final reviews = readNumeric(['total_reviews', 'totalReviews']) ?? 0;
-
-    final rawId = map['id_producto'] ?? map['idProducto'];
-
     return ProductoRankeado(
-      idProducto: rawId is num
-          ? rawId.toInt()
-          : (rawId is String ? int.tryParse(rawId) ?? 0 : 0),
+      idProducto: (readNumeric(['id_producto', 'idProducto']) ?? 0).toInt(),
       nombre: map['nombre']?.toString() ?? 'Producto Desconocido',
-      ratingPromedio: rating.toDouble(),
-      totalReviews: reviews.toInt(),
+      ratingPromedio: (readNumeric(['rating_promedio', 'ratingPromedio']) ?? 0.0).toDouble(),
+      totalReviews: (readNumeric(['total_reviews', 'totalReviews']) ?? 0).toInt(),
     );
   }
 }

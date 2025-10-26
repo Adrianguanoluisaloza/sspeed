@@ -1,10 +1,12 @@
+
 package com.mycompany.delivery.api.util;
+
 
 import com.google.gson.annotations.SerializedName;
 
 /**
- * Respuesta estándar para la API para que Flutter reciba siempre el mismo formato.
- * Mantener un contrato único reduce errores de parsing y facilita el manejo de estados.
+ * ✅ Respuesta estandarizada para todas las operaciones HTTP.
+ * Garantiza compatibilidad con Flutter sin tener que hacer parsing condicional.
  */
 public final class ApiResponse<T> {
 
@@ -24,7 +26,6 @@ public final class ApiResponse<T> {
     }
 
     public static <T> ApiResponse<T> success(int status, String message, T data) {
-        // Centralizamos la construcción exitosa para evitar códigos incongruentes en cada handler.
         return new ApiResponse<>(status, true, message, data, null);
     }
 
@@ -41,7 +42,6 @@ public final class ApiResponse<T> {
     }
 
     public static <T> ApiResponse<T> error(int status, String message, Object errorDetails) {
-        // El detalle adicional permite enviar pistas al frontend sin exponer internals sensibles.
         return new ApiResponse<>(status, false, message, null, errorDetails);
     }
 
@@ -49,23 +49,12 @@ public final class ApiResponse<T> {
         return error(status, message, null);
     }
 
-    public int getStatus() {
-        return status;
-    }
-
-    public boolean isSuccess() {
-        return success;
-    }
-
-    public String getMessage() {
-        return message;
-    }
-
-    public T getData() {
-        return data;
-    }
-
-    public Object getErrorDetails() {
-        return errorDetails;
-    }
+    public int getStatus() { return status; }
+    public boolean isSuccess() { return success; }
+    public String getMessage() { return message; }
+    public T getData() { return data; }
+    public Object getErrorDetails() { return errorDetails; }
 }
+
+//----------------------------------------------------------
+

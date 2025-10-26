@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_2/models/session_state.dart';
-import 'package:flutter_application_2/models/usuario.dart' show Usuario;
-import 'package:flutter_application_2/services/database_service.dart';
-import 'package:flutter_application_2/screen/chat_screen.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/intl.dart';
 
-import 'delivery_activearders_view.dart' show DeliveryActiveOrdersView;
-import 'delivery_availableorders_view.dart' show DeliveryAvailableOrdersView;
-import 'delivery_history_orders_view.dart' show DeliveryHistoryOrdersView;
+import '../models/session_state.dart';
+import '../models/usuario.dart';
 import '../routes/app_routes.dart';
+import '../services/database_service.dart';
+import '../screen/chat_screen.dart'; 
+
+import 'delivery_activearders_view.dart';
+import 'delivery_availableorders_view.dart';
+import 'delivery_history_orders_view.dart';
 
 class DeliveryHomeScreen extends StatefulWidget {
   final Usuario deliveryUser;
@@ -20,8 +21,7 @@ class DeliveryHomeScreen extends StatefulWidget {
   State<DeliveryHomeScreen> createState() => _DeliveryHomeScreenState();
 }
 
-class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
-    with SingleTickerProviderStateMixin {
+class _DeliveryHomeScreenState extends State<DeliveryHomeScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
   @override
@@ -36,7 +36,6 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
     super.dispose();
   }
 
-  // Lógica de Logout Correcta y Unificada
   Future<void> _handleLogout() async {
     final navigator = Navigator.of(context);
     final sessionController = context.read<SessionController>();
@@ -45,12 +44,12 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
     await prefs.clear();
 
     if (mounted) {
-        sessionController.clearUser();
-        navigator.pushNamedAndRemoveUntil(
-        AppRoutes.mainNavigator, 
-        (route) => false, 
+      sessionController.clearUser();
+      navigator.pushNamedAndRemoveUntil(
+        AppRoutes.mainNavigator,
+        (route) => false,
         arguments: Usuario.noAuth(),
-        );
+      );
     }
   }
 
@@ -60,11 +59,11 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
       appBar: AppBar(
         title: Text('Hola, ${widget.deliveryUser.nombre}'),
         actions: [
-          // Se usa el método _handleLogout del State
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: _handleLogout,
-          )
+            tooltip: 'Cerrar Sesión',
+          ),
         ],
         bottom: TabBar(
           isScrollable: true,
@@ -99,96 +98,42 @@ class DeliveryChatHubView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    // CORRECCIÓN: Se elimina `const` para solucionar el error de tipo
+    // CORRECCIÓN: Se elimina `const` para solucionar el error de tipo en el constructor
     final entries = <_ChatEntry>[
       _ChatEntry(
         section: ChatSection.cliente,
         title: 'Chat con Cliente',
-        description:
-            'Coordina entregas y resuelve dudas rápidas con tus clientes activos.',
-        icon: Icons.person,
+        description: 'Coordina entregas y resuelve dudas con tus clientes.',
+        icon: Icons.person_outline,
       ),
       _ChatEntry(
         section: ChatSection.soporte,
         title: 'Chat con Soporte',
-        description:
-            'Conecta con el equipo de soporte para reportar incidencias en ruta.',
-        icon: Icons.support_agent,
-      ),
-      _ChatEntry(
-        section: ChatSection.historial,
-        title: 'Historial',
-        description:
-            'Revisa conversaciones recientes y mantén un registro de tus seguimientos.',
-        icon: Icons.history,
+        description: 'Conecta con el equipo para reportar incidencias.',
+        icon: Icons.support_agent_outlined,
       ),
     ];
 
-    final firstName = deliveryUser.nombre.split(' ').first;
-
-    return ListView(
+    return ListView.builder(
       padding: const EdgeInsets.all(16),
-      children: [
-        Text(
-          'Gestiona tus conversaciones, $firstName',
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 16),
-        for (final entry in entries)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12.0),
-            child: Card(
-              elevation: 4,
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        CircleAvatar(
-                          backgroundColor: theme.colorScheme.primary.withAlpha(30),
-                          child: Icon(entry.icon, color: theme.colorScheme.primary),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            entry.title,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      entry.description,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(builder: (context) => ChatScreen(initialSection: entry.section)),
-                          );
-                        },
-                        icon: const Icon(Icons.chat_bubble_outline),
-                        label: const Text('Abrir chat'),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+      itemCount: entries.length,
+      itemBuilder: (context, index) {
+        final entry = entries[index];
+        return Card(
+          child: ListTile(
+            leading: CircleAvatar(
+              backgroundColor: theme.primaryColor.withAlpha(25),
+              child: Icon(entry.icon, color: theme.primaryColor),
             ),
+            title: Text(entry.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: Text(entry.description),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (context) => ChatScreen(initialSection: entry.section),
+            )),
           ),
-      ],
+        );
+      },
     );
   }
 }
@@ -199,7 +144,8 @@ class _ChatEntry {
   final String description;
   final IconData icon;
 
-  const _ChatEntry({
+  // Se elimina const del constructor para permitir la creación no constante
+  _ChatEntry({
     required this.section,
     required this.title,
     required this.description,
@@ -251,22 +197,15 @@ class _DeliveryStatsViewState extends State<DeliveryStatsView> {
 
         return RefreshIndicator(
           onRefresh: () async => setState(() => _statsFuture = _loadStats()),
-          child: ListView(
+          child: GridView.count(
             padding: const EdgeInsets.all(16),
+            crossAxisCount: 2,
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 16,
             children: [
-              GridView.count(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: 2,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 1.1,
-                children: [
-                  _StatTile(title: 'Completados Hoy', value: pedidosCompletados.toString(), icon: Icons.check_circle, color: Colors.green),
-                  _StatTile(title: 'Total Generado', value: NumberFormat.currency(locale: 'es_EC', symbol: '\$').format(totalGenerado), icon: Icons.attach_money, color: Colors.teal),
-                  _StatTile(title: 'Tiempo Promedio', value: '$promedioMinutos min', icon: Icons.timer, color: Colors.blue),
-                ],
-              ),
+              _StatTile(title: 'Completados Hoy', value: pedidosCompletados.toString(), icon: Icons.check_circle, color: Colors.green),
+              _StatTile(title: 'Total Generado', value: NumberFormat.currency(locale: 'es_EC', symbol: '\$').format(totalGenerado), icon: Icons.attach_money, color: Colors.teal),
+              _StatTile(title: 'Tiempo Promedio', value: '$promedioMinutos min', icon: Icons.timer, color: Colors.blue),
             ],
           ),
         );
@@ -285,7 +224,6 @@ class _StatTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      elevation: 4,
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(

@@ -1,5 +1,11 @@
 package com.mycompany.delivery.api.model;
 
+import java.sql.Timestamp;
+
+/**
+ * Modelo que representa una ubicación de usuario o repartidor.
+ * Simplificado y compatible con el nuevo sistema de controladores y repositorios.
+ */
 public class Ubicacion {
 
     private int idUbicacion;
@@ -10,12 +16,12 @@ public class Ubicacion {
     private String direccion;
     private boolean activa = true;
     private String estado;
+    private Timestamp fechaRegistro;
 
     public Ubicacion() {
     }
 
     public Ubicacion(int idUbicacion, int idUsuario, double latitud, double longitud, String descripcion, String direccion, boolean activa, String estado) {
-        // Constructor completo para evitar errores al mapear datos opcionales.
         this.idUbicacion = idUbicacion;
         this.idUsuario = idUsuario;
         this.latitud = latitud;
@@ -24,14 +30,6 @@ public class Ubicacion {
         this.direccion = direccion;
         this.activa = activa;
         this.estado = estado;
-    }
-
-    public void setDireccion(String direccion) {
-        this.direccion = direccion;
-    }
-
-    public String getDireccion() {
-        return direccion;
     }
 
     public int getIdUbicacion() {
@@ -74,6 +72,14 @@ public class Ubicacion {
         this.descripcion = descripcion;
     }
 
+    public String getDireccion() {
+        return direccion;
+    }
+
+    public void setDireccion(String direccion) {
+        this.direccion = direccion;
+    }
+
     public boolean isActiva() {
         return activa;
     }
@@ -90,7 +96,38 @@ public class Ubicacion {
         this.estado = estado;
     }
 
+    public Timestamp getFechaRegistro() {
+        return fechaRegistro;
+    }
+
+    public void setFechaRegistro(Timestamp fechaRegistro) {
+        this.fechaRegistro = fechaRegistro;
+    }
+
+    public void actualizarCoordenadas(double nuevaLatitud, double nuevaLongitud) {
+        this.latitud = nuevaLatitud;
+        this.longitud = nuevaLongitud;
+    }
+
+    public void toggleActiva(boolean activa) {
+        this.activa = activa;
+    }
+
     public boolean isEmpty() {
-        throw new UnsupportedOperationException("Not supported yet."); // Generated from nbfs://nbhost/SystemFileSystem/Templates/Classes/Code/GeneratedMethodBody
+        return (this.latitud == 0.0 && this.longitud == 0.0);
+    }
+
+    @Override
+    public String toString() {
+        return "Ubicacion{" +
+                "idUbicacion=" + idUbicacion +
+                ", idUsuario=" + idUsuario +
+                ", latitud=" + latitud +
+                ", longitud=" + longitud +
+                ", descripcion='" + descripcion + '\'' +
+                ", direccion='" + direccion + '\'' +
+                ", activa=" + activa +
+                ", estado='" + estado + '\'' +
+                '}';
     }
 }

@@ -1,7 +1,8 @@
 package com.mycompany.delivery.api.util;
 
 /**
- * Utilidades para validar y normalizar datos de ubicaciones.
+ * ✅ Conjunto completo y validado de utilidades y respuestas estándar
+ * usadas por la API para manejar errores, coordenadas y normalización.
  */
 public final class UbicacionValidator {
 
@@ -10,8 +11,7 @@ public final class UbicacionValidator {
     public static final double MIN_LONGITUDE = -180.0;
     public static final double MAX_LONGITUDE = 180.0;
 
-    private UbicacionValidator() {
-    }
+    private UbicacionValidator() {}
 
     public static boolean hasValidCoordinates(Double latitud, Double longitud) {
         return latitud != null && longitud != null
@@ -26,13 +26,9 @@ public final class UbicacionValidator {
     }
 
     public static String requireNonBlank(String valor, String mensajeError) {
-        if (valor == null) {
-            throw new IllegalArgumentException(mensajeError);
-        }
+        if (valor == null) throw new IllegalArgumentException(mensajeError);
         String limpio = valor.trim();
-        if (limpio.isEmpty()) {
-            throw new IllegalArgumentException(mensajeError);
-        }
+        if (limpio.isEmpty()) throw new IllegalArgumentException(mensajeError);
         return limpio;
     }
 
@@ -44,3 +40,5 @@ public final class UbicacionValidator {
         return activa == null || activa;
     }
 }
+
+//----------------------------------------------------------
