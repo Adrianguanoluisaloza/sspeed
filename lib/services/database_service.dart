@@ -24,7 +24,6 @@ class DatabaseService implements DataSource {
   Future<bool> register(String name, String email, String password, String phone) =>
       _dataSource.register(name, email, password, phone);
 
-  // MÉTODO AÑADIDO PARA ACTUALIZAR EL USUARIO
   @override
   Future<Usuario?> updateUsuario(Usuario usuario) => _dataSource.updateUsuario(usuario);
 
@@ -53,13 +52,20 @@ class DatabaseService implements DataSource {
         comentario: comentario,
       );
 
+  // CORRECCIÓN: Se añade el parámetro paymentMethod que faltaba
   @override
   Future<bool> placeOrder({
     required Usuario user,
     required CartModel cart,
     required Ubicacion location,
+    required String paymentMethod,
   }) =>
-      _dataSource.placeOrder(user: user, cart: cart, location: location);
+      _dataSource.placeOrder(
+        user: user, 
+        cart: cart, 
+        location: location, 
+        paymentMethod: paymentMethod,
+      );
 
   @override
   Future<List<Pedido>> getPedidos(int idUsuario) => _dataSource.getPedidos(idUsuario);

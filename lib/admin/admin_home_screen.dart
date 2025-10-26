@@ -5,7 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/session_state.dart';
 import '../models/usuario.dart';
 import '../routes/app_routes.dart';
-import '../services/database_service.dart';import 'admin_products_view.dart';
+import '../services/database_service.dart';
+import 'admin_products_view.dart';
 import 'admin_orders_view.dart';
 
 class AdminHomeScreen extends StatefulWidget {
@@ -58,7 +59,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // --- SECCIÓN DE ESTADÍSTICAS ---
             Text('Resumen del Día', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             FutureBuilder<Map<String, dynamic>>(
@@ -68,7 +68,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                   return Center(child: Text('Error al cargar estadísticas: ${snapshot.error}'));
                 }
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const _StatsGridLoading(); // Esqueleto de carga
+                  return const _StatsGridLoading();
                 }
                 if (!snapshot.hasData || snapshot.data!.isEmpty) {
                   return const Center(child: Text('No hay estadísticas disponibles.'));
@@ -79,8 +79,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               },
             ),
             const SizedBox(height: 24),
-
-            // --- SECCIÓN DE ACCIONES ---
             Text('Gestión', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             _MenuActionCard(
@@ -103,8 +101,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     );
   }
 }
-
-// --- WIDGETS AUXILIARES PARA UN CÓDIGO MÁS LIMPIO ---
 
 class _StatsGrid extends StatelessWidget {
   final Map<String, dynamic> stats;
@@ -144,7 +140,7 @@ class _StatCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, size: 32, color: color),
+            CircleAvatar(backgroundColor: color.withAlpha(51), child: Icon(icon, color: color)),
             const Spacer(),
             Text(value, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
             Text(title, style: TextStyle(color: Colors.grey[600])),
@@ -185,7 +181,8 @@ class _MenuActionCard extends StatelessWidget {
     return Card(
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-        leading: CircleAvatar(backgroundColor: color.withOpacity(0.1), child: Icon(icon, color: color)),
+        // CORRECCIÓN: Se usa withAlpha en lugar de withOpacity
+        leading: CircleAvatar(backgroundColor: color.withAlpha(26), child: Icon(icon, color: color)),
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
         subtitle: Text(subtitle),
         trailing: const Icon(Icons.chevron_right),

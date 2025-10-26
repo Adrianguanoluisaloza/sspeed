@@ -60,30 +60,49 @@ public class Payloads {
     }
 
     // =========================== PEDIDO COMPLETO ===========================
-    public static class PedidoPayload {
-        @SerializedName("id_cliente")
-        public int idCliente;
+  // =========================== PEDIDO COMPLETO ===========================
+public static class PedidoPayload {
 
-        @SerializedName("id_delivery")
-        public Integer idDelivery;
+    @SerializedName("id_cliente")
+    public int idCliente;
 
-        // Acepta direccion_entrega y direccionEntrega
-        @SerializedName("direccion_entrega")
-        private String direccionEntregaSnake;
-        @SerializedName("direccionEntrega")
-        private String direccionEntregaCamel;
+    @SerializedName("id_delivery")
+    public Integer idDelivery;
 
-        @SerializedName("metodo_pago")
-        public String metodoPago;
+    @SerializedName("id_ubicacion")
+    public Integer idUbicacion; // ✅ agregado
 
-        public String estado;
-        public Double total;
-        public List<PedidoDetallePayload> productos;
+    // Acepta direccion_entrega y direccionEntrega
+    @SerializedName("direccion_entrega")
+    private String direccionEntregaSnake;
+    @SerializedName("direccionEntrega")
+    private String direccionEntregaCamel;
 
-        public String getDireccionEntrega() {
-            return direccionEntregaSnake != null ? direccionEntregaSnake : direccionEntregaCamel;
-        }
+    @SerializedName("metodo_pago")
+    public String metodoPago;
+
+    public String estado;
+
+    // ✅ Acepta "total" o "monto_total"
+    @SerializedName(value = "total", alternate = {"monto_total"})
+    public Double total;
+
+    public List<PedidoDetallePayload> productos;
+
+    // ========== Getters útiles ==========
+
+    public String getDireccionEntrega() {
+        return direccionEntregaSnake != null ? direccionEntregaSnake : direccionEntregaCamel;
     }
+
+    public Double getTotal() {
+        return total != null ? total : 0.0;
+    }
+
+    public Integer getIdUbicacion() {
+        return idUbicacion != null ? idUbicacion : 0;
+    }
+}
 
     // =========================== ACTUALIZAR ESTADO ===========================
     public static class EstadoUpdateRequest {

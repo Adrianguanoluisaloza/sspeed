@@ -19,12 +19,10 @@ class _MainNavigatorState extends State<MainNavigator> {
   @override
   void initState() {
     super.initState();
-    // Se define la lista de pantallas que el navegador controlará
     _widgetOptions = <Widget>[
-      // CORRECCIÓN: Se pasa el objeto `usuario` a la HomeScreen
-      HomeScreen(usuario: widget.usuario),                 // 0: Inicio
-      ChatScreen(initialSection: ChatSection.soporte), // 1: Chat de Soporte
-      ProfileScreen(usuario: widget.usuario),              // 2: Perfil
+      HomeScreen(usuario: widget.usuario),
+      ChatScreen(initialSection: ChatSection.soporte),
+      ProfileScreen(usuario: widget.usuario),
     ];
   }
 

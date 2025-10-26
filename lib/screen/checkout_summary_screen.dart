@@ -33,7 +33,7 @@ class _CheckoutSummaryScreenState extends State<CheckoutSummaryScreen> {
       final success = await databaseService.placeOrder(
         user: widget.usuario,
         cart: cart,
-        location: widget.selectedLocation,
+        location: widget.selectedLocation, paymentMethod: '',
       );
       // -----------------------------------
 

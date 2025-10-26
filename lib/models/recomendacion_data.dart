@@ -1,6 +1,4 @@
-
 /// Modelo de datos para la tabla 'recomendaciones' (Reseña individual).
-/// Mantengo la clase original por si la API la sigue usando para POSTs o detalles.
 class Recomendacion {
   final int idRecomendacion;
   final int idUsuario;
@@ -19,7 +17,6 @@ class Recomendacion {
   });
 
   factory Recomendacion.fromMap(Map<String, dynamic> map) {
-    // Se aceptan claves alternativas para mantener compatibilidad con la API existente.
     dynamic readValue(List<String> keys) {
       for (final key in keys) {
         if (map.containsKey(key) && map[key] != null) {

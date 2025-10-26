@@ -84,6 +84,7 @@ class ApiDataSource implements DataSource {
   Future<Map<String, dynamic>> _post(String endpoint, Map<String, dynamic> data) async {
     final url = Uri.parse('$_baseUrl$endpoint');
     debugPrint('🌍 POST: $url');
+    debugPrint('   -> Payload: ${jsonEncode(data)}');
     try {
       final response = await _httpClient.post(url, headers: _jsonHeaders, body: jsonEncode(data)).timeout(_timeout);
       return await _parseMapResponse(response);
@@ -96,6 +97,7 @@ class ApiDataSource implements DataSource {
   Future<Map<String, dynamic>> _put(String endpoint, Map<String, dynamic> data) async {
     final url = Uri.parse('$_baseUrl$endpoint');
     debugPrint('🌍 PUT: $url');
+    debugPrint('   -> Payload: ${jsonEncode(data)}');
     try {
       final response = await _httpClient.put(url, headers: _jsonHeaders, body: jsonEncode(data)).timeout(_timeout);
       return await _parseMapResponse(response);
@@ -161,7 +163,7 @@ class ApiDataSource implements DataSource {
 
   @override
   Future<List<Producto>> getProductos({String? query, String? categoria}) async {
-    final data = await _get('/productos');
+    final data = await _get('/productos?query=${query ?? ''}&categoria=${categoria ?? ''}');
     return data.map((item) => Producto.fromMap(item as Map<String, dynamic>)).toList();
   }
 
@@ -188,8 +190,32 @@ class ApiDataSource implements DataSource {
   }
 
   @override
-  Future<bool> placeOrder({required Usuario user, required CartModel cart, required Ubicacion location}) async {
-    final response = await _post('/pedidos', {}); // Placeholder
+  Future<bool> placeOrder({
+    required Usuario user,
+    required CartModel cart,
+    required Ubicacion location,
+    required String paymentMethod,
+  }) async {
+    const double shippingCost = 2.00;
+    final double total = cart.total + shippingCost;
+    final productosJson = cart.items.map((item) => {
+      'id_producto': item.producto.idProducto,
+      'cantidad': item.quantity,
+      'precio_unitario': item.producto.precio,
+      'subtotal': item.subtotal,
+    }).toList();
+
+    final payload = {
+      'id_cliente': user.idUsuario,
+      'id_ubicacion': location.id, // CORRECCIÓN: Se usa la clave snake_case
+      'direccion_entrega': location.direccion,
+      'metodo_pago': paymentMethod,
+      'estado': 'pendiente',
+      'total': total,
+      'productos': productosJson,
+    };
+
+    final response = await _post('/pedidos', payload);
     return response['success'] ?? false;
   }
 
@@ -237,8 +263,8 @@ class ApiDataSource implements DataSource {
 
   @override
   Future<bool> deleteProducto(int idProducto) async {
-    // Implementación placeholder
-    return true;
+    final response = await _put('/admin/productos/$idProducto/delete', {});
+    return response['success'] ?? false;
   }
 
   @override
@@ -283,7 +309,9 @@ class ApiDataSource implements DataSource {
 
   @override
   Future<int?> iniciarConversacion({required int idCliente, int? idDelivery, int? idAdminSoporte, int? idPedido}) async {
-    final response = await _post('/chat/iniciar', {});
+    final response = await _post('/chat/iniciar', {
+      'idCliente': idCliente, 'idDelivery': idDelivery, 'idAdminSoporte': idAdminSoporte, 'idPedido': idPedido
+    }..removeWhere((key, value) => value == null));
     return response['id_conversacion'] as int?;
   }
 
@@ -301,7 +329,11 @@ class ApiDataSource implements DataSource {
 
   @override
   Future<bool> enviarMensaje({required int idConversacion, required int idRemitente, required String mensaje}) async {
-    final response = await _post('/chat/mensajes', {});
+    final response = await _post('/chat/mensajes', {
+      'idConversacion': idConversacion,
+      'idRemitente': idRemitente,
+      'mensaje': mensaje,
+    });
     return response['success'] ?? false;
   }
 }

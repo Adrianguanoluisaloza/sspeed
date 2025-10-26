@@ -14,7 +14,7 @@ abstract class DataSource {
   // --- Métodos de Usuario ---
   Future<Usuario?> login(String email, String password);
   Future<bool> register(String name, String email, String password, String phone);
-  Future<Usuario?> updateUsuario(Usuario usuario); // MÉTODO AÑADIDO
+  Future<Usuario?> updateUsuario(Usuario usuario);
 
   // --- Métodos del Cliente ---
   Future<List<Producto>> getProductos({String? query, String? categoria});
@@ -26,10 +26,12 @@ abstract class DataSource {
     required int puntuacion,
     String? comentario,
   });
+  // CORRECCIÓN: Se añade el método de pago
   Future<bool> placeOrder({
     required Usuario user,
     required CartModel cart,
     required Ubicacion location,
+    required String paymentMethod,
   });
   Future<List<Pedido>> getPedidos(int idUsuario);
   Future<PedidoDetalle?> getPedidoDetalle(int idPedido);

@@ -45,7 +45,7 @@ class MyApp extends StatelessWidget {
         seedColor: primaryColor,
         primary: primaryColor,
         secondary: accentColor,
-        background: backgroundColor,
+        surface: backgroundColor, // CORRECCIÓN: 'background' renombrado a 'surface'
       ),
       scaffoldBackgroundColor: backgroundColor,
       fontFamily: 'Inter', // Asegúrate de tener esta fuente en tu pubspec.yaml y carpeta de assets
@@ -90,7 +90,6 @@ class MyApp extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: primaryColor, width: 2),
         ),
-        // CORRECCIÓN: Se usa withAlpha en lugar de withOpacity
         prefixIconColor: primaryColor.withAlpha(179),
       ),
     );

@@ -43,7 +43,8 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen> with SingleTick
                 child: Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.1),
+                    // CORRECCIÓN: Se usa withAlpha en lugar de withOpacity
+                    color: Colors.green.withAlpha(26),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.check_rounded, color: Colors.green, size: 100),
@@ -63,7 +64,8 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen> with SingleTick
               ),
               const SizedBox(height: 40),
               ElevatedButton(
-                onPressed: () => Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.mainNavigator, (route) => false, arguments: null), // Vuelve al inicio
+                // Se pasa null como argumento porque la pantalla principal decidirá si el usuario es invitado o no
+                onPressed: () => Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.mainNavigator, (route) => false, arguments: null), 
                 child: const Text('Volver al Inicio'),
               ),
             ],

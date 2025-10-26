@@ -6,6 +6,7 @@ import 'package:shimmer/shimmer.dart';
 import '../models/cart_model.dart';
 import '../models/producto.dart';
 import '../models/usuario.dart';
+import '../widgets/recomendaciones_carousel.dart';
 import '../services/database_service.dart';
 import 'widgets/login_required_dialog.dart';
 import 'product_detail_screen.dart';
@@ -21,7 +22,6 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late Future<List<Producto>> _productosFuture;
-  late Future<List<ProductoRankeado>> _recomendacionesFuture;
   late DatabaseService _databaseService;
 
   final TextEditingController _searchController = TextEditingController();
@@ -50,9 +50,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _loadData() {
     _loadProducts();
-    setState(() {
-      _recomendacionesFuture = _databaseService.getRecomendaciones();
-    });
   }
 
   void _loadProducts() {
@@ -79,7 +76,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final firstName = widget.usuario.nombre.split(' ').first;
-    final theme = Theme.of(context);
 
     return Scaffold(
       appBar: AppBar(
@@ -104,10 +100,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   _buildSearchBar(),
                   const Padding(
-                    padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-                    child: Text('Recomendaciones para ti', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
+                    child: Text('✨ Recomendaciones para ti', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                   ),
-                  _buildRecommendationsList(),
+                  const RecomendacionesCarousel(),
                   const Padding(
                     padding: EdgeInsets.fromLTRB(16, 24, 16, 8),
                     child: Text('Nuestro Menú', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
@@ -162,28 +158,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       );
 
-  Widget _buildRecommendationsList() => SizedBox(
-    height: 180,
-    child: FutureBuilder<List<ProductoRankeado>>(
-      future: _recomendacionesFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const RecommendationsLoading();
-        }
-        if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
-          return const SizedBox.shrink(); // No muestra nada si hay error o está vacío
-        }
-        final recomendaciones = snapshot.data!;
-        return ListView.builder(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          itemCount: recomendaciones.length,
-          itemBuilder: (context, index) => RecommendationCard(producto: recomendaciones[index]),
-        );
-      },
-    ),
-  );
-
   Widget _buildProductsGrid() => FutureBuilder<List<Producto>>(
         future: _productosFuture,
         builder: (context, snapshot) {
@@ -212,43 +186,6 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 // --- WIDGETS AUXILIARES ---
-
-class RecommendationCard extends StatelessWidget {
-  final ProductoRankeado producto;
-  const RecommendationCard({super.key, required this.producto});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 250,
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(producto.nombre, style: const TextStyle(fontWeight: FontWeight.bold), maxLines: 2, overflow: TextOverflow.ellipsis),
-              const Spacer(),
-              Row(
-                children: [
-                  Icon(Icons.star, color: Colors.amber, size: 20),
-                  const SizedBox(width: 4),
-                  Text(producto.ratingPromedio.toStringAsFixed(1), style: const TextStyle(fontWeight: FontWeight.bold)),
-                  Text(' (${producto.totalReviews} reseñas)', style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                ],
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(child: const Text('Ver Producto'), onPressed: () { /* TODO: Navegar al detalle */ }),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class ProductCard extends StatelessWidget {
   final Producto producto;
@@ -315,24 +252,11 @@ class InfoMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-    Icon(icon, size: 48, color: Theme.of(context).colorScheme.primary.withOpacity(0.6)),
+    // CORRECCIÓN: Se usa withAlpha en lugar de withOpacity
+    Icon(icon, size: 48, color: Theme.of(context).colorScheme.primary.withAlpha(153)),
     const SizedBox(height: 12),    
     Text(message, textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey[600])),
   ]));
-}
-
-class RecommendationsLoading extends StatelessWidget {
-  const RecommendationsLoading({super.key});
-  @override
-  Widget build(BuildContext context) => Shimmer.fromColors(
-      baseColor: Colors.grey.shade300, highlightColor: Colors.grey.shade100,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        itemCount: 3,
-        itemBuilder: (c, i) => const SizedBox(width: 250, child: Card()),
-      )
-  );
 }
 
 class ProductsGridLoading extends StatelessWidget {

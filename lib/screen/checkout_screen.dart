@@ -19,7 +19,7 @@ class CheckoutScreen extends StatefulWidget {
 }
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
-  String _paymentMethod = 'cash'; // Valor por defecto
+  String _paymentMethod = 'efectivo'; 
   bool _isLoading = false;
 
   Future<void> _confirmOrder() async {
@@ -40,6 +40,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         user: widget.usuario,
         cart: cart,
         location: widget.ubicacion,
+        paymentMethod: _paymentMethod,
       );
 
       if (success) {
@@ -74,7 +75,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Resumen de la dirección
             _buildSectionTitle(context, 'Dirección de Entrega'),
             Card(
               child: ListTile(
@@ -85,27 +85,35 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ),
             const SizedBox(height: 24),
 
-            // Selección de método de pago
             _buildSectionTitle(context, 'Método de Pago'),
             Card(
-              child: RadioListTile<String>(
-                title: const Text('Efectivo contra entrega'),
-                subtitle: const Text('Paga cuando recibas tu pedido'),
-                secondary: const Icon(Icons.money, color: Colors.green),
-                value: 'cash',
-                groupValue: _paymentMethod,
-                onChanged: (value) {
-                  setState(() {
-                    _paymentMethod = value!;
-                  });
-                },
+              child: Column(
+                children: [
+                  // Efectivo
+                  _buildPaymentOption(
+                    title: 'Efectivo contra entrega',
+                    value: 'efectivo',
+                    icon: Icons.money_outlined,
+                  ),
+                  const Divider(height: 1, indent: 16, endIndent: 16),
+                  // Tarjeta
+                  _buildPaymentOption(
+                    title: 'Tarjeta de Crédito/Débito',
+                    value: 'tarjeta',
+                    icon: Icons.credit_card_outlined,
+                  ),
+                  const Divider(height: 1, indent: 16, endIndent: 16),
+                  // Transferencia
+                  _buildPaymentOption(
+                    title: 'Transferencia Bancaria',
+                    value: 'transferencia',
+                    icon: Icons.account_balance_outlined,
+                  ),
+                ],
               ),
             ),
-            // Aquí se podrían añadir más métodos de pago como tarjetas
-
             const SizedBox(height: 24),
 
-            // Resumen del costo
             _buildSectionTitle(context, 'Resumen de Compra'),
             Card(
               child: Padding(
@@ -133,6 +141,24 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               : const Text('Confirmar Pedido'),
         ),
       ),
+    );
+  }
+
+  // Widget auxiliar para las opciones de pago
+  Widget _buildPaymentOption({required String title, required String value, required IconData icon}) {
+    return ListTile(
+      title: Text(title),
+      leading: Radio<String>(
+        value: value,
+        groupValue: _paymentMethod,
+        onChanged: (newValue) {
+          if (newValue != null) {
+            setState(() => _paymentMethod = newValue);
+          }
+        },
+      ),
+      trailing: Icon(icon, color: Theme.of(context).colorScheme.secondary),
+      onTap: () => setState(() => _paymentMethod = value),
     );
   }
 

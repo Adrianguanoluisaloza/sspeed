@@ -16,62 +16,95 @@ import java.util.*;
 public class PedidoController {
 
     // ===============================
-    // CREAR PEDIDO
+    // CREAR PEDIDO (versión robusta y transaccional)
     // ===============================
     public ApiResponse<Pedido> crearPedido(Pedido pedido, List<DetallePedido> detalles) {
         if (pedido == null || detalles == null || detalles.isEmpty()) {
             throw new ApiException(400, "Datos del pedido incompletos o inválidos");
         }
 
-        String insertPedido = """
-            INSERT INTO pedidos (id_cliente, id_delivery, direccion_entrega, metodo_pago, estado, total)
-            VALUES (?, ?, ?, ?, ?, ?) RETURNING id_pedido
+        String sqlPedido = """
+            INSERT INTO pedidos 
+            (id_cliente, id_delivery, id_ubicacion, estado, total, direccion_entrega, metodo_pago) 
+            VALUES (?, ?, ?, ?, ?, ?, ?) 
+            RETURNING id_pedido
         """;
 
-        String insertDetalle = """
-            INSERT INTO detalle_pedido (id_pedido, id_producto, cantidad, precio_unitario, subtotal)
+        // ✅ CORREGIDO: detalle_pedido ➜ detalle_pedidos
+        String sqlDetalle = """
+            INSERT INTO detalle_pedidos 
+            (id_pedido, id_producto, cantidad, precio_unitario, subtotal)
             VALUES (?, ?, ?, ?, ?)
         """;
 
         try (Connection conn = Database.getConnection()) {
             conn.setAutoCommit(false);
+            int idPedidoGenerado;
 
-            // Insertar pedido
-            int idPedido;
-            try (PreparedStatement stmt = conn.prepareStatement(insertPedido)) {
-                stmt.setInt(1, pedido.getIdCliente());
-                if (pedido.getIdDelivery() != null) stmt.setInt(2, pedido.getIdDelivery());
-                else stmt.setNull(2, Types.INTEGER);
-                stmt.setString(3, pedido.getDireccionEntrega());
-                stmt.setString(4, pedido.getMetodoPago());
-                stmt.setString(5, pedido.getEstado());
-                stmt.setDouble(6, pedido.getTotal());
-                ResultSet rs = stmt.executeQuery();
-                rs.next();
-                idPedido = rs.getInt("id_pedido");
-            }
+            // ==========================
+            // 1️⃣ Insertar pedido
+            // ==========================
+            try (PreparedStatement stmtPedido = conn.prepareStatement(sqlPedido)) {
+                stmtPedido.setInt(1, pedido.getIdCliente());
 
-            // Insertar detalles
-            try (PreparedStatement stmt = conn.prepareStatement(insertDetalle)) {
-                for (DetallePedido d : detalles) {
-                    stmt.setInt(1, idPedido);
-                    stmt.setInt(2, d.getIdProducto());
-                    stmt.setInt(3, d.getCantidad());
-                    stmt.setDouble(4, d.getPrecioUnitario());
-                    stmt.setDouble(5, d.getSubtotal());
-                    stmt.addBatch();
+                if (pedido.getIdDelivery() != null) {
+                    stmtPedido.setInt(2, pedido.getIdDelivery());
+                } else {
+                    stmtPedido.setNull(2, Types.INTEGER);
                 }
-                stmt.executeBatch();
+
+               if (pedido.getIdUbicacion() > 0) {
+    stmtPedido.setInt(3, pedido.getIdUbicacion());
+} else {
+    stmtPedido.setNull(3, Types.INTEGER);
+}
+
+
+                stmtPedido.setString(4, pedido.getEstado() != null ? pedido.getEstado() : "pendiente");
+                stmtPedido.setDouble(5, pedido.getTotal());
+                stmtPedido.setString(6, pedido.getDireccionEntrega());
+                stmtPedido.setString(7, pedido.getMetodoPago());
+
+                try (ResultSet rs = stmtPedido.executeQuery()) {
+                    if (!rs.next()) {
+                        conn.rollback();
+                        throw new SQLException("No se generó el ID del pedido");
+                    }
+                    idPedidoGenerado = rs.getInt("id_pedido");
+                }
             }
 
+            // ==========================
+            // 2️⃣ Insertar detalles
+            // ==========================
+            try (PreparedStatement stmtDetalle = conn.prepareStatement(sqlDetalle)) {
+                for (DetallePedido d : detalles) {
+                    stmtDetalle.setInt(1, idPedidoGenerado);
+                    stmtDetalle.setInt(2, d.getIdProducto());
+                    stmtDetalle.setInt(3, d.getCantidad());
+                    stmtDetalle.setDouble(4, d.getPrecioUnitario());
+                    stmtDetalle.setDouble(5, d.getSubtotal());
+                    stmtDetalle.addBatch();
+                }
+                stmtDetalle.executeBatch();
+            }
+
+            // ==========================
+            // 3️⃣ Confirmar transacción
+            // ==========================
             conn.commit();
-            pedido.setIdPedido(idPedido);
+
+            // ==========================
+            // 4️⃣ Devolver respuesta
+            // ==========================
+            pedido.setIdPedido(idPedidoGenerado);
             pedido.setDetalles(detalles);
 
-            return ApiResponse.success(201, "Pedido creado correctamente", pedido);
+            return ApiResponse.success(201, "✅ Pedido creado correctamente", pedido);
 
         } catch (SQLException e) {
-            throw new ApiException(500, "Error al crear el pedido", e);
+            e.printStackTrace();
+            throw new ApiException(500, "💥 Error al crear el pedido: " + e.getMessage(), e);
         }
     }
 
