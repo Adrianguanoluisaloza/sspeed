@@ -85,7 +85,7 @@ class Pedido {
     );
     final rawLocation = readValue(['ubicacion', 'location']);
     final ubicacion = rawLocation is Map
-        ? Map<String, dynamic>.from(rawLocation as Map)
+        ? Map<String, dynamic>.from(rawLocation)
         : null;
 
     final double? latitud = parseDouble(

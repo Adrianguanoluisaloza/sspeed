@@ -4,8 +4,8 @@ import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 
 import '../models/cart_model.dart';
 import '../models/producto.dart';
-import '../models/usuario.dart'; // <-- Necesitamos el usuario para enviar la reseña
-import '../services/database_service.dart'; // <-- Necesitamos el servicio
+import '../models/usuario.dart';
+import '../services/database_service.dart';
 import 'widgets/login_required_dialog.dart';
 
 class ProductDetailScreen extends StatefulWidget {
@@ -27,11 +27,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   final TextEditingController _commentController = TextEditingController();
   bool _isSubmittingReview = false;
 
+  // CORRECCIÓN COMPLETA DE LA LÓGICA
   Future<void> _submitReview() async {
-    if (widget.usuario.isGuest) {
-      await showLoginRequiredDialog(context);
+    // Se usa la nueva lógica de autenticación
+    if (!widget.usuario.isAuthenticated) {
+      showLoginRequiredDialog(context);
       return;
     }
+
+    // Se obtienen las dependencias ANTES de cualquier await
+    final messenger = ScaffoldMessenger.of(context);
+    final dbService = Provider.of<DatabaseService>(context, listen: false);
+
     if (_userRating == 0) {
       messenger.showSnackBar(
         const SnackBar(content: Text('Por favor, selecciona una puntuación (estrellas).'), backgroundColor: Colors.orange),
@@ -41,30 +48,36 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
     setState(() => _isSubmittingReview = true);
 
-    final success = await dbService.addRecomendacion(
-      idProducto: widget.producto.idProducto,
-      idUsuario: widget.usuario.idUsuario,
-      puntuacion: _userRating.toInt(),
-      comentario: _commentController.text.trim(),
-    );
+    try {
+      final success = await dbService.addRecomendacion(
+        idProducto: widget.producto.idProducto,
+        idUsuario: widget.usuario.idUsuario,
+        puntuacion: _userRating.toInt(),
+        comentario: _commentController.text.trim(),
+      );
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(
           content: Text(success ? '¡Gracias por tu reseña!' : 'Error al enviar la reseña.'),
           backgroundColor: success ? Colors.green : Colors.red,
         ),
       );
-      // Opcional: Limpiar campos o cerrar si fue exitoso
+
       if (success) {
         _commentController.clear();
         setState(() {
           _userRating = 0;
         });
       }
+    } catch (e) {
+        messenger.showSnackBar(
+             SnackBar(content: Text('Ocurrió un error: ${e.toString()}'), backgroundColor: Colors.red),
+        );
+    } finally {
+        if(mounted) {
+            setState(() => _isSubmittingReview = false);
+        }
     }
-
-    setState(() => _isSubmittingReview = false);
   }
 
   @override
@@ -76,7 +89,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final cart = Provider.of<CartModel>(context, listen: false);
-    final isGuest = widget.usuario.isGuest;
 
     return Scaffold(
       appBar: AppBar(
@@ -101,16 +113,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   const SizedBox(height: 20),
                   const Text('Descripción', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
                   const Divider(),
-                  Text(
-                    widget.producto.descripcion ?? 'Sin descripción disponible.',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey.shade700,
-                      height: 1.5,
-                    ),
-                  ),
-
-                  // --- SECCIÓN DE RESEÑAS ---
+                  Text(widget.producto.descripcion ?? 'Sin descripción disponible.', style: TextStyle(fontSize: 16, color: Colors.grey.shade700, height: 1.5)),
                   const SizedBox(height: 30),
                   const Text('Deja tu reseña', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
                   const Divider(),
@@ -150,7 +153,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         child: ElevatedButton.icon(
           icon: const Icon(Icons.add_shopping_cart),
           label: const Text('Añadir al Carrito'),
-          onPressed: isGuest
+          onPressed: !widget.usuario.isAuthenticated // CORRECCIÓN
               ? () => showLoginRequiredDialog(context)
               : () {
                   cart.addToCart(widget.producto);
@@ -174,7 +177,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
 class _DetailImage extends StatelessWidget {
   final String? imageUrl;
-
   const _DetailImage({required this.imageUrl});
 
   @override
@@ -182,20 +184,15 @@ class _DetailImage extends StatelessWidget {
     if (imageUrl == null || imageUrl!.isEmpty) {
       return _DetailPlaceholder(icon: Icons.fastfood);
     }
-
     return Image.network(
       imageUrl!,
       height: 300,
       width: double.infinity,
       fit: BoxFit.cover,
-      errorBuilder: (context, error, stackTrace) =>
-          _DetailPlaceholder(icon: Icons.image_not_supported),
+      errorBuilder: (context, error, stackTrace) => _DetailPlaceholder(icon: Icons.image_not_supported),
       loadingBuilder: (context, child, loadingProgress) {
         if (loadingProgress == null) return child;
-        return SizedBox(
-          height: 300,
-          child: const Center(child: CircularProgressIndicator()),
-        );
+        return SizedBox(height: 300, child: const Center(child: CircularProgressIndicator()));
       },
     );
   }
@@ -203,7 +200,6 @@ class _DetailImage extends StatelessWidget {
 
 class _DetailPlaceholder extends StatelessWidget {
   final IconData icon;
-
   const _DetailPlaceholder({required this.icon});
 
   @override
@@ -216,4 +212,3 @@ class _DetailPlaceholder extends StatelessWidget {
     );
   }
 }
-

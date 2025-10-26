@@ -15,6 +15,7 @@ class Producto {
     required this.idProducto,
     required this.nombre,
     required this.precio,
+    this.idNegocio,
     this.descripcion,
     this.imagenUrl,
     this.categoria,
@@ -57,6 +58,7 @@ class Producto {
     }
 
     return Producto(
+      idNegocio: parseInt(readValue(['id_negocio', 'idNegocio'])),
       idProducto: parseInt(readValue(['id_producto', 'idProducto'])) ?? 0,
       nombre: readValue(['nombre', 'name'])?.toString() ?? 'Sin nombre',
       descripcion: readValue(['descripcion', 'description'])?.toString(),

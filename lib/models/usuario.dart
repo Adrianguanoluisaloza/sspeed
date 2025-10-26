@@ -90,6 +90,9 @@ class Usuario {
     );
   }
 
+  // Alias usado en algunas pantallas para indicar no autenticado
+  factory Usuario.noAuth() => Usuario.guest();
+
   /// Conversión a mapa para peticiones POST/PUT cuando sea necesario.
   Map<String, dynamic> toMap() {
     return {
@@ -107,6 +110,7 @@ class Usuario {
 
   bool get estaActivo => activo;
   bool get isGuest => esInvitado;
+  bool get isAuthenticated => !esInvitado && idUsuario > 0;
 
   /// Método auxiliar para actualizar propiedades opcionales sin perder la
   /// información original del usuario autenticado (por ejemplo, al adjuntar

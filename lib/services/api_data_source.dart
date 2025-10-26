@@ -278,7 +278,7 @@ class ApiDataSource implements DataSource {
 
     Map<String, dynamic>? userMap;
     if (rawUser is Map) {
-      userMap = Map<String, dynamic>.from(rawUser as Map);
+      userMap = Map<String, dynamic>.from(rawUser);
     } else if (response.containsKey('id_usuario') ||
         response.containsKey('idUsuario')) {
       userMap = Map<String, dynamic>.from(response);
@@ -332,7 +332,7 @@ class ApiDataSource implements DataSource {
         response['usuario'] ?? response['data'] ?? response['user'];
     Map<String, dynamic>? userMap;
     if (rawUser is Map) {
-      userMap = Map<String, dynamic>.from(rawUser as Map);
+      userMap = Map<String, dynamic>.from(rawUser);
     }
     if (userMap == null || userMap.isEmpty) {
       return null;
@@ -589,6 +589,38 @@ class ApiDataSource implements DataSource {
   }
 
   @override
+  Future<Map<String, dynamic>> getDeliveryStats(int idDelivery) async {
+    try {
+      final response = await _tryEndpoints<Map<String, dynamic>>(
+        [
+          '/delivery/stats/$idDelivery',
+          '/api/delivery/stats/$idDelivery',
+        ],
+        (endpoint) => _getMap(endpoint),
+      );
+
+      // Soportar distintas envolturas de respuesta
+      final data = response['data'];
+      if (data is Map<String, dynamic>) return data;
+      if (response.isNotEmpty) return response;
+    } on ApiException catch (e) {
+      // Si el backend no tiene endpoint dedicado, calculamos con pedidos.
+      if (!_shouldTryAlternateEndpoint(e)) rethrow;
+    }
+
+    final pedidos = await getPedidosPorDelivery(idDelivery);
+    final Map<String, int> porEstado = {};
+    for (final p in pedidos) {
+      final estado = (p.estado).toLowerCase();
+      porEstado[estado] = (porEstado[estado] ?? 0) + 1;
+    }
+    return {
+      'total': pedidos.length,
+      ...porEstado,
+    };
+  }
+
+  @override
   Future<bool> updateRepartidorLocation(int idRepartidor, double lat, double lon) async {
     try {
       final payload = {
@@ -632,81 +664,6 @@ class ApiDataSource implements DataSource {
       return null;
     }
   }
-
-  @override
-  Future<int?> iniciarConversacion({
-    required int idCliente,
-    int? idDelivery,
-    int? idAdminSoporte,
-    int? idPedido,
-  }) async {
-    final payload = {
-      'id_cliente': idCliente,
-      'id_delivery': idDelivery,
-      'id_admin_soporte': idAdminSoporte,
-      'id_pedido': idPedido,
-    }..removeWhere((key, value) => value == null);
-
-    final response = await _tryEndpoints<Map<String, dynamic>>(
-      ['/chat/iniciar', '/api/chat/iniciar'],
-      (endpoint) => _post(endpoint, payload),
-    );
-    final dynamic idValue =
-        response['id_conversacion'] ?? response['conversationId'] ?? response['id'];
-    if (idValue is int) return idValue;
-    if (idValue is String) return int.tryParse(idValue);
-    return null;
-  }
-
-  @override
-  Future<List<ChatConversation>> getConversaciones(int idUsuario) async {
-    final data = await _tryEndpoints<List<dynamic>>(
-      [
-        '/chat/conversaciones/$idUsuario',
-        '/api/chat/conversaciones/$idUsuario',
-      ],
-      (endpoint) => _get(endpoint),
-    );
-    return data
-        .map((item) =>
-            ChatConversation.fromMap(Map<String, dynamic>.from(item as Map)))
-        .toList();
-  }
-
-  @override
-  Future<List<ChatMessage>> getMensajesDeConversacion(int idConversacion) async {
-    final data = await _tryEndpoints<List<dynamic>>(
-      [
-        '/chat/mensajes/$idConversacion',
-        '/api/chat/mensajes/$idConversacion',
-      ],
-      (endpoint) => _get(endpoint),
-    );
-    return data
-        .map((item) => ChatMessage.fromMap(Map<String, dynamic>.from(item as Map)))
-        .toList();
-  }
-
-  @override
-  Future<bool> enviarMensaje({
-    required int idConversacion,
-    required int idRemitente,
-    required String mensaje,
-  }) async {
-    final response = await _tryEndpoints<Map<String, dynamic>>(
-      ['/chat/mensajes', '/api/chat/mensajes'],
-      (endpoint) => _post(endpoint, {
-            'id_conversacion': idConversacion,
-            'id_remitente': idRemitente,
-            'mensaje': mensaje,
-          }),
-    );
-    final success = response['success'];
-    if (success is bool) return success;
-    final status = response['status']?.toString().toLowerCase();
-    return status == 'ok' || status == 'success';
-  }
-}
 
   @override
   Future<int?> iniciarConversacion({

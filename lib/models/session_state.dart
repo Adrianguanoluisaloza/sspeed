@@ -19,4 +19,7 @@ class SessionController extends ChangeNotifier {
     _usuario = usuario;
     notifyListeners();
   }
+
+  // Limpia la sesión y vuelve a invitado
+  void clearUser() => setGuest();
 }

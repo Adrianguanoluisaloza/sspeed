@@ -11,9 +11,6 @@ import '../services/database_service.dart';
 /// Secciones disponibles en el centro de mensajería.
 enum ChatSection { cliente, soporte, historial }
 
-/// Secciones disponibles en el centro de mensajería.
-enum ChatSection { cliente, soporte, historial }
-
 class ChatScreen extends StatefulWidget {
   final ChatSection initialSection;
   const ChatScreen({super.key, this.initialSection = ChatSection.cliente});
@@ -660,3 +657,4 @@ class _ChatScreenState extends State<ChatScreen>
     });
   }
 }
+

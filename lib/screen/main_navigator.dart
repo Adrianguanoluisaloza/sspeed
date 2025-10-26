@@ -21,9 +21,9 @@ class _MainNavigatorState extends State<MainNavigator> {
     super.initState();
     // Definimos las pantallas aquí para poder pasar el objeto 'usuario'
     _widgetOptions = <Widget>[
-      HomeScreen(usuario: widget.usuario),    // 0: Inicio
-      const ChatScreen(),                      // 1: Chat de Soporte
-      ProfileScreen(usuario: widget.usuario), // 2: Perfil
+      const HomeScreen(),                                 // 0: Inicio
+      ChatScreen(initialSection: ChatSection.soporte), // 1: Chat de Soporte
+      ProfileScreen(usuario: widget.usuario),              // 2: Perfil
     ];
   }
 
