@@ -4,6 +4,7 @@ import '../admin/admin_home_screen.dart';
 import '../delivery/delivery_home_screen.dart';
 import '../models/usuario.dart';
 import '../models/ubicacion.dart';
+import '../screen/checkout_address_screen.dart';
 import '../screen/edit_profile_screen.dart';
 import '../screen/login_screen.dart';
 import '../screen/main_navigator.dart';
@@ -12,8 +13,8 @@ import '../screen/order_history_screen.dart';
 import '../screen/register_screen.dart';
 import '../screen/splash_screen.dart';
 import '../screen/tracking_simulation_screen.dart';
-import '../screen/checkout_screen.dart'; // IMPORTAMOS
-import '../screen/order_success_screen.dart'; // IMPORTAMOS
+import '../screen/checkout_screen.dart';
+import '../screen/order_success_screen.dart';
 import 'app_routes.dart';
 
 class RouteGenerator {
@@ -50,6 +51,12 @@ class RouteGenerator {
         return _redirectToLogin(settings);
       case AppRoutes.orderSuccess:
         return _fade(settings, const OrderSuccessScreen());
+      case AppRoutes.checkoutAddress:
+        final usuario = settings.arguments;
+        if (usuario is Usuario) {
+          return _slideUp(settings, CheckoutAddressScreen(usuario: usuario));
+        }
+        return _redirectToLogin(settings);
 
       case AppRoutes.adminHome:
         final usuario = settings.arguments;

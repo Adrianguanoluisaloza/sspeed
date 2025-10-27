@@ -40,9 +40,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> with SingleTickerProvid
     super.dispose();
   }
 
-  // CORRECCIÓN: Se añade la verificación `mounted` para evitar crashes.
   Future<void> _confirmOrder() async {
-    // Se obtienen las dependencias del context ANTES del await
     final cart = context.read<CartModel>();
     final dbService = context.read<DatabaseService>();
     final navigator = Navigator.of(context);
@@ -63,7 +61,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> with SingleTickerProvid
         paymentMethod: _paymentMethod,
       );
 
-      // VERIFICACIÓN DE SEGURIDAD: Comprueba si el widget sigue en pantalla
       if (!mounted) return;
 
       if (success) {
@@ -226,7 +223,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> with SingleTickerProvid
   }
 }
 
-// Widget auxiliar para la línea punteada
 class DottedLine extends StatelessWidget {
   const DottedLine({super.key, this.height = 1, this.color = Colors.grey});
 

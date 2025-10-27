@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_2/models/usuario.dart';
+import '../models/usuario.dart';
 import 'package:provider/provider.dart';
 
 import '../models/cart_model.dart';

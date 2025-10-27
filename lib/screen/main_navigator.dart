@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_2/models/usuario.dart';
-import 'package:flutter_application_2/screen/chat_screen.dart';
-import 'package:flutter_application_2/screen/profile_screen.dart';
+import '../models/usuario.dart';
+import '../screen/chat_screen.dart';
+import '../screen/profile_screen.dart';
 import 'home_screen.dart';
 
 class MainNavigator extends StatefulWidget {

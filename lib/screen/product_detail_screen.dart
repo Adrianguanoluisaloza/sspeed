@@ -27,15 +27,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   final TextEditingController _commentController = TextEditingController();
   bool _isSubmittingReview = false;
 
-  // CORRECCIÓN COMPLETA DE LA LÓGICA
   Future<void> _submitReview() async {
-    // Se usa la nueva lógica de autenticación
     if (!widget.usuario.isAuthenticated) {
       showLoginRequiredDialog(context);
       return;
     }
 
-    // Se obtienen las dependencias ANTES de cualquier await
     final messenger = ScaffoldMessenger.of(context);
     final dbService = Provider.of<DatabaseService>(context, listen: false);
 
@@ -153,18 +150,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         child: ElevatedButton.icon(
           icon: const Icon(Icons.add_shopping_cart),
           label: const Text('Añadir al Carrito'),
-          onPressed: !widget.usuario.isAuthenticated // CORRECCIÓN
-              ? () => showLoginRequiredDialog(context)
-              : () {
-                  cart.addToCart(widget.producto);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('${widget.producto.nombre} fue añadido al carrito.'),
-                      duration: const Duration(seconds: 2),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                },
+          onPressed: () {
+              cart.addToCart(widget.producto);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('${widget.producto.nombre} fue añadido al carrito.'),
+                  duration: const Duration(seconds: 2),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            },
           style: ElevatedButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 15),
             textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
