@@ -125,7 +125,23 @@ class ApiDataSource implements DataSource {
     debugPrint('API GET Map: $url');
     try {
       final response = await _httpClient.get(url, headers: _jsonHeaders).timeout(_timeout);
-      return await _parseMapResponse(response);
+      final raw = await _parseMapResponse(response);
+
+      if (raw.containsKey('data')) {
+        final data = raw['data'];
+        if (data is Map<String, dynamic>) return Map<String, dynamic>.from(data);
+        // Distinguimos cuando el backend envía listas dentro de data.
+        if (data is List) return {'data': data};
+        if (data != null) return {'value': data};
+      }
+
+      // Compatibilidad con respuestas que exponen objetos con nombres específicos.
+      for (final key in ['producto', 'pedido', 'estadisticas', 'ubicacion', 'resultado']) {
+        final value = raw[key];
+        if (value is Map<String, dynamic>) return Map<String, dynamic>.from(value);
+      }
+
+      return raw;
     } catch (e) {
       debugPrint('   <- Error: $e');
       throw _mapToApiException(e);
@@ -199,9 +215,10 @@ class ApiDataSource implements DataSource {
     return Producto.fromMap(data);
   }
 
+  // CORRECCIÓN: Se usa la ruta correcta que espera el backend.
   @override
   Future<List<Ubicacion>> getUbicaciones(int idUsuario) async {
-    final data = await _get('/usuarios/$idUsuario/ubicaciones');
+    final data = await _get('/ubicaciones/usuario/$idUsuario');
     return data.cast<Map<String, dynamic>>().map(Ubicacion.fromMap).toList();
   }
 

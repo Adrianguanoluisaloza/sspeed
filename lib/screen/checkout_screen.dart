@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../models/cart_model.dart';
 import '../models/ubicacion.dart';
 import '../models/usuario.dart';
-import '../models/session_state.dart';
 import '../services/database_service.dart';
 import '../routes/app_routes.dart';
 import '../services/api_exception.dart';
@@ -48,7 +47,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> with SingleTickerProvid
     final messenger = ScaffoldMessenger.of(context);
 
     if (cart.items.isEmpty) {
-      messenger.showSnackBar(const SnackBar(content: Text('Tu carrito esta vacio.')));
+      messenger.showSnackBar(const SnackBar(content: Text('Tu carrito está vacío.')));
       return;
     }
 
@@ -75,7 +74,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> with SingleTickerProvid
       messenger.showSnackBar(SnackBar(content: Text('Error: ${e.message}'), backgroundColor: Colors.red));
     } catch (e) {
       if (!mounted) return;
-      messenger.showSnackBar(const SnackBar(content: Text('Ocurri├│ un error inesperado.'), backgroundColor: Colors.red));
+      messenger.showSnackBar(const SnackBar(content: Text('Ocurrió un error inesperado.'), backgroundColor: Colors.red));
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -98,28 +97,31 @@ class _CheckoutScreenState extends State<CheckoutScreen> with SingleTickerProvid
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildSectionTitle(context, 'Direccion de Entrega'),
+                _buildSectionTitle(context, 'Dirección de Entrega'),
                 _buildAddressCard(context),
                 const SizedBox(height: 24),
 
-                _buildSectionTitle(context, 'Metodo de Pago'),
+                _buildSectionTitle(context, 'Método de Pago'),
                 _buildPaymentOption(
                   title: 'Efectivo contra entrega',
                   subtitle: 'Paga cuando recibas tu pedido',
                   value: 'efectivo',
                   icon: Icons.money_outlined,
+                  isEnabled: true,
                 ),
                 _buildPaymentOption(
-                  title: 'Tarjeta de Cedito o debito',
-                  subtitle: 'Paga de forma segura online',
+                  title: 'Tarjeta de Crédito/Débito',
+                  subtitle: 'No disponible por el momento',
                   value: 'tarjeta',
                   icon: Icons.credit_card_outlined,
+                  isEnabled: false,
                 ),
                 _buildPaymentOption(
                   title: 'Transferencia Bancaria',
-                  subtitle: 'Te daremos los datos al confirmar',
+                  subtitle: 'No disponible por el momento',
                   value: 'transferencia',
                   icon: Icons.account_balance_outlined,
+                  isEnabled: false,
                 ),
                 const SizedBox(height: 24),
 
@@ -145,27 +147,42 @@ class _CheckoutScreenState extends State<CheckoutScreen> with SingleTickerProvid
     return Card(
       child: ListTile(
         leading: const Icon(Icons.location_on_outlined, color: Colors.green, size: 32),
-        title: Text(widget.ubicacion.direccion ?? 'Direccion especificada', style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(widget.ubicacion.direccion ?? 'Dirección no especificada', style: const TextStyle(fontWeight: FontWeight.bold)),
         subtitle: Text('Lat: ${widget.ubicacion.latitud.toStringAsFixed(4)}, Lon: ${widget.ubicacion.longitud.toStringAsFixed(4)}'),
       ),
     );
   }
 
-  Widget _buildPaymentOption({required String title, required String subtitle, required String value, required IconData icon}) {
+  Widget _buildPaymentOption({required String title, required String subtitle, required String value, required IconData icon, bool isEnabled = true}) {
     final theme = Theme.of(context);
     final isSelected = _paymentMethod == value;
-    return Card(
-      elevation: isSelected ? 4 : 1,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: isSelected ? BorderSide(color: theme.primaryColor, width: 2) : BorderSide(color: Colors.grey.shade300),
-      ),
-      child: ListTile(
-        onTap: () => setState(() => _paymentMethod = value),
-        leading: Icon(icon, color: isSelected ? theme.primaryColor : Colors.grey.shade600, size: 32),
-        title: Text(title, style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
-        subtitle: Text(subtitle),
-        trailing: isSelected ? Icon(Icons.check_circle, color: theme.primaryColor) : null,
+
+    return Opacity(
+      opacity: isEnabled ? 1.0 : 0.5,
+      child: Card(
+        elevation: isSelected ? 4 : 1,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: isSelected ? BorderSide(color: theme.primaryColor, width: 2) : BorderSide(color: Colors.grey.shade300),
+        ),
+        child: InkWell(
+          onTap: isEnabled ? () => setState(() => _paymentMethod = value) : null,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(children: [
+              Icon(icon, color: isSelected ? theme.primaryColor : Colors.grey.shade600, size: 32),
+              const SizedBox(width: 16),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(title, style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, fontSize: 16)),
+                const SizedBox(height: 2),
+                Text(subtitle, style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+              ])),
+              if (isSelected) Icon(Icons.check_circle, color: theme.primaryColor),
+              if (!isEnabled) const Chip(label: Text('Próximamente'), visualDensity: VisualDensity.compact),
+            ]),
+          ),
+        ),
       ),
     );
   }
@@ -183,7 +200,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> with SingleTickerProvid
           children: [
             _buildCostRow('Subtotal', '\$${cart.total.toStringAsFixed(2)}'),
             const SizedBox(height: 12),
-            _buildCostRow('Costo de Envio', '\$${shippingCost.toStringAsFixed(2)}'),
+            _buildCostRow('Costo de Envío', '\$${shippingCost.toStringAsFixed(2)}'),
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 12.0),
               child: DottedLine(),
@@ -224,6 +241,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> with SingleTickerProvid
   }
 }
 
+// Widget auxiliar para la línea punteada
 class DottedLine extends StatelessWidget {
   const DottedLine({super.key, this.height = 1, this.color = Colors.grey});
 

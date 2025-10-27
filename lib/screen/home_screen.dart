@@ -97,7 +97,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildSearchBar(),
-                  const RecomendacionesCarousel(),
+                  // CORRECCIÓN: Se pasa el usuario requerido al carrusel.
+                  RecomendacionesCarousel(usuario: widget.usuario),
                   const Padding(
                     padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
                     child: Text('Nuestro Menú', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
@@ -182,8 +183,6 @@ class _HomeScreenState extends State<HomeScreen> {
       );
 }
 
-// --- WIDGETS AUXILIARES MEJORADOS ---
-
 class ProductCard extends StatelessWidget {
   final Producto producto;
   final Usuario usuario;
@@ -203,7 +202,7 @@ class ProductCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 AspectRatio(
-                  aspectRatio: 16 / 12, // Proporción de imagen
+                  aspectRatio: 16 / 12,
                   child: Hero(
                     tag: 'product-${producto.idProducto}',
                     child: _ProductImage(imageUrl: producto.imagenUrl),
@@ -219,7 +218,6 @@ class ProductCard extends StatelessWidget {
                 ),
               ],
             ),
-            // Botón de añadir superpuesto
             Positioned(
               bottom: 8,
               right: 8,

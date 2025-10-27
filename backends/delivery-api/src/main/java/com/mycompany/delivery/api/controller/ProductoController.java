@@ -35,6 +35,22 @@ public class ProductoController {
         }
     }
 
+    public ApiResponse<Producto> obtenerProducto(int idProducto) {
+        if (idProducto <= 0) {
+            throw new ApiException(400, "Identificador de producto invalido");
+        }
+        try {
+            Optional<Producto> producto = repo.obtenerPorId(idProducto);
+            if (producto.isEmpty()) {
+                throw new ApiException(404, "Producto no encontrado");
+            }
+            return ApiResponse.success(200, "Producto obtenido", producto.get());
+        } catch (SQLException e) {
+            System.err.println("? Error obteniendo producto: " + e.getMessage());
+            throw new ApiException(500, "Error al obtener el producto", e);
+        }
+    }
+
     public ApiResponse<Producto> createProducto(Producto producto) {
         validarProducto(producto);
         try {

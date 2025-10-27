@@ -249,16 +249,93 @@ public class PedidoController {
         }
     }
 
-    public ApiResponse<Map<String, Object>> obtenerEstadisticasDelivery(int idDelivery) {
-        try {
-            return ApiResponse.success(200, "Estadísticas obtenidas", obtenerEstadisticasDeliveryRaw(idDelivery));
+    public ApiResponse<Map<String, Object>> obtenerPedidoConDetalle(int idPedido) {
+        if (idPedido <= 0) {
+            throw new ApiException(400, "Identificador de pedido invalido");
+        }
+
+        String pedidoSql = """
+            SELECT id_pedido, id_cliente, id_delivery, id_ubicacion, fecha_pedido, fecha_entrega,
+                   estado, total, direccion_entrega, metodo_pago, notas, coordenadas_entrega
+            FROM pedidos
+            WHERE id_pedido = ?
+            """;
+
+        String detallesSql = """
+            SELECT dp.id_detalle, dp.id_producto, dp.cantidad, dp.precio_unitario, dp.subtotal,
+                   pr.nombre AS nombre_producto, pr.imagen_url
+            FROM detalle_pedidos dp
+            LEFT JOIN productos pr ON pr.id_producto = dp.id_producto
+            WHERE dp.id_pedido = ?
+            ORDER BY dp.id_detalle
+            """;
+
+        try (Connection conn = Database.getConnection();
+             PreparedStatement pedidoStmt = conn.prepareStatement(pedidoSql);
+             PreparedStatement detalleStmt = conn.prepareStatement(detallesSql)) {
+
+            pedidoStmt.setInt(1, idPedido);
+            Map<String, Object> pedidoMap;
+            try (ResultSet rs = pedidoStmt.executeQuery()) {
+                if (rs.next()) {
+                    pedidoMap = mapPedido(rs);
+                } else {
+                    throw new ApiException(404, "Pedido no encontrado");
+                }
+            }
+
+            detalleStmt.setInt(1, idPedido);
+            List<Map<String, Object>> detalles = new ArrayList<>();
+            try (ResultSet rs = detalleStmt.executeQuery()) {
+                while (rs.next()) {
+                    Map<String, Object> det = new HashMap<>();
+                    det.put("id_detalle", rs.getInt("id_detalle"));
+                    det.put("id_producto", rs.getInt("id_producto"));
+                    det.put("cantidad", rs.getInt("cantidad"));
+                    det.put("precio_unitario", rs.getDouble("precio_unitario"));
+                    det.put("subtotal", rs.getDouble("subtotal"));
+                    det.put("nombre_producto", rs.getString("nombre_producto"));
+                    det.put("imagen_url", rs.getString("imagen_url"));
+                    detalles.add(det);
+                }
+            }
+
+            Map<String, Object> out = new HashMap<>();
+            out.put("pedido", pedidoMap);
+            out.put("detalles", detalles);
+            return ApiResponse.success(200, "Pedido obtenido", out);
         } catch (SQLException e) {
-            throw new ApiException(500, "Error al obtener estadísticas", e);
+            throw new ApiException(500, "Error al obtener el pedido", e);
         }
     }
 
+    public ApiResponse<Map<String, Object>> obtenerEstadisticasDelivery(int idDelivery) {
+        try {
+            return ApiResponse.success(200, "Estadisticas obtenidas", obtenerEstadisticasDeliveryRaw(idDelivery));
+        } catch (SQLException e) {
+            throw new ApiException(500, "Error al obtener estadisticas", e);
+        }
+    }
+
+    private Map<String, Object> mapPedido(ResultSet rs) throws SQLException {
+        Map<String, Object> map = new HashMap<>();
+        map.put("id_pedido", rs.getInt("id_pedido"));
+        map.put("id_cliente", rs.getInt("id_cliente"));
+        map.put("id_delivery", (Integer) rs.getObject("id_delivery"));
+        map.put("id_ubicacion", (Integer) rs.getObject("id_ubicacion"));
+        map.put("fecha_pedido", rs.getTimestamp("fecha_pedido"));
+        map.put("fecha_entrega", rs.getTimestamp("fecha_entrega"));
+        map.put("estado", rs.getString("estado"));
+        map.put("total", rs.getDouble("total"));
+        map.put("direccion_entrega", rs.getString("direccion_entrega"));
+        map.put("metodo_pago", rs.getString("metodo_pago"));
+        map.put("notas", rs.getString("notas"));
+        map.put("coordenadas_entrega", rs.getString("coordenadas_entrega"));
+        return map;
+    }
+
     // ===============================
-    // MÉTODOS INTERNOS SIN ApiResponse
+    // METODOS INTERNOS SIN ApiResponse
     // ===============================
     private List<Pedido> listarPedidosDisponiblesRaw() throws SQLException {
         String sql = "SELECT * FROM pedidos WHERE estado = 'pendiente'";

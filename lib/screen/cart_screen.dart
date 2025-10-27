@@ -58,7 +58,7 @@ class CartScreen extends StatelessWidget {
 
   Widget _buildCartListView(CartModel cart) {
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(8, 8, 8, 90),
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 140), // Padding inferior para que el último ítem no quede oculto por la barra
       itemCount: cart.items.length,
       itemBuilder: (context, index) {
         final cartItem = cart.items[index];
@@ -103,28 +103,57 @@ class CartScreen extends StatelessWidget {
     );
   }
   
+  // --- VISTA PARA INVITADOS (VERSIÓN MEJORADA) ---
   Widget _buildLoggedOutView(BuildContext context) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Mi Carrito')),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.lock_outline, size: 96, color: Theme.of(context).colorScheme.primary),
-                const SizedBox(height: 16),
-                const Text('Inicia sesión para usar el carrito', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: () => Navigator.of(context).pushNamed(AppRoutes.login),
-                  child: const Text('Iniciar Sesión o Registrarse'),
+    final theme = Theme.of(context);
+    return Scaffold(
+      appBar: AppBar(title: const Text('Mi Carrito')),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(24.0),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withAlpha(26),
+                  shape: BoxShape.circle,
                 ),
-              ],
-            ),
+                child: Icon(Icons.lock_person_outlined, size: 80, color: theme.colorScheme.primary),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'Inicia sesión para ver tu carrito',
+                style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Guarda productos, sigue tus pedidos y finaliza tus compras más rápido.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyLarge?.copyWith(color: Colors.grey[600]),
+              ),
+              const SizedBox(height: 32),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.login),
+                  onPressed: () => Navigator.of(context).pushNamed(AppRoutes.login),
+                  label: const Text('Iniciar Sesión'),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () => Navigator.of(context).pushNamed(AppRoutes.register),
+                child: const Text('¿No tienes cuenta? Regístrate'),
+              ),
+            ],
           ),
         ),
-      );
+      ),
+    );
   }
 }
 

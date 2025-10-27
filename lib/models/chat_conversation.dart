@@ -1,25 +1,24 @@
 import 'chat_message.dart';
 
+// CORRECCIÓN INTEGRAL DEL MODELO
 class ChatConversation {
   final int idConversacion;
   final int? idCliente;
   final int? idDelivery;
   final int? idAdminSoporte;
   final int? idPedido;
-  final String? ultimoMensaje;
-  final DateTime fechaCreacion; // CORRECCIÓN: Se añade fechaCreacion
-  final bool activa; // CORRECCIÓN: Se añade el campo 'activa'
+  final DateTime fechaCreacion;
+  final bool activa;
   final List<ChatMessage> mensajes;
 
   const ChatConversation({
     required this.idConversacion,
     required this.fechaCreacion,
-    required this.activa,
+    this.activa = true,
     this.idCliente,
     this.idDelivery,
     this.idAdminSoporte,
     this.idPedido,
-    this.ultimoMensaje,
     this.mensajes = const [],
   });
 
@@ -43,7 +42,7 @@ class ChatConversation {
       if (value is String && value.isNotEmpty) {
         return DateTime.tryParse(value) ?? DateTime.now();
       }
-      return DateTime.now(); // Devuelve una fecha actual si todo falla
+      return DateTime.now();
     }
 
     final messagesRaw = readValue(['mensajes', 'messages']) as List?;
@@ -57,11 +56,23 @@ class ChatConversation {
       idDelivery: parseInt(readValue(['id_delivery', 'idDelivery'])),
       idAdminSoporte: parseInt(readValue(['id_admin_soporte', 'idAdminSoporte'])),
       idPedido: parseInt(readValue(['id_pedido', 'idPedido'])),
-      ultimoMensaje: readValue(['ultimo_mensaje', 'lastMessage'])?.toString(),
-      // CORRECCIÓN: Se leen los nuevos campos del mapa
       fechaCreacion: parseDate(readValue(['fecha_creacion', 'fechaCreacion', 'createdAt'])),
       activa: readValue(['activa', 'isActive']) as bool? ?? true,
       mensajes: messageList,
+    );
+  }
+
+  // copyWith para facilitar la actualización de mensajes
+  ChatConversation copyWith({List<ChatMessage>? mensajes}) {
+    return ChatConversation(
+      idConversacion: idConversacion,
+      fechaCreacion: fechaCreacion,
+      activa: activa,
+      idCliente: idCliente,
+      idDelivery: idDelivery,
+      idAdminSoporte: idAdminSoporte,
+      idPedido: idPedido,
+      mensajes: mensajes ?? this.mensajes,
     );
   }
 }

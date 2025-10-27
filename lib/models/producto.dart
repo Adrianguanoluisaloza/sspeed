@@ -9,7 +9,7 @@ class Producto {
   final String? categoria;
   final int? idCategoria;
   final bool disponible;
-  final int? stock; // CAMPO AÃ‘ADIDO
+  final int? stock;
   final DateTime? fechaCreacion;
 
   const Producto({
@@ -22,28 +22,33 @@ class Producto {
     this.categoria,
     this.idCategoria,
     this.disponible = true,
-    this.stock, // CAMPO AÃ‘ADIDO
+    this.stock,
     this.fechaCreacion,
   });
 
+  // CORRECCIÓN: Se refactoriza fromMap para ser más robusto y flexible.
   factory Producto.fromMap(Map<String, dynamic> map) {
-    // Funciones de parseo robustas
+    // Función auxiliar para leer un valor de múltiples claves posibles (snake_case, camelCase, etc.)
     dynamic readValue(List<String> keys) {
       for (final key in keys) {
         if (map.containsKey(key) && map[key] != null) return map[key];
       }
       return null;
     }
-    int? parseInt(dynamic value) {
+
+    // Funciones de parseo seguras
+    int parseInt(dynamic value, {int fallback = 0}) {
       if (value is num) return value.toInt();
-      if (value is String) return int.tryParse(value);
-      return null;
+      if (value is String) return int.tryParse(value) ?? fallback;
+      return fallback;
     }
-    double parseDouble(dynamic value) {
+
+    double parseDouble(dynamic value, {double fallback = 0.0}) {
       if (value is num) return value.toDouble();
-      if (value is String) return double.tryParse(value) ?? 0.0;
-      return 0.0;
+      if (value is String) return double.tryParse(value) ?? fallback;
+      return fallback;
     }
+
     DateTime? parseDate(dynamic value) {
       if (value is DateTime) return value;
       if (value is String && value.isNotEmpty) return DateTime.tryParse(value);
@@ -51,9 +56,9 @@ class Producto {
     }
 
     return Producto(
-      idProducto: parseInt(readValue(['id_producto', 'idProducto'])) ?? 0,
+      idProducto: parseInt(readValue(['id_producto', 'idProducto', 'id'])),
       idNegocio: parseInt(readValue(['id_negocio', 'idNegocio'])),
-      nombre: readValue(['nombre', 'name'])?.toString() ?? 'Sin nombre',
+      nombre: readValue(['nombre', 'name', 'producto'])?.toString() ?? 'Sin nombre',
       descripcion: readValue(['descripcion', 'description'])?.toString(),
       precio: parseDouble(readValue(['precio', 'price'])),
       imagenUrl: readValue(['imagen_url', 'imagenUrl', 'imageUrl'])?.toString(),
@@ -66,7 +71,7 @@ class Producto {
         if (raw is String) return raw.toLowerCase() == 'true' || raw == '1';
         return true;
       })(),
-      stock: parseInt(readValue(['stock'])), // CAMPO AÃ‘ADIDO
+      stock: parseInt(readValue(['stock'])),
       fechaCreacion: parseDate(readValue(['fecha_creacion', 'fechaCreacion', 'createdAt'])),
     );
   }
@@ -82,12 +87,12 @@ class Producto {
       'categoria': categoria,
       'id_categoria': idCategoria,
       'disponible': disponible,
-      'stock': stock, // CAMPO AÃ‘ADIDO
+      'stock': stock,
     }..removeWhere((key, value) => value == null);
   }
 
   bool get estaDisponible => disponible;
-  String get categoriaVisible => categoria ?? 'Sin categoria';
+  String get categoriaVisible => categoria ?? 'Sin categoría';
 }
 
 class ProductoRankeado {
@@ -103,7 +108,6 @@ class ProductoRankeado {
     required this.totalReviews,
   });
 
-  // CORRECCIÃ“N: Se aÃ±ade el factory constructor que faltaba
   factory ProductoRankeado.fromMap(Map<String, dynamic> map) {
     num? readNumeric(List<String> keys) {
       for (final key in keys) {
@@ -125,4 +129,3 @@ class ProductoRankeado {
     );
   }
 }
-

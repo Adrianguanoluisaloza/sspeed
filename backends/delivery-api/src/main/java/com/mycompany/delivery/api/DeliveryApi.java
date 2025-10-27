@@ -6,16 +6,19 @@ import com.google.gson.annotations.SerializedName;
 import com.mycompany.delivery.api.config.Database;
 import com.mycompany.delivery.api.controller.*;
 import com.mycompany.delivery.api.model.*;
+import com.mycompany.delivery.api.repository.ChatRepository;
 import com.mycompany.delivery.api.repository.UbicacionRepository;
 import com.mycompany.delivery.api.util.ApiException;
 import com.mycompany.delivery.api.util.ApiResponse;
+import com.mycompany.delivery.api.util.ChatBotResponder;
 
-// Ô£à Usa tus Payloads externos (sin clases duplicadas)
+// Ã”Â£Ã  Usa tus Payloads externos (sin clases duplicadas)
 import static com.mycompany.delivery.api.payloads.Payloads.*;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.*;
 
 import static com.mycompany.delivery.api.util.UbicacionValidator.*;
@@ -37,6 +40,7 @@ public final class DeliveryApi {
 
     private static final DashboardDAO DASHBOARD_DAO = new DashboardDAO();
     private static final UbicacionRepository UBICACION_REPOSITORY = new UbicacionRepository();
+    private static final ChatRepository CHAT_REPOSITORY = new ChatRepository();
 
   
 
@@ -129,6 +133,23 @@ public final class DeliveryApi {
         Integer idRemitente;
         String mensaje;
     }
+
+    static final class ChatMensajePayload {
+
+        @SerializedName("idConversacion")
+        Long idConversacion;
+        @SerializedName("idRemitente")
+        Integer idRemitente;
+        @SerializedName("idDestinatario")
+        Integer idDestinatario;
+        @SerializedName("idPedido")
+        Integer idPedido;
+        @SerializedName("idCliente")
+        Integer idCliente;
+        @SerializedName("idDelivery")
+        Integer idDelivery;
+        String mensaje;
+    }
     // Reemplaza tu clase interna RecomendacionPayload por esta
 
     static final class RecomendacionPayload {
@@ -152,7 +173,7 @@ public final class DeliveryApi {
         enableCORS();
         setupRoutes();
         setupExceptionHandlers();
-        System.out.println("­ƒÜÇ Servidor Delivery API iniciado en http://localhost:4567");
+        System.out.println("Â­Æ’ÃœÃ‡ Servidor Delivery API iniciado en http://localhost:4567");
     }
 
     private static void setupRoutes() {
@@ -199,7 +220,7 @@ public final class DeliveryApi {
                     out.put("nuevos_clientes", rs.getInt("nuevos_clientes"));
                     out.put("producto_mas_vendido", rs.getString("producto_mas_vendido"));
                     out.put("producto_mas_vendido_cantidad", rs.getInt("producto_mas_vendido_cantidad"));
-                    return respond(res, ApiResponse.success(200, "Estad├¡sticas admin", out));
+                    return respond(res, ApiResponse.success(200, "Estadâ”œÂ¡sticas admin", out));
                 }
             } catch (Exception ignore) {
                 // caemos al fallback
@@ -212,11 +233,11 @@ public final class DeliveryApi {
             out.put("nuevos_clientes", 0);
             out.put("producto_mas_vendido", "Sin datos");
             out.put("producto_mas_vendido_cantidad", 0);
-            return respond(res, ApiResponse.success(200, "Estad├¡sticas admin (fallback)", out));
+            return respond(res, ApiResponse.success(200, "Estadâ”œÂ¡sticas admin (fallback)", out));
         }, GSON::toJson);
 
         get("/delivery/stats/:id", (req, res)
-                -> respond(res, ApiResponse.success(200, "Estad├¡sticas delivery",
+                -> respond(res, ApiResponse.success(200, "Estadâ”œÂ¡sticas delivery",
                         DASHBOARD_DAO.obtenerEstadisticasDelivery(parseId(req.params(":id"))))),
                 GSON::toJson);
     }
@@ -240,22 +261,22 @@ public final class DeliveryApi {
             return respond(res, USUARIO_CONTROLLER.registrar(u));
         }, GSON::toJson);
     
-    // ­ƒö╣ ACTUALIZAR USUARIO EXISTENTE (nuevo endpoint)
-   // ­ƒö╣ ACTUALIZAR USUARIO EXISTENTE
+    // Â­Æ’Ã¶â•£ ACTUALIZAR USUARIO EXISTENTE (nuevo endpoint)
+   // Â­Æ’Ã¶â•£ ACTUALIZAR USUARIO EXISTENTE
 put("/usuarios/:id", (req, res) -> {
     int id = parseId(req.params(":id"));
     Usuario body = parseBody(req, Usuario.class);
     body.setIdUsuario(id);
 
-    // Ô£à Usa directamente el ApiResponse del controlador
+    // Ã”Â£Ã  Usa directamente el ApiResponse del controlador
     return respond(res, USUARIO_CONTROLLER.actualizarUsuario(body));
 }, GSON::toJson);
 
-// ­ƒö╣ ELIMINAR USUARIO (nuevo endpoint)
+// Â­Æ’Ã¶â•£ ELIMINAR USUARIO (nuevo endpoint)
 delete("/usuarios/:id", (req, res) -> {
     int id = parseId(req.params(":id"));
 
-    // Ô£à Devuelve la respuesta ApiResponse del controlador
+    // Ã”Â£Ã  Devuelve la respuesta ApiResponse del controlador
     return respond(res, USUARIO_CONTROLLER.eliminarUsuario(id));
 }, GSON::toJson);
     
@@ -273,6 +294,9 @@ delete("/usuarios/:id", (req, res) -> {
                     : PRODUCTO_CONTROLLER.getAllProductos();
             return respond(res, resp);
         }, GSON::toJson);
+        get("/productos/:id", (req, res)
+                -> respond(res, PRODUCTO_CONTROLLER.obtenerProducto(parseId(req.params(":id")))),
+                GSON::toJson);
         get("/admin/productos", (req, res)
                 -> respond(res, PRODUCTO_CONTROLLER.getAllProductos()),
                 GSON::toJson);
@@ -287,7 +311,7 @@ private static void registerPedidoRoutes() {
        PedidoPayload body = parseBody(req, PedidoPayload.class);
 
         if (body == null) {
-            throw new ApiException(400, "El cuerpo de la solicitud est├í vac├¡o o malformado");
+            throw new ApiException(400, "El cuerpo de la solicitud estâ”œÃ­ vacâ”œÂ¡o o malformado");
         }
 
         Pedido pedido = new Pedido();
@@ -298,7 +322,7 @@ private static void registerPedidoRoutes() {
         pedido.setMetodoPago(body.metodoPago);
         pedido.setEstado(body.estado != null ? body.estado : "pendiente");
 
-        // Ô£à Evita NullPointer si body.total viene nulo
+        // Ã”Â£Ã  Evita NullPointer si body.total viene nulo
         pedido.setTotal(body.total != null ? body.total : 0.0);
 
         List<DetallePedido> detalles = new ArrayList<>();
@@ -329,6 +353,9 @@ private static void registerPedidoRoutes() {
             -> respond(res, PEDIDO_CONTROLLER.getPedidos()),
             GSON::toJson);
 
+        get("/pedidos/:id", (req, res)
+                -> respond(res, PEDIDO_CONTROLLER.obtenerPedidoConDetalle(parseId(req.params(":id")))),
+                GSON::toJson);
     // Listar pedidos por cliente
     get("/pedidos/cliente/:id", (req, res)
             -> respond(res, PEDIDO_CONTROLLER.getPedidosPorCliente(parseId(req.params(":id")))),
@@ -349,7 +376,7 @@ private static void registerPedidoRoutes() {
             -> respond(res, PEDIDO_CONTROLLER.listarPedidosPorDelivery(parseId(req.params(":id")))),
             GSON::toJson);
 
-    // Obtener estad├¡sticas del repartidor
+    // Obtener estadâ”œÂ¡sticas del repartidor
     get("/delivery/stats/:id", (req, res)
             -> respond(res, PEDIDO_CONTROLLER.obtenerEstadisticasDelivery(parseId(req.params(":id")))),
             GSON::toJson);
@@ -385,36 +412,17 @@ private static void registerUbicacionRoutes() {
         int id = parseId(req.params(":idUbicacion"));
         UbicacionRequest b = parseBody(req, UbicacionRequest.class);
         UBICACION_CONTROLLER.actualizarCoordenadas(id, b.getLatitud(), b.getLongitud());
-        return respond(res, ApiResponse.success("Ubicaci├│n actualizada correctamente"));
+        return respond(res, ApiResponse.success("Ubicacionn actualizada correctamente"));
     }, GSON::toJson);
 
-    // Reemplaza el GET /ubicaciones/usuario/:id por esta versi├│n
-    get("/ubicaciones/usuario/:id", (req, res) -> {
-        res.type("application/json");
-        int id = parseId(req.params(":id"));
-        String sql = "SELECT id_ubicacion,id_usuario,latitud,longitud,direccion,descripcion "
-                + "FROM ubicaciones WHERE id_usuario = ? ORDER BY id_ubicacion DESC";
-        try (Connection c = Database.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setInt(1, id);
-            try (ResultSet rs = ps.executeQuery()) {
-                var list = new ArrayList<Map<String, Object>>();
-                while (rs.next()) {
-                    var m = new HashMap<String, Object>();
-                    m.put("id_ubicacion", rs.getInt("id_ubicacion"));
-                    m.put("id_usuario", rs.getInt("id_usuario"));
-                    m.put("latitud", rs.getDouble("latitud"));
-                    m.put("longitud", rs.getDouble("longitud"));
-                    m.put("direccion", rs.getString("direccion"));
-                    m.put("descripcion", rs.getString("descripcion"));
-                    list.add(m);
-                }
-                return respond(res, ApiResponse.success(200, "ok", list));
-            }
-        } catch (Exception e) {
-            res.status(500);
-            return ApiResponse.error(500, "Error obteniendo ubicaciones");
-        }
-    }, GSON::toJson);
+    // Reemplaza el GET /ubicaciones/usuario/:id por esta versionn
+    get("/ubicaciones/usuario/:id", (req, res) ->
+            respond(res, UBICACION_CONTROLLER.obtenerUbicacionesPorUsuario(parseId(req.params(":id"))))
+    , GSON::toJson);
+
+    get("/usuarios/:id/ubicaciones", (req, res) ->
+            respond(res, UBICACION_CONTROLLER.obtenerUbicacionesPorUsuario(parseId(req.params(":id"))))
+    , GSON::toJson);
 
     get("/ubicaciones/activas", (req, res)
             -> respond(res, UBICACION_CONTROLLER.listarActivas()),
@@ -422,8 +430,8 @@ private static void registerUbicacionRoutes() {
 }
 
 // ===================== MENSAJES =====================
-    private static void registerMensajeRoutes() {
-        // Crear mensaje
+        private static void registerMensajeRoutes() {
+        // Crear mensaje asociado a un pedido y almacenarlo
         post("/pedidos/:id/mensajes", (req, res) -> {
             int idPedido = parseId(req.params(":id"));
             MensajePayload b = parseBody(req, MensajePayload.class);
@@ -437,62 +445,75 @@ private static void registerUbicacionRoutes() {
             return respond(res, MENSAJE_CONTROLLER.enviarMensaje(m));
         }, GSON::toJson);
 
-        // Listar mensajes
+        // Listar mensajes de un pedido especï¿½fico
         get("/pedidos/:id/mensajes", (req, res)
                 -> respond(res, MENSAJE_CONTROLLER.getMensajesPorPedido(parseId(req.params(":id")))),
                 GSON::toJson);
 
-        // A├▒ade dentro de registerMensajeRoutes() o crea registerChatRoutes() si prefieres
-        get("/chat/conversaciones/:id", (req, res) -> {
-            res.type("application/json");
-            int id = parseId(req.params(":id"));
-            String sql
-                    = "SELECT id_conversacion,id_pedido,id_cliente,id_delivery,id_admin_soporte,fecha_creacion,activa "
-                    + "FROM chat_conversaciones "
-                    + "WHERE id_cliente = ? OR id_delivery = ? OR id_admin_soporte = ? "
-                    + "ORDER BY id_conversacion DESC";
-            try (Connection c = Database.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
-                ps.setInt(1, id);
-                ps.setInt(2, id);
-                ps.setInt(3, id);
-                try (ResultSet rs = ps.executeQuery()) {
-                    var list = new ArrayList<Map<String, Object>>();
-                    while (rs.next()) {
-                        var m = new HashMap<String, Object>();
-                        m.put("id_conversacion", rs.getInt("id_conversacion"));
-                        m.put("id_pedido", (Integer) rs.getObject("id_pedido"));
-                        m.put("id_cliente", rs.getInt("id_cliente"));
-                        m.put("id_delivery", (Integer) rs.getObject("id_delivery"));
-                        // si la columna no existe/nula, caemos a null sin petar
-                        Object adminSoporte = null;
-                        try {
-                            adminSoporte = rs.getObject("id_admin_soporte");
-                        } catch (Exception ignore) {
-                        }
-                        m.put("id_admin_soporte", (Integer) adminSoporte);
-                        m.put("fecha_creacion", rs.getTimestamp("fecha_creacion"));
-                        Object activaObj = null;
-                        try {
-                            activaObj = rs.getObject("activa");
-                        } catch (Exception ignore) {
-                        }
-                        m.put("activa", (Boolean) activaObj);
-                        list.add(m);
-                    }
-                    return respond(res, ApiResponse.success(200, "ok", list));
-                }
+        // ===================== CHAT BOT =====================
+        post("/chat/mensajes", (req, res) -> {
+            ChatMensajePayload body = parseBody(req, ChatMensajePayload.class);
+            if (body == null || body.idRemitente == null || body.idRemitente <= 0 || body.mensaje == null || body.mensaje.isBlank()) {
+                throw new ApiException(400, "idRemitente y mensaje son obligatorios");
+            }
+            long idConversacion = (body.idConversacion != null && body.idConversacion > 0)
+                    ? body.idConversacion
+                    : System.currentTimeMillis();
+            int idCliente = (body.idCliente != null && body.idCliente > 0) ? body.idCliente : body.idRemitente;
+            String mensaje = body.mensaje.trim();
+            try {
+                CHAT_REPOSITORY.ensureConversation(idConversacion, idCliente, body.idDelivery, null, body.idPedido);
+                Map<String, Object> usuarioMsg = CHAT_REPOSITORY.insertMensaje(idConversacion, body.idRemitente, body.idDestinatario, mensaje);
+                int botId = CHAT_REPOSITORY.ensureBotUser();
+                String respuestaBot = ChatBotResponder.replyTo(mensaje);
+                Map<String, Object> botMsg = CHAT_REPOSITORY.insertMensaje(idConversacion, botId, body.idRemitente, respuestaBot);
+
+                Map<String, Object> data = new HashMap<>();
+                data.put("id_conversacion", idConversacion);
+                data.put("mensajes", List.of(usuarioMsg, botMsg));
+                return respond(res, ApiResponse.success(201, "Conversacion actualizada", data));
             } catch (org.postgresql.util.PSQLException ex) {
-                if ("42P01".equals(ex.getSQLState())) { // relation does not exist
-                    return respond(res, ApiResponse.success(200, "ok (sin tabla chat_conversaciones)", new ArrayList<>()));
+                if ("42P01".equals(ex.getSQLState())) {
+                    Map<String, Object> fallback = new HashMap<>();
+                    fallback.put("id_conversacion", idConversacion);
+                    fallback.put("mensajes", List.of());
+                    return respond(res, ApiResponse.success(200, "Chat no configurado en la base de datos", fallback));
                 }
-                throw new ApiException(500, "Error obteniendo conversaciones", ex);
-            } catch (Exception e) {
-                throw new ApiException(500, "Error obteniendo conversaciones", e);
+                if ("23503".equals(ex.getSQLState())) {
+                    throw new ApiException(404, "Referencia no vï¿½lida para el mensaje de chat", ex);
+                }
+                throw new ApiException(500, "Error guardando mensaje de chat", ex);
+            } catch (SQLException e) {
+                throw new ApiException(500, "Error guardando mensaje de chat", e);
             }
         }, GSON::toJson);
 
-    }
+        get("/chat/conversaciones/:id/mensajes", (req, res) -> {
+            res.type("application/json");
+            long idConversacion = parseLong(req.params(":id"));
+            try {
+                if (!CHAT_REPOSITORY.conversationExists(idConversacion)) {
+                    return respond(res, ApiResponse.success(200, "Mensajes recuperados", new ArrayList<>()));
+                }
+                List<Map<String, Object>> mensajes = CHAT_REPOSITORY.listarMensajes(idConversacion);
+                return respond(res, ApiResponse.success(200, "Mensajes recuperados", mensajes));
+            } catch (SQLException e) {
+                throw new ApiException(500, "Error obteniendo mensajes de la conversaciï¿½n", e);
+            }
+        }, GSON::toJson);
 
+        get("/chat/conversaciones/:id", (req, res) -> {
+            res.type("application/json");
+            int idUsuario = parseId(req.params(":id"));
+            try {
+                CHAT_REPOSITORY.ensureConversationForUser(idUsuario);
+                List<Map<String, Object>> list = CHAT_REPOSITORY.listarConversacionesPorUsuario(idUsuario);
+                return respond(res, ApiResponse.success(200, "Conversaciones obtenidas", list));
+            } catch (SQLException e) {
+                throw new ApiException(500, "Error obteniendo conversaciones", e);
+            }
+        }, GSON::toJson);
+    }
 // ===================== RECOMENDACIONES =====================
     private static void registerRecomendacionRoutes() {
         // Reemplaza el handler POST dentro de registerRecomendacionRoutes()
@@ -501,7 +522,7 @@ private static void registerUbicacionRoutes() {
             RecomendacionPayload b = parseBody(req, RecomendacionPayload.class);
             Integer punt = (b == null) ? null : b.getPuntuacion();
             if (b == null || b.idUsuario == null || b.idUsuario <= 0 || punt == null || punt < 1 || punt > 5) {
-                throw new ApiException(400, "id_usuario y puntuaci├│n/rating (1-5) son obligatorios");
+                throw new ApiException(400, "id_usuario y puntuaciâ”œâ”‚n/rating (1-5) son obligatorios");
             }
             return respond(res, RECOMENDACION_CONTROLLER.guardarRecomendacion(
                     idProducto, b.idUsuario, punt, b.comentario));
@@ -535,7 +556,7 @@ private static void registerUbicacionRoutes() {
                 }
 
                 res.status(200);
-                return list; // ­ƒæê AQU├ì EL CAMBIO
+                return list; // Â­Æ’Ã¦Ãª AQUâ”œÃ¬ EL CAMBIO
 
             } catch (org.postgresql.util.PSQLException ex) {
                 if ("42P01".equals(ex.getSQLState())) {
@@ -561,9 +582,9 @@ private static void registerUbicacionRoutes() {
                 }
                 boolean ok = UBICACION_REPOSITORY.actualizarUbicacionLive(idRepartidor, b.latitud, b.longitud);
                 if (!ok) {
-                    throw new ApiException(500, "No se pudo actualizar la ubicaci├│n en vivo");
+                    throw new ApiException(500, "No se pudo actualizar la ubicaciâ”œâ”‚n en vivo");
                 }
-                return respond(res, ApiResponse.success("Ubicaci├│n en vivo actualizada"));
+                return respond(res, ApiResponse.success("Ubicaciâ”œâ”‚n en vivo actualizada"));
             }, GSON::toJson);
         });
     }
@@ -589,7 +610,7 @@ private static void registerUbicacionRoutes() {
             if (ubicacion.isEmpty()) {
                 throw new ApiException(404, "No hay tracking activo para el pedido");
             }
-            return respond(res, ApiResponse.success(200, "Ubicaci├│n en vivo", ubicacion));
+            return respond(res, ApiResponse.success(200, "Ubicaciâ”œâ”‚n en vivo", ubicacion));
         }, GSON::toJson);
     }
 
@@ -601,12 +622,12 @@ private static void registerUbicacionRoutes() {
         if (r.getIdUsuario() == null || r.getIdUsuario() <= 0) {
             throw new ApiException(400, "idUsuario es obligatorio");
         }
-        requireValidCoordinates(r.getLatitud(), r.getLongitud(), "Coordenadas inv├ílidas");
+        requireValidCoordinates(r.getLatitud(), r.getLongitud(), "Coordenadas invâ”œÃ­lidas");
         Ubicacion u = new Ubicacion();
         u.setIdUsuario(r.getIdUsuario());
         u.setLatitud(r.getLatitud());
         u.setLongitud(r.getLongitud());
-        u.setDireccion(requireNonBlank(r.getDireccion(), "La direcci├│n es obligatoria"));
+        u.setDireccion(requireNonBlank(r.getDireccion(), "La direcciâ”œâ”‚n es obligatoria"));
         u.setDescripcion(normalizeDescripcion(r.getDescripcion()));
         u.setActiva(r.getActiva() == null || r.getActiva());
         return u;
@@ -616,7 +637,15 @@ private static void registerUbicacionRoutes() {
         try {
             return Integer.parseInt(raw);
         } catch (NumberFormatException e) {
-            throw new ApiException(400, "Identificador inv├ílido");
+            throw new ApiException(400, "Identificador invâ”œÃ­lido");
+        }
+    }
+
+    private static long parseLong(String raw) {
+        try {
+            return Long.parseLong(raw);
+        } catch (NumberFormatException e) {
+            throw new ApiException(400, "Identificador invÃ¡lido");
         }
     }
 
@@ -668,7 +697,7 @@ private static void registerUbicacionRoutes() {
             res.type("application/json");
             res.status(500);
             ex.printStackTrace();
-            res.body(GSON.toJson(ApiResponse.error(500, "Ocurri├│ un error inesperado")));
+            res.body(GSON.toJson(ApiResponse.error(500, "Ocurriâ”œâ”‚ un error inesperado")));
         });
         notFound((req, res) -> {
             res.type("application/json");
