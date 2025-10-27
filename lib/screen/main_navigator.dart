@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/usuario.dart';
 import '../screen/chat_screen.dart';
+import '../screen/live_map_screen.dart';
 import '../screen/profile_screen.dart';
 import 'home_screen.dart';
 
@@ -21,6 +22,7 @@ class _MainNavigatorState extends State<MainNavigator> {
     super.initState();
     _widgetOptions = <Widget>[
       HomeScreen(usuario: widget.usuario),
+      const LiveMapScreen(),
       ChatScreen(initialSection: ChatSection.soporte),
       ProfileScreen(usuario: widget.usuario),
     ];
@@ -60,6 +62,11 @@ class _MainNavigatorState extends State<MainNavigator> {
               icon: Icon(Icons.home_outlined),
               activeIcon: Icon(Icons.home),
               label: 'Inicio',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.map_outlined),
+              activeIcon: Icon(Icons.map),
+              label: 'Mapa',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.support_agent_outlined),

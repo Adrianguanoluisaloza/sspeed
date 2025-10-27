@@ -1,10 +1,12 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:provider/provider.dart';
 
 import 'models/cart_model.dart';
 import 'models/session_state.dart';
 import 'services/database_service.dart';
+import 'services/gemini_service.dart';
 import 'routes/app_routes.dart';
 import 'routes/route_generator.dart';
 
@@ -15,6 +17,7 @@ void main() {
         ChangeNotifierProvider(create: (_) => SessionController()),
         ChangeNotifierProvider(create: (_) => CartModel()),
         Provider<DatabaseService>(create: (_) => DatabaseService()),
+        Provider<GeminiService>(create: (_) => GeminiService()),
       ],
       child: const MyApp(),
     ),
@@ -23,6 +26,7 @@ void main() {
 }
 
 Future<void> requestLocationPermission() async {
+  if (kIsWeb) return;
   var status = await Permission.locationWhenInUse.request();
   if (status.isPermanentlyDenied) {
     openAppSettings();

@@ -1,78 +1,89 @@
 import 'dart:async';
-import 'dart:convert'; // Se añade para poder decodificar la respuesta JSON
+import 'dart:convert';
+
 import 'package:http/http.dart' as http;
 
-// NOTA: Para que esto funcione, necesitarás añadir los siguientes paquetes a tu pubspec.yaml:
-//   google_maps_flutter: ^2.0.0 (o la versión más reciente)
-//   location: ^5.0.0 (o la versión más reciente)
+import '../config/secret_config.dart';
 
+/// Utilidades para consumir la API de rutas de Google Maps y enviar ubicaciones.
 class GoogleMapsService {
-  // ¡IMPORTANTE! Reemplaza esto con tu propia API Key de Google Maps.
-  static const String _apiKey = 'AIzaSyAIvLI8lMrPF4gNnMiBW2Pd52ZAgnV6BTw';
+  GoogleMapsService({http.Client? httpClient})
+      : _httpClient = httpClient ?? http.Client();
 
   final http.Client _httpClient;
 
-  GoogleMapsService({http.Client? httpClient}) : _httpClient = httpClient ?? http.Client();
-
-  /// Obtiene la polilínea codificada para dibujar una ruta entre dos puntos.
+  /// Obtiene la polilinea codificada entre dos puntos utilizando Google Directions API.
   Future<String?> getPolyline(
-    double startLat, double startLon,
-    double endLat, double endLon,
+    double startLat,
+    double startLon,
+    double endLat,
+    double endLon,
   ) async {
+    final apiKey = SecretConfig.googleMapsApiKey;
+    if (apiKey.isEmpty) {
+      throw StateError(
+        'Falta la API key de Google Maps. Configura la clave mediante SecretConfig '
+        'o usando --dart-define=GOOGLE_MAPS_API_KEY=tu_api_key.',
+      );
+    }
+
     final url = Uri.parse(
-        'https://maps.googleapis.com/maps/api/directions/json?origin=$startLat,$startLon&destination=$endLat,$endLon&key=$_apiKey');
+      'https://maps.googleapis.com/maps/api/directions/json'
+      '?origin=$startLat,$startLon'
+      '&destination=$endLat,$endLon'
+      '&key=$apiKey',
+    );
 
     int attempt = 0;
     const maxAttempts = 3;
     while (attempt < maxAttempts) {
       try {
-        final response = await _httpClient.get(url).timeout(const Duration(seconds: 10));
+        final response = await _httpClient
+            .get(url)
+            .timeout(const Duration(seconds: 10));
         if (response.statusCode == 200) {
-          // CORRECCIÓN: Se decodifica el JSON y se extrae la polilínea real.
-          final jsonResponse = json.decode(response.body);
-          if (jsonResponse['routes'] != null && (jsonResponse['routes'] as List).isNotEmpty) {
-            final polyline = jsonResponse['routes'][0]['overview_polyline']['points'];
+          final jsonResponse = json.decode(response.body) as Map<String, dynamic>;
+          final routes = jsonResponse['routes'];
+          if (routes is List && routes.isNotEmpty) {
+            final firstRoute = routes.first as Map<String, dynamic>;
+            final overview = firstRoute['overview_polyline'] as Map<String, dynamic>?;
+            final polyline = overview?['points'] as String?;
             return polyline;
-          } else {
-            print('La respuesta de Google no contiene rutas.');
-            return null;
           }
+          return null;
         } else {
-          print('Error con la API de Google: ${response.statusCode}');
-          return null;
+          throw HttpException(
+            'Google Directions API respondio con ${response.statusCode}',
+          );
         }
-      } catch (e) {
-        print('Intento #$attempt fallido para obtener la ruta: $e');
+      } on TimeoutException catch (_) {
         attempt++;
-        if (attempt >= maxAttempts) {
-          print("Se alcanzó el máximo de reintentos.");
-          return null;
-        }
+        if (attempt >= maxAttempts) rethrow;
         await Future.delayed(Duration(seconds: 1 << attempt));
+      } catch (_) {
+        rethrow;
       }
     }
     return null;
   }
 
-  /// Inicia el seguimiento de la ubicación del repartidor y la envía al backend.
+  /// Inicia el seguimiento en tiempo real del repartidor.
+  ///
+  /// Nota: La implementacion permanece simulada hasta que se integre con el
+  /// paquete `location` dentro de la aplicacion que llame a este metodo.
   StreamSubscription<void>? startRealtimeTracking({
     required int idRepartidor,
     required Future<void> Function(int id, double lat, double lon) sendLocationToApi,
   }) {
-    print("Función de seguimiento iniciada (simulación).");
-    // NOTA: Para que esto funcione de verdad, necesitarás descomentar y configurar
-    // el paquete 'location'.
-    /*
-    final location = Location();
-    return location.onLocationChanged.listen((LocationData currentLocation) {
-      final lat = currentLocation.latitude;
-      final lon = currentLocation.longitude;
-      if (lat != null && lon != null) {
-         print("Nueva ubicación: $lat, $lon");
-         sendLocationToApi(idRepartidor, lat, lon);
-       }
-    });
-    */
+    // Mantiene compatibilidad hacia atras sin abrir listeners cuando no se usa.
     return null;
   }
+}
+
+class HttpException implements Exception {
+  HttpException(this.message);
+  final String message;
+
+  @override
+  String toString() => 'HttpException: $message';
 }
