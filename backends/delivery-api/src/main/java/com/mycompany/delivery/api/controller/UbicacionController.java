@@ -1,86 +1,99 @@
 package com.mycompany.delivery.api.controller;
 
+import com.mycompany.delivery.api.UbicacionService;
 import com.mycompany.delivery.api.model.Ubicacion;
-import com.mycompany.delivery.api.repository.UbicacionRepository;
 import com.mycompany.delivery.api.util.ApiException;
 import com.mycompany.delivery.api.util.ApiResponse;
 import java.sql.SQLException;
 import java.util.List;
-import java.util.Optional;
 
-/**
- * Controlador REST para gestionar ubicaciones (CRUD + tracking en vivo).
- */
 public class UbicacionController {
 
-    private final UbicacionRepository repo = new UbicacionRepository();
+    private final UbicacionService service = new UbicacionService();
 
-    // ===========================
-    // CREAR O ACTUALIZAR
-    // ===========================
+    // ===============================
+    // CREAR O ACTUALIZAR UBICACIÓN
+    // ===============================
     public ApiResponse<Ubicacion> guardarUbicacion(Ubicacion ubicacion) {
+        var saved = service.guardarUbicacion(ubicacion)
+                .orElseThrow(() -> new ApiException(500, "No se pudo guardar la ubicación"));
+        return ApiResponse.success(201, "Ubicación guardada correctamente", saved);
+    }
+
+    // ===============================
+    // ACTUALIZAR COORDENADAS (EN VIVO)
+    // ===============================
+    public ApiResponse<Void> actualizarUbicacionRepartidor(int idRepartidor, double latitud, double longitud) {
         try {
-            Optional<Ubicacion> saved = repo.guardar(ubicacion);
-            if (saved.isEmpty()) {
-                throw new ApiException(500, "No se pudo guardar la ubicación");
-            }
-            return ApiResponse.success(201, "Ubicación guardada correctamente", saved.get());
-        } catch (SQLException e) {
-            throw new ApiException(500, "Error interno al guardar la ubicación", e);
+            var req = new com.mycompany.delivery.api.config.UbicacionUpdateRequest();
+            req.setLatitud(latitud);
+            req.setLongitud(longitud);
+            service.actualizarUbicacionRepartidor(idRepartidor, req);
+            return ApiResponse.success("Ubicación actualizada correctamente");
+        } catch (ApiException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ApiException(500, "Error al actualizar la ubicación", e);
         }
     }
 
-    // ===========================
-    // ACTUALIZAR COORDENADAS
-    // ===========================
-    public ApiResponse<Void> actualizarCoordenadas(int idUbicacion, double latitud, double longitud) {
-        if (idUbicacion <= 0) throw new ApiException(400, "Identificador inválido");
+    // ===============================
+    // ACTUALIZAR COORDENADAS (para DeliveryApi)
+    // ===============================
+    public void actualizarCoordenadas(int idUsuario, Double latitud, Double longitud) {
+        if (idUsuario <= 0 || latitud == null || longitud == null) {
+            throw new ApiException(400, "Datos de coordenadas inválidos");
+        }
+
         try {
-            boolean ok = repo.actualizarUbicacion(idUbicacion, latitud, longitud);
-            if (!ok) throw new ApiException(404, "Ubicación no encontrada para actualizar");
-            return ApiResponse.success("Coordenadas actualizadas correctamente");
-        } catch (SQLException e) {
-            throw new ApiException(500, "Error actualizando coordenadas", e);
+            var req = new com.mycompany.delivery.api.config.UbicacionUpdateRequest();
+            req.setLatitud(latitud);
+            req.setLongitud(longitud);
+            service.actualizarUbicacionRepartidor(idUsuario, req);
+        } catch (Exception e) {
+            throw new ApiException(500, "Error inesperado al actualizar coordenadas", e);
         }
     }
 
-    // ===========================
-    // OBTENER POR USUARIO
-    // ===========================
-    public ApiResponse<Ubicacion> obtenerPorUsuario(int idUsuario) {
-        if (idUsuario <= 0) throw new ApiException(400, "Identificador de usuario inválido");
+    // ===============================
+    // OBTENER UBICACIONES POR USUARIO
+    // ===============================
+    public ApiResponse<List<Ubicacion>> obtenerUbicacionesPorUsuario(int idUsuario) {
+        if (idUsuario <= 0)
+            throw new ApiException(400, "ID de usuario inválido");
+
         try {
-            Optional<Ubicacion> ubicacion = repo.obtenerPorUsuario(idUsuario);
-            if (ubicacion.isEmpty()) throw new ApiException(404, "Ubicación no encontrada");
-            return ApiResponse.success("Ubicación obtenida", ubicacion.get());
+            List<Ubicacion> ubicaciones = service.obtenerUbicacionesPorUsuario(idUsuario);
+            return ApiResponse.success(200, "Ubicaciones obtenidas correctamente", ubicaciones);
         } catch (SQLException e) {
-            throw new ApiException(500, "No se pudo obtener la ubicación", e);
+            throw new ApiException(500, "Error al obtener ubicaciones del usuario", e);
         }
     }
 
-    // ===========================
-    // LISTAR TODAS LAS ACTIVAS
-    // ===========================
-    public ApiResponse<List<Ubicacion>> listarUbicacionesActivas() {
+    // ===============================
+    // LISTAR TODAS LAS UBICACIONES ACTIVAS
+    // ===============================
+    public ApiResponse<List<Ubicacion>> listarActivas() {
         try {
-            List<Ubicacion> ubicaciones = repo.listarActivas();
-            return ApiResponse.success(200, "Ubicaciones activas", ubicaciones);
+            List<Ubicacion> activas = service.listarUbicacionesActivas();
+            return ApiResponse.success(200, "Ubicaciones activas obtenidas", activas);
         } catch (SQLException e) {
-            throw new ApiException(500, "No se pudieron listar las ubicaciones", e);
+            throw new ApiException(500, "Error al listar ubicaciones activas", e);
         }
     }
 
-    // ===========================
+    // ===============================
     // ELIMINAR UBICACIÓN
-    // ===========================
+    // ===============================
     public ApiResponse<Void> eliminarUbicacion(int idUbicacion) {
-        if (idUbicacion <= 0) throw new ApiException(400, "Identificador inválido");
+        if (idUbicacion <= 0)
+            throw new ApiException(400, "ID de ubicación inválido");
         try {
-            boolean eliminado = repo.eliminar(idUbicacion);
-            if (!eliminado) throw new ApiException(404, "Ubicación no encontrada para eliminar");
+            boolean ok = service.eliminarUbicacion(idUbicacion);
+            if (!ok) throw new ApiException(404, "Ubicación no encontrada");
             return ApiResponse.success("Ubicación eliminada correctamente");
         } catch (SQLException e) {
-            throw new ApiException(500, "Error eliminando ubicación", e);
+            throw new ApiException(500, "Error al eliminar la ubicación", e);
         }
     }
 }

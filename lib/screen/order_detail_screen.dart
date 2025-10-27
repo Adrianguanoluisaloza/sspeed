@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
-import '../models/pedido.dart';
-import '../models/pedido_detalle.dart';
-import '../services/database_service.dart';
+import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart' show Provider;
+
+import '../models/pedido_detalle.dart';
+import '../models/pedido.dart';
+import '../services/database_service.dart';
+import '../routes/app_routes.dart';
 
 class OrderDetailScreen extends StatefulWidget {
   final int idPedido;
+
   const OrderDetailScreen({super.key, required this.idPedido});
 
   @override
@@ -15,392 +18,258 @@ class OrderDetailScreen extends StatefulWidget {
 
 class _OrderDetailScreenState extends State<OrderDetailScreen> {
   late Future<PedidoDetalle?> _detailsFuture;
-  late Future<Map<String, dynamic>?> _trackingFuture;
-  late DatabaseService _databaseService;
 
   @override
   void initState() {
     super.initState();
-    _databaseService = Provider.of<DatabaseService>(context, listen: false);
-    _detailsFuture = _databaseService.getPedidoDetalle(widget.idPedido);
-    _trackingFuture = _databaseService.getRepartidorLocation(widget.idPedido);
+    _loadOrderDetails();
+  }
+
+  void _loadOrderDetails() {
+    final dbService = Provider.of<DatabaseService>(context, listen: false);
+    setState(() {
+      _detailsFuture = dbService.getPedidoDetalle(widget.idPedido);
+    });
+  }
+
+  Future<void> _refresh() async {
+    _loadOrderDetails();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Detalles del Pedido #${widget.idPedido}'),
-      ),
-      body: FutureBuilder<PedidoDetalle?>(
-        future: _detailsFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            // Puedes usar un Shimmer aquí para una carga más elegante
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.error_outline, size: 64, color: Colors.redAccent),
-                    const SizedBox(height: 12),
-                    const Text('No se pudieron cargar los detalles del pedido.'),
-                    const SizedBox(height: 12),
-                    ElevatedButton(
-                      onPressed: () {
-                        setState(() {
-                          _detailsFuture = _databaseService.getPedidoDetalle(widget.idPedido);
-                          _trackingFuture = _databaseService.getRepartidorLocation(widget.idPedido);
-                        });
-                      },
-                      child: const Text('Reintentar'),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
-          if (!snapshot.hasData || snapshot.data == null) {
-            return const Center(child: Text('Pedido no encontrado.'));
-          }
+    return FutureBuilder<PedidoDetalle?>(
+      future: _detailsFuture,
+      builder: (context, snapshot) {
+        Widget body;
+        double? total;
 
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          body = const Center(child: CircularProgressIndicator());
+        } else if (snapshot.hasError) {
+          body = _buildErrorView(snapshot.error);
+        } else if (!snapshot.hasData || snapshot.data == null) {
+          body = const Center(child: Text('Pedido no encontrado.'));
+        } else {
           final pedidoDetalle = snapshot.data!;
-          final pedido = pedidoDetalle.pedido;
-          final detalles = pedidoDetalle.detalles;
-          final formattedDate = DateFormat('dd MMM yyyy, hh:mm a').format(pedido.fechaPedido);
+          total = pedidoDetalle.pedido.total;
+          body = _buildBodyContent(pedidoDetalle);
+        }
 
-          return RefreshIndicator(
-            onRefresh: () async {
-              setState(() {
-                _detailsFuture = _databaseService.getPedidoDetalle(widget.idPedido);
-                _trackingFuture = _databaseService.getRepartidorLocation(widget.idPedido);
-              });
-            },
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
-              children: [
-                _buildSummaryCard(context, pedido, formattedDate),
-                const SizedBox(height: 24),
-                const Text('Seguimiento del Pedido',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                _buildOrderTimeline(pedido.estado),
-                const SizedBox(height: 16),
-                _buildTrackingCard(),
-                const SizedBox(height: 24),
-                const Text('Productos en tu pedido',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                Card(
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: detalles.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1, indent: 16, endIndent: 16),
-                    itemBuilder: (context, index) {
-                      final item = detalles[index];
-                      return ListTile(
-                        leading: ClipRRect(
-                          borderRadius: BorderRadius.circular(8.0),
-                          child: _OrderItemImage(imageUrl: item.imagenUrl),
-                        ),
-                        title: Text(item.nombreProducto),
-                        subtitle: Text(
-                            'Cant: ${item.cantidad} x \$${item.precioUnitario.toStringAsFixed(2)}'),
-                        trailing: Text('\$${item.subtotal.toStringAsFixed(2)}',
-                            style: const TextStyle(fontWeight: FontWeight.bold)),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Detalle del Pedido'),
+          ),
+          body: body,
+          bottomNavigationBar: total != null ? _buildTotalSummary(total) : null,
+        );
+      },
+    );
+  }
+
+  Widget _buildBodyContent(PedidoDetalle pedidoDetalle) {
+    return RefreshIndicator(
+      onRefresh: _refresh,
+      child: ListView(
+        padding: const EdgeInsets.all(16.0),
+        children: [
+          _buildHeaderCard(pedidoDetalle.pedido),
+          const SizedBox(height: 24),
+          _buildSectionTitle('Seguimiento'),
+          _buildTimelineCard(pedidoDetalle.pedido.estado),
+          const SizedBox(height: 12),
+          _buildTrackingMapCard(pedidoDetalle.pedido),
+          const SizedBox(height: 24),
+          _buildSectionTitle('Productos'),
+          _buildProductsListCard(pedidoDetalle.detalles),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTotalSummary(double total) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(16).copyWith(bottom: 24),
+      decoration: BoxDecoration(
+        color: theme.scaffoldBackgroundColor,
+        boxShadow: [BoxShadow(color: Colors.black.withAlpha(13), spreadRadius: 1, blurRadius: 10, offset: const Offset(0, -5))],
+      ),
+      child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        Text('Total Pagado:', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+        Text('\$${total.toStringAsFixed(2)}', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: theme.primaryColor)),
+      ]),
+    );
+  }
+
+  Widget _buildHeaderCard(Pedido pedido) {
+    final formattedDate = DateFormat('dd MMM yyyy, hh:mm a', 'es_MX').format(pedido.fechaPedido);
+    final theme = Theme.of(context);
+    return Card(elevation: 2, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), child: Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Text('PEDIDO #${pedido.idPedido}', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+          _StatusChip(status: pedido.estado),
+        ]),
+        const SizedBox(height: 8),
+        Text(formattedDate, style: TextStyle(color: Colors.grey.shade600)),
+        const Divider(height: 24),
+        Row(children: [
+          Icon(Icons.location_on_outlined, color: Colors.grey.shade600, size: 20),
+          const SizedBox(width: 8),
+          // CORRECCIÓN: Se elimina el operador '??' innecesario.
+          Expanded(child: Text(pedido.direccionEntrega)),
+        ]),
+      ]),
+    ));
+  }
+
+  Widget _buildTimelineCard(String estadoActual) {
+    final estados = {
+      'pendiente': 'Pendiente',
+      'en preparacion': 'Preparando',
+      'en camino': 'En Camino',
+      'entregado': 'Entregado',
+    };
+    int currentStep = estados.keys.toList().indexOf(estadoActual.toLowerCase());
+    if (currentStep == -1) currentStep = 0;
+    return Card(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 8.0),
+          child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: List.generate(estados.length, (index) {
+                return _TimelineStep(title: estados.values.elementAt(index), isDone: index <= currentStep);
+              })),
+        ));
+  }
+
+  Widget _buildTrackingMapCard(Pedido pedido) {
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        onTap: () => Navigator.of(context).pushNamed(AppRoutes.trackingSimulation, arguments: pedido.idPedido),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(height: 150, decoration: BoxDecoration(color: Colors.grey.shade300), child: Center(
+            child: Icon(Icons.map_outlined, size: 60, color: Colors.grey.shade600),
+          )),
+          Padding(padding: const EdgeInsets.all(16.0), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Seguimiento en Vivo', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              Text('Toca para ver la ubicación del repartidor', style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+            ])),
+            const Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 16),
+          ])),
+        ]),
+      ),
+    );
+  }
+
+  // CORRECCIÓN: Se usa el tipo de dato correcto 'ProductoDetalle'.
+  Widget _buildProductsListCard(List<ProductoDetalle> detalles) {
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ListView.separated(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: detalles.length,
+        separatorBuilder: (_, __) => const Divider(height: 1, indent: 72),
+        itemBuilder: (context, index) {
+          final item = detalles[index];
+          return ListTile(
+            leading: SizedBox(width: 56, height: 56, child: _OrderItemImage(imageUrl: item.imagenUrl)),
+            title: Text(item.nombreProducto, style: const TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: Text('Cant: ${item.cantidad} x \$${item.precioUnitario.toStringAsFixed(2)}'),
+            trailing: Text('\$${item.subtotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
           );
         },
       ),
     );
   }
 
-  // --- WIDGETS AUXILIARES ---
-
-  Widget _buildSummaryCard(
-      BuildContext context, Pedido pedido, String formattedDate) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Fecha: $formattedDate'),
-            const SizedBox(height: 8),
-            Text('Dirección: ${pedido.direccionEntrega}'),
-            if (pedido.latitudDestino != null && pedido.longitudDestino != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 4.0),
-                child: Text(
-                  'Coordenadas destino: ${pedido.latitudDestino!.toStringAsFixed(4)}, '
-                  '${pedido.longitudDestino!.toStringAsFixed(4)}',
-                  style: TextStyle(color: Colors.grey.shade600),
-                ),
-              ),
-            const Divider(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('TOTAL PAGADO', style: TextStyle(fontWeight: FontWeight.bold)),
-                Text('\$${pedido.total.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-              ],
-            ),
-          ],
-        ),
-      ),
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0, left: 4.0, top: 8.0),
+      child: Text(title, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
     );
   }
 
-  Widget _buildOrderTimeline(String estadoActual) {
-    final estados = ['pendiente', 'en preparacion', 'en camino', 'entregado'];
-    int estadoIndex = estados.indexOf(estadoActual.toLowerCase());
+  Widget _buildErrorView(Object? error) {
+    debugPrint('Error en OrderDetailScreen: $error');
+    return Center(child: Padding(padding: const EdgeInsets.all(24.0), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+      const Icon(Icons.error_outline, size: 64, color: Colors.redAccent),
+      const SizedBox(height: 16),
+      const Text('No se pudieron cargar los detalles del pedido.', textAlign: TextAlign.center, style: TextStyle(fontSize: 16)),
+      const SizedBox(height: 16),
+      ElevatedButton.icon(icon: const Icon(Icons.refresh), onPressed: _refresh, label: const Text('Reintentar')),
+    ])));
+  }
+}
 
-    // Si el estado es cancelado, mostramos un estado especial
-    if (estadoActual.toLowerCase() == 'cancelado') {
-      return const Card(
-        child: Padding(
-          padding: EdgeInsets.all(8.0),
-          child: TimelineTile(
-            icon: Icons.cancel,
-            title: 'Pedido Cancelado',
-            subtitle: 'Este pedido fue cancelado.',
-            isDone: true,
-            isLast: true, // Para no dibujar la línea de abajo
-          ),
-        ),
-      );
+class _StatusChip extends StatelessWidget {
+  final String status;
+  const _StatusChip({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    Color color;
+    String label;
+    IconData icon;
+    switch (status.toLowerCase()) {
+      case 'entregado': color = Colors.green; label = 'Entregado'; icon = Icons.check_circle_outline; break;
+      case 'en camino': color = Colors.blue; label = 'En Camino'; icon = Icons.local_shipping_outlined; break;
+      case 'cancelado': color = Colors.red; label = 'Cancelado'; icon = Icons.cancel_outlined; break;
+      case 'en preparacion': color = Colors.cyan; label = 'Preparando'; icon = Icons.restaurant_menu_outlined; break;
+      default: color = Colors.orange; label = 'Pendiente'; icon = Icons.pending_actions_outlined;
     }
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 16.0),
-        child: Column(
-          children: [
-            TimelineTile(icon: Icons.pending_actions, title: 'Pedido Pendiente', subtitle: 'Confirmando tu orden.', isDone: estadoIndex >= 0),
-            TimelineTile(icon: Icons.restaurant_menu, title: 'En Preparación', subtitle: 'El restaurante está preparando tu comida.', isDone: estadoIndex >= 1),
-            TimelineTile(icon: Icons.local_shipping, title: 'En Camino', subtitle: 'Tu pedido va en camino a tu dirección.', isDone: estadoIndex >= 2),
-            TimelineTile(icon: Icons.check_circle, title: 'Entregado', subtitle: '¡Disfruta tu comida!', isDone: estadoIndex >= 3, isLast: true),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTrackingCard() {
-    return FutureBuilder<Map<String, dynamic>?>(
-      future: _trackingFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Card(
-            child: Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Row(
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(width: 16),
-                  Expanded(child: Text('Actualizando ubicación del repartidor...')),
-                ],
-              ),
-            ),
-          );
-        }
-        if (snapshot.hasError) {
-          return Card(
-            child: ListTile(
-              leading: const Icon(Icons.location_disabled, color: Colors.redAccent),
-              title: const Text('No se pudo obtener la ubicación del repartidor'),
-              trailing: IconButton(
-                icon: const Icon(Icons.refresh),
-                onPressed: () {
-                  setState(() {
-                    _trackingFuture =
-                        _databaseService.getRepartidorLocation(widget.idPedido);
-                  });
-                },
-              ),
-            ),
-          );
-        }
-        final ubicacion = snapshot.data;
-        if (ubicacion == null) {
-          return Card(
-            child: ListTile(
-              leading: const Icon(Icons.location_searching, color: Colors.orange),
-              title: const Text('Ubicación no disponible'),
-              subtitle: const Text('El repartidor aún no ha compartido su posición.'),
-              trailing: IconButton(
-                icon: const Icon(Icons.refresh),
-                onPressed: () {
-                  setState(() {
-                    _trackingFuture =
-                        _databaseService.getRepartidorLocation(widget.idPedido);
-                  });
-                },
-              ),
-            ),
-          );
-        }
-        final lat = (ubicacion['latitud'] as num?)?.toDouble();
-        final lon = (ubicacion['longitud'] as num?)?.toDouble();
-        return Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.navigation, color: Colors.green),
-                    const SizedBox(width: 8),
-                    const Text('Seguimiento en tiempo real',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                    const Spacer(),
-                    IconButton(
-                      icon: const Icon(Icons.refresh),
-                      onPressed: () {
-                        setState(() {
-                          _trackingFuture = _databaseService
-                              .getRepartidorLocation(widget.idPedido);
-                        });
-                      },
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  height: 140,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    gradient: LinearGradient(
-                      colors: [Colors.teal.shade100, Colors.teal.shade200],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                  ),
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          lat != null && lon != null
-                              ? 'Lat: ${lat.toStringAsFixed(4)}, Lon: ${lon.toStringAsFixed(4)}'
-                              : 'Coordenadas no disponibles',
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.w600),
-                        ),
-                        if (ubicacion['actualizado'] != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 6.0),
-                            child: Text(
-                              'Última actualización: ${ubicacion['actualizado']}',
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+    return Chip(
+      avatar: Icon(icon, color: color, size: 18),
+      label: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+      backgroundColor: color.withAlpha(38),
+      side: BorderSide.none,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
     );
   }
 }
 
-// --- COMPONENTE PARA LA LÍNEA DE TIEMPO ---
-class TimelineTile extends StatelessWidget {
-  final IconData icon;
+class _TimelineStep extends StatelessWidget {
   final String title;
-  final String subtitle;
   final bool isDone;
-  final bool isLast;
-
-  const TimelineTile({
-    super.key,
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.isDone,
-    this.isLast = false,
-  });
+  const _TimelineStep({required this.title, required this.isDone});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Column(
-            children: [
-              Icon(icon, color: isDone ? Theme.of(context).primaryColor : Colors.grey, size: 28),
-              if (!isLast)
-                Container(
-                  width: 2,
-                  height: 40,
-                  color: isDone ? Theme.of(context).primaryColor : Colors.grey.shade300,
-                ),
-            ],
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 4.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: isDone ? Colors.black : Colors.grey)),
-                  Text(subtitle, style: TextStyle(color: isDone ? Colors.black54 : Colors.grey)),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+    final color = isDone ? Theme.of(context).primaryColor : Colors.grey.shade400;
+    return Column(children: [
+      Icon(isDone ? Icons.check_circle : Icons.radio_button_unchecked, color: color),
+      const SizedBox(height: 4),
+      Text(title, style: TextStyle(color: color, fontWeight: isDone ? FontWeight.bold : FontWeight.normal, fontSize: 12)),
+    ]);
   }
 }
 
 class _OrderItemImage extends StatelessWidget {
   final String? imageUrl;
-
-  const _OrderItemImage({required this.imageUrl});
+  const _OrderItemImage({this.imageUrl});
 
   @override
   Widget build(BuildContext context) {
-    if (imageUrl == null || imageUrl!.isEmpty) {
-      return _buildPlaceholder();
+    if (imageUrl == null || imageUrl!.trim().isEmpty) {
+      return Container(
+        decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(8.0)),
+        child: const Center(child: Icon(Icons.fastfood_outlined, color: Colors.grey, size: 30)),
+      );
     }
-
-    return Image.network(
-      imageUrl!,
-      width: 50,
-      height: 50,
-      fit: BoxFit.cover,
-      errorBuilder: (_, __, ___) => _buildPlaceholder(),
-    );
-  }
-
-  Widget _buildPlaceholder() {
-    return Container(
-      width: 50,
-      height: 50,
-      color: Colors.grey.shade200,
-      alignment: Alignment.center,
-      child: const Icon(Icons.fastfood, color: Colors.grey),
-    );
+    return ClipRRect(borderRadius: BorderRadius.circular(8.0), child: Image.network(imageUrl!, fit: BoxFit.cover,
+      loadingBuilder: (context, child, progress) => progress == null ? child : const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      errorBuilder: (_, __, ___) => Container(
+        decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(8.0)),
+        child: const Center(child: Icon(Icons.broken_image_outlined, color: Colors.grey, size: 30)),
+      ),
+    ));
   }
 }
-

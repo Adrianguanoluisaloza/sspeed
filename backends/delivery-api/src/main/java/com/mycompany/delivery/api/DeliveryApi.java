@@ -220,6 +220,8 @@ public final class DeliveryApi {
                         DASHBOARD_DAO.obtenerEstadisticasDelivery(parseId(req.params(":id"))))),
                 GSON::toJson);
     }
+    
+    
 
 // ===================== AUTH =====================
     private static void registerAuthRoutes() {
@@ -237,7 +239,29 @@ public final class DeliveryApi {
             u.setTelefono(b.telefono);
             return respond(res, USUARIO_CONTROLLER.registrar(u));
         }, GSON::toJson);
+    
+    // 🔹 ACTUALIZAR USUARIO EXISTENTE (nuevo endpoint)
+   // 🔹 ACTUALIZAR USUARIO EXISTENTE
+put("/usuarios/:id", (req, res) -> {
+    int id = parseId(req.params(":id"));
+    Usuario body = parseBody(req, Usuario.class);
+    body.setIdUsuario(id);
+
+    // ✅ Usa directamente el ApiResponse del controlador
+    return respond(res, USUARIO_CONTROLLER.actualizarUsuario(body));
+}, GSON::toJson);
+
+// 🔹 ELIMINAR USUARIO (nuevo endpoint)
+delete("/usuarios/:id", (req, res) -> {
+    int id = parseId(req.params(":id"));
+
+    // ✅ Devuelve la respuesta ApiResponse del controlador
+    return respond(res, USUARIO_CONTROLLER.eliminarUsuario(id));
+}, GSON::toJson);
+    
     }
+    
+    
 
 // ===================== PRODUCTOS =====================
     private static void registerProductoRoutes() {
@@ -349,51 +373,53 @@ private static void registerPedidoRoutes() {
 }
 
 // ===================== UBICACIONES =====================
-    private static void registerUbicacionRoutes() {
-        post("/ubicaciones", (req, res) -> {
-            UbicacionRequest b = parseBody(req, UbicacionRequest.class);
-            Ubicacion u = toUbicacion(b);
-            return respond(res, UBICACION_CONTROLLER.guardarUbicacion(u));
-        }, GSON::toJson);
+   // ===================== UBICACIONES =====================
+private static void registerUbicacionRoutes() {
+    post("/ubicaciones", (req, res) -> {
+        UbicacionRequest b = parseBody(req, UbicacionRequest.class);
+        Ubicacion u = toUbicacion(b);
+        return respond(res, UBICACION_CONTROLLER.guardarUbicacion(u));
+    }, GSON::toJson);
 
-        put("/ubicaciones/:idUbicacion", (req, res) -> {
-            int id = parseId(req.params(":idUbicacion"));
-            UbicacionRequest b = parseBody(req, UbicacionRequest.class);
-            return respond(res, UBICACION_CONTROLLER.actualizarCoordenadas(id, b.getLatitud(), b.getLongitud()));
-        }, GSON::toJson);
+    put("/ubicaciones/:idUbicacion", (req, res) -> {
+        int id = parseId(req.params(":idUbicacion"));
+        UbicacionRequest b = parseBody(req, UbicacionRequest.class);
+        UBICACION_CONTROLLER.actualizarCoordenadas(id, b.getLatitud(), b.getLongitud());
+        return respond(res, ApiResponse.success("Ubicación actualizada correctamente"));
+    }, GSON::toJson);
 
-        // Reemplaza el GET /ubicaciones/usuario/:id por esta versión
-        get("/ubicaciones/usuario/:id", (req, res) -> {
-            res.type("application/json");
-            int id = parseId(req.params(":id"));
-            String sql = "SELECT id_ubicacion,id_usuario,latitud,longitud,direccion,descripcion "
-                    + "FROM ubicaciones WHERE id_usuario = ? ORDER BY id_ubicacion DESC";
-            try (Connection c = Database.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
-                ps.setInt(1, id);
-                try (ResultSet rs = ps.executeQuery()) {
-                    var list = new ArrayList<Map<String, Object>>();
-                    while (rs.next()) {
-                        var m = new HashMap<String, Object>();
-                        m.put("id_ubicacion", rs.getInt("id_ubicacion"));
-                        m.put("id_usuario", rs.getInt("id_usuario"));
-                        m.put("latitud", rs.getDouble("latitud"));
-                        m.put("longitud", rs.getDouble("longitud"));
-                        m.put("direccion", rs.getString("direccion"));
-                        m.put("descripcion", rs.getString("descripcion"));
-                        list.add(m);
-                    }
-                    return respond(res, ApiResponse.success(200, "ok", list)); // <- data: [ ... ]
+    // Reemplaza el GET /ubicaciones/usuario/:id por esta versión
+    get("/ubicaciones/usuario/:id", (req, res) -> {
+        res.type("application/json");
+        int id = parseId(req.params(":id"));
+        String sql = "SELECT id_ubicacion,id_usuario,latitud,longitud,direccion,descripcion "
+                + "FROM ubicaciones WHERE id_usuario = ? ORDER BY id_ubicacion DESC";
+        try (Connection c = Database.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                var list = new ArrayList<Map<String, Object>>();
+                while (rs.next()) {
+                    var m = new HashMap<String, Object>();
+                    m.put("id_ubicacion", rs.getInt("id_ubicacion"));
+                    m.put("id_usuario", rs.getInt("id_usuario"));
+                    m.put("latitud", rs.getDouble("latitud"));
+                    m.put("longitud", rs.getDouble("longitud"));
+                    m.put("direccion", rs.getString("direccion"));
+                    m.put("descripcion", rs.getString("descripcion"));
+                    list.add(m);
                 }
-            } catch (Exception e) {
-                res.status(500);
-                return ApiResponse.error(500, "Error obteniendo ubicaciones");
+                return respond(res, ApiResponse.success(200, "ok", list));
             }
-        }, GSON::toJson);
+        } catch (Exception e) {
+            res.status(500);
+            return ApiResponse.error(500, "Error obteniendo ubicaciones");
+        }
+    }, GSON::toJson);
 
-        get("/ubicaciones/activas", (req, res)
-                -> respond(res, UBICACION_CONTROLLER.listarUbicacionesActivas()),
-                GSON::toJson);
-    }
+    get("/ubicaciones/activas", (req, res)
+            -> respond(res, UBICACION_CONTROLLER.listarActivas()),
+            GSON::toJson);
+}
 
 // ===================== MENSAJES =====================
     private static void registerMensajeRoutes() {

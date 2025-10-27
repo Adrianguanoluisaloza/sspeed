@@ -32,6 +32,10 @@ class DatabaseService implements DataSource {
   Future<List<Producto>> getProductos({String? query, String? categoria}) =>
       _dataSource.getProductos(query: query, categoria: categoria);
 
+  // CORRECCIÓN: Se implementa el método faltante
+  @override
+  Future<Producto?> getProductoById(int id) => _dataSource.getProductoById(id);
+
   @override
   Future<List<Ubicacion>> getUbicaciones(int idUsuario) => _dataSource.getUbicaciones(idUsuario);
 
@@ -52,7 +56,6 @@ class DatabaseService implements DataSource {
         comentario: comentario,
       );
 
-  // CORRECCIÓN: Se añade el parámetro paymentMethod que faltaba
   @override
   Future<bool> placeOrder({
     required Usuario user,

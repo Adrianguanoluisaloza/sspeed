@@ -131,6 +131,8 @@ class ApiDataSource implements DataSource {
     }
   }
 
+  // --- IMPLEMENTACIONES ---
+
   @override
   Future<Usuario?> login(String email, String password) async {
     final response = await _post('/login', {'correo': email, 'contrasena': password});
@@ -165,6 +167,16 @@ class ApiDataSource implements DataSource {
   Future<List<Producto>> getProductos({String? query, String? categoria}) async {
     final data = await _get('/productos?query=${query ?? ''}&categoria=${categoria ?? ''}');
     return data.map((item) => Producto.fromMap(item as Map<String, dynamic>)).toList();
+  }
+
+  // CORRECCIÓN: Se implementa el método faltante
+  @override
+  Future<Producto?> getProductoById(int id) async {
+    final data = await _getMap('/productos/$id');
+    if (data.isNotEmpty) {
+      return Producto.fromMap(data);
+    }
+    return null;
   }
 
   @override
@@ -207,7 +219,7 @@ class ApiDataSource implements DataSource {
 
     final payload = {
       'id_cliente': user.idUsuario,
-      'id_ubicacion': location.id, // CORRECCIÓN: Se usa la clave snake_case
+      'id_ubicacion': location.id, 
       'direccion_entrega': location.direccion,
       'metodo_pago': paymentMethod,
       'estado': 'pendiente',

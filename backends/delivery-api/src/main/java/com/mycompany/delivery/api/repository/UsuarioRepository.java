@@ -2,64 +2,69 @@ package com.mycompany.delivery.api.repository;
 
 import com.mycompany.delivery.api.config.Database;
 import com.mycompany.delivery.api.model.Usuario;
+import org.mindrot.jbcrypt.BCrypt;
+
 import java.sql.*;
 import java.util.*;
-import org.mindrot.jbcrypt.BCrypt;
 
 /**
  * Repositorio que maneja las operaciones CRUD de los usuarios.
- * Implementa autenticación y registro con cifrado seguro.
+ * Implementa autenticación, registro y actualización con cifrado seguro.
  */
 public class UsuarioRepository {
 
-    // ===========================
+    // ===============================
     // AUTENTICAR (LOGIN)
-    // ===========================
+    // ===============================
     public Optional<Usuario> autenticar(String correo, String contrasenaIngresada) throws SQLException {
-    String sql = "SELECT * FROM usuarios WHERE correo = ?";
-    try (Connection conn = Database.getConnection();
-         PreparedStatement stmt = conn.prepareStatement(sql)) {
+        String sql = "SELECT * FROM usuarios WHERE correo = ?";
+        try (Connection conn = Database.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-        stmt.setString(1, correo);
+            stmt.setString(1, correo);
 
-        try (ResultSet rs = stmt.executeQuery()) {
-            if (rs.next()) {
-                Usuario usuario = mapRow(rs);
-                String hashActual = usuario.getContrasena();
-                boolean esHash = hashActual != null && hashActual.startsWith("$2");
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    Usuario usuario = mapRow(rs);
+                    String hashActual = usuario.getContrasena();
 
-                if (esHash) {
-                    if (org.mindrot.jbcrypt.BCrypt.checkpw(contrasenaIngresada, hashActual)) {
-                        return Optional.of(usuario);
+                    if (hashActual == null || contrasenaIngresada == null) {
+                        return Optional.empty();
                     }
-                } else {
-                    if (hashActual.equals(contrasenaIngresada)) {
-                        String nuevoHash = org.mindrot.jbcrypt.BCrypt.hashpw(contrasenaIngresada, org.mindrot.jbcrypt.BCrypt.gensalt());
-                        actualizarContrasenaHash(usuario.getIdUsuario(), nuevoHash);
-                        usuario.setContrasena(nuevoHash);
-                        return Optional.of(usuario);
+
+                    // ✅ Si la contraseña ya está hasheada (BCrypt)
+                    if (hashActual.startsWith("$2")) {
+                        if (BCrypt.checkpw(contrasenaIngresada, hashActual)) {
+                            return Optional.of(usuario);
+                        }
+                    } else {
+                        // ⚠️ Si está en texto plano, la convertimos a hash y la guardamos
+                        if (hashActual.equals(contrasenaIngresada)) {
+                            String nuevoHash = BCrypt.hashpw(contrasenaIngresada, BCrypt.gensalt());
+                            actualizarContrasenaHash(usuario.getIdUsuario(), nuevoHash);
+                            usuario.setContrasena(nuevoHash);
+                            return Optional.of(usuario);
+                        }
                     }
                 }
             }
         }
+        return Optional.empty();
     }
-    return Optional.empty();
-}
 
-private void actualizarContrasenaHash(int idUsuario, String nuevoHash) throws SQLException {
-    String updateSql = "UPDATE usuarios SET contrasena = ? WHERE id_usuario = ?";
-    try (Connection conn = Database.getConnection();
-         PreparedStatement stmt = conn.prepareStatement(updateSql)) {
-        stmt.setString(1, nuevoHash);
-        stmt.setInt(2, idUsuario);
-        stmt.executeUpdate();
+    private void actualizarContrasenaHash(int idUsuario, String nuevoHash) throws SQLException {
+        String updateSql = "UPDATE usuarios SET contrasena = ? WHERE id_usuario = ?";
+        try (Connection conn = Database.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(updateSql)) {
+            stmt.setString(1, nuevoHash);
+            stmt.setInt(2, idUsuario);
+            stmt.executeUpdate();
+        }
     }
-}
 
-
-    // ===========================
+    // ===============================
     // REGISTRAR NUEVO USUARIO
-    // ===========================
+    // ===============================
     public boolean registrar(Usuario usuario) throws SQLException {
         String sql = """
             INSERT INTO usuarios (nombre, correo, contrasena, telefono, rol, activo, fecha_registro)
@@ -69,7 +74,6 @@ private void actualizarContrasenaHash(int idUsuario, String nuevoHash) throws SQ
         try (Connection conn = Database.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-            // 🔐 Ciframos la contraseña antes de guardar
             String hash = BCrypt.hashpw(usuario.getContrasena(), BCrypt.gensalt());
 
             stmt.setString(1, usuario.getNombre());
@@ -81,9 +85,9 @@ private void actualizarContrasenaHash(int idUsuario, String nuevoHash) throws SQ
         }
     }
 
-    // ===========================
+    // ===============================
     // LISTAR TODOS LOS USUARIOS
-    // ===========================
+    // ===============================
     public List<Usuario> listarUsuarios() throws SQLException {
         List<Usuario> lista = new ArrayList<>();
         String sql = "SELECT * FROM usuarios ORDER BY id_usuario ASC";
@@ -97,9 +101,9 @@ private void actualizarContrasenaHash(int idUsuario, String nuevoHash) throws SQ
         return lista;
     }
 
-    // ===========================
+    // ===============================
     // OBTENER POR ID
-    // ===========================
+    // ===============================
     public Optional<Usuario> obtenerPorId(int idUsuario) throws SQLException {
         String sql = "SELECT * FROM usuarios WHERE id_usuario = ?";
         try (Connection conn = Database.getConnection();
@@ -114,37 +118,35 @@ private void actualizarContrasenaHash(int idUsuario, String nuevoHash) throws SQ
         return Optional.empty();
     }
 
-    // ===========================
+    // ===============================
     // ACTUALIZAR DATOS
-    // ===========================
+    // ===============================
     public boolean actualizar(Usuario usuario) throws SQLException {
-    String sql = """
-        UPDATE usuarios
-        SET nombre = ?, correo = ?, telefono = ?, contrasena = ?, rol = ?, activo = ?
-        WHERE id_usuario = ?
-    """;
+        String sql = """
+            UPDATE usuarios
+            SET nombre = ?, correo = ?, telefono = ?, contrasena = ?, rol = ?, activo = ?
+            WHERE id_usuario = ?
+        """;
 
-    try (Connection conn = Database.getConnection();
-         PreparedStatement stmt = conn.prepareStatement(sql)) {
+        try (Connection conn = Database.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-        // 🔐 Ciframos la contraseña antes de guardar
-        String hash = org.mindrot.jbcrypt.BCrypt.hashpw(usuario.getContrasena(), org.mindrot.jbcrypt.BCrypt.gensalt());
+            String hash = BCrypt.hashpw(usuario.getContrasena(), BCrypt.gensalt());
 
-        stmt.setString(1, usuario.getNombre());
-        stmt.setString(2, usuario.getCorreo());
-        stmt.setString(3, usuario.getTelefono());
-        stmt.setString(4, hash);
-        stmt.setString(5, usuario.getRol());
-        stmt.setBoolean(6, usuario.isActivo());
-        stmt.setInt(7, usuario.getIdUsuario());
-        return stmt.executeUpdate() > 0;
+            stmt.setString(1, usuario.getNombre());
+            stmt.setString(2, usuario.getCorreo());
+            stmt.setString(3, usuario.getTelefono());
+            stmt.setString(4, hash);
+            stmt.setString(5, usuario.getRol());
+            stmt.setBoolean(6, usuario.isActivo());
+            stmt.setInt(7, usuario.getIdUsuario());
+            return stmt.executeUpdate() > 0;
+        }
     }
-}
 
-
-    // ===========================
+    // ===============================
     // ELIMINAR USUARIO
-    // ===========================
+    // ===============================
     public boolean eliminar(int idUsuario) throws SQLException {
         String sql = "DELETE FROM usuarios WHERE id_usuario = ?";
         try (Connection conn = Database.getConnection();
@@ -154,9 +156,9 @@ private void actualizarContrasenaHash(int idUsuario, String nuevoHash) throws SQ
         }
     }
 
-    // ===========================
+    // ===============================
     // MAPEO RESULTSET → OBJETO
-    // ===========================
+    // ===============================
     private Usuario mapRow(ResultSet rs) throws SQLException {
         Usuario u = new Usuario();
         u.setIdUsuario(rs.getInt("id_usuario"));

@@ -18,6 +18,7 @@ abstract class DataSource {
 
   // --- Métodos del Cliente ---
   Future<List<Producto>> getProductos({String? query, String? categoria});
+  Future<Producto?> getProductoById(int id); // MÉTODO AÑADIDO
   Future<List<Ubicacion>> getUbicaciones(int idUsuario);
   Future<List<ProductoRankeado>> getRecomendaciones();
   Future<bool> addRecomendacion({
@@ -26,7 +27,6 @@ abstract class DataSource {
     required int puntuacion,
     String? comentario,
   });
-  // CORRECCIÓN: Se añade el método de pago
   Future<bool> placeOrder({
     required Usuario user,
     required CartModel cart,

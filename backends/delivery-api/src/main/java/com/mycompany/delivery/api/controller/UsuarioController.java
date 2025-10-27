@@ -10,7 +10,7 @@ import java.util.Optional;
 
 /**
  * Controlador REST para la gestión de usuarios.
- * Contiene autenticación, registro, y consultas generales.
+ * Contiene autenticación, registro, edición, listado y eliminación.
  */
 public class UsuarioController {
 
@@ -100,7 +100,7 @@ public class UsuarioController {
     }
 
     // ===========================
-    // ELIMINAR
+    // ELIMINAR USUARIO
     // ===========================
     public ApiResponse<Void> eliminarUsuario(int idUsuario) {
         if (idUsuario <= 0) throw new ApiException(400, "ID de usuario inválido");

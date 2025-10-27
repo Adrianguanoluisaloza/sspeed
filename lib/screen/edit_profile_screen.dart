@@ -22,6 +22,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late final TextEditingController _confirmPasswordController;
 
   bool _isLoading = false;
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
 
   @override
   void initState() {
@@ -53,23 +55,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       final updatedUser = await dbService.updateUsuario(
         widget.usuario.copyWith(
           nombre: _nameController.text.trim(),
-          // Solo se envía la contraseña si el campo no está vacío
           contrasena: _passwordController.text.isNotEmpty ? _passwordController.text : null,
         ),
       );
 
       if (updatedUser != null) {
-        // Actualiza el estado de la sesión en la app
         session.setUser(updatedUser);
-
-        // Si se cambió la contraseña, actualiza SharedPreferences para el auto-login
         if (_passwordController.text.isNotEmpty) {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('userPassword', _passwordController.text);
         }
-
         messenger.showSnackBar(const SnackBar(content: Text('Perfil actualizado con éxito.'), backgroundColor: Colors.green));
-        navigator.pop(); // Vuelve a la pantalla de perfil
+        navigator.pop();
       } else {
         messenger.showSnackBar(const SnackBar(content: Text('No se pudo actualizar el perfil.'), backgroundColor: Colors.red));
       }
@@ -86,6 +83,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Editar Perfil'),
@@ -95,55 +93,92 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         child: Form(
           key: _formKey,
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Campo para el nombre
-              TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(labelText: 'Nombre Completo', prefixIcon: Icon(Icons.person_outline)),
-                validator: (val) => (val == null || val.isEmpty) ? 'El nombre no puede estar vacío' : null,
-              ),
-              const SizedBox(height: 16),
-              // Campo para el correo (solo lectura)
-              TextFormField(
-                initialValue: widget.usuario.correo,
-                readOnly: true,
-                decoration: const InputDecoration(
-                  labelText: 'Correo Electrónico (no editable)',
-                  prefixIcon: Icon(Icons.email_outlined),
-                  fillColor: Colors.black12, // Color para indicar que está deshabilitado
+              // --- SECCIÓN DE DATOS PERSONALES ---
+              Text('Datos Personales', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    children: [
+                      TextFormField(
+                        controller: _nameController,
+                        decoration: const InputDecoration(labelText: 'Nombre Completo', prefixIcon: Icon(Icons.person_outline)),
+                        validator: (val) => (val == null || val.isEmpty) ? 'El nombre no puede estar vacío' : null,
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        initialValue: widget.usuario.correo,
+                        readOnly: true,
+                        decoration: InputDecoration(
+                          labelText: 'Correo Electrónico',
+                          prefixIcon: const Icon(Icons.email_outlined),
+                          fillColor: Colors.grey.shade200,
+                          hintStyle: TextStyle(color: Colors.grey.shade500),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              const Divider(height: 32),
-              // Sección para cambiar contraseña
-              const Text('Cambiar Contraseña', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 24),
+
+              // --- SECCIÓN DE SEGURIDAD ---
+              Text('Seguridad', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
-              Text(
-                'Deja los campos en blanco si no deseas cambiar tu contraseña.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _passwordController,
-                obscureText: true,
-                decoration: const InputDecoration(labelText: 'Nueva Contraseña', prefixIcon: Icon(Icons.lock_outline)),
-                validator: (val) {
-                  if (val != null && val.isNotEmpty && val.length < 6) {
-                    return 'La contraseña debe tener al menos 6 caracteres';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _confirmPasswordController,
-                obscureText: true,
-                decoration: const InputDecoration(labelText: 'Confirmar Nueva Contraseña', prefixIcon: Icon(Icons.lock_outline)),
-                validator: (val) {
-                  if (_passwordController.text.isNotEmpty && val != _passwordController.text) {
-                    return 'Las contraseñas no coinciden';
-                  }
-                  return null;
-                },
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Deja los campos en blanco si no deseas cambiar tu contraseña.',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey.shade600),
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _passwordController,
+                        obscureText: _obscurePassword,
+                        decoration: InputDecoration(
+                          labelText: 'Nueva Contraseña',
+                          prefixIcon: const Icon(Icons.lock_outline),
+                          suffixIcon: IconButton(
+                            icon: Icon(_obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined),
+                            onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                          ),
+                        ),
+                        validator: (val) {
+                          if (val != null && val.isNotEmpty && val.length < 6) {
+                            return 'Mínimo 6 caracteres';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _confirmPasswordController,
+                        obscureText: _obscureConfirmPassword,
+                        decoration: InputDecoration(
+                          labelText: 'Confirmar Nueva Contraseña',
+                          prefixIcon: const Icon(Icons.lock_person_outlined),
+                          suffixIcon: IconButton(
+                            icon: Icon(_obscureConfirmPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined),
+                            onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                          ),
+                        ),
+                        validator: (val) {
+                          if (_passwordController.text.isNotEmpty && val != _passwordController.text) {
+                            return 'Las contraseñas no coinciden';
+                          }
+                          return null;
+                        },
+                      ),
+                    ],
+                  ),
+                ),
               ),
               const SizedBox(height: 32),
               SizedBox(

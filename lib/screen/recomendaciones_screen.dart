@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_2/services/database_service.dart';
 import 'package:provider/provider.dart';
 
-// ¡CAMBIO CLAVE!
-// Importamos el archivo que contiene la definición correcta de ProductoRankeado,
-// que es la misma que usa DatabaseService.
 import '../models/producto.dart';
+import '../services/database_service.dart';
 
 class RecomendacionesScreen extends StatefulWidget {
   const RecomendacionesScreen({super.key});
@@ -20,6 +17,10 @@ class _RecomendacionesScreenState extends State<RecomendacionesScreen> {
   @override
   void initState() {
     super.initState();
+    _loadRecomendaciones();
+  }
+
+  void _loadRecomendaciones() {
     _recomendacionesFuture = Provider.of<DatabaseService>(context, listen: false).getRecomendaciones();
   }
 
@@ -28,50 +29,40 @@ class _RecomendacionesScreenState extends State<RecomendacionesScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Top Recomendaciones'),
-        backgroundColor: Colors.red.shade400,
-        elevation: 0,
+        // Usamos el color del tema para consistencia
+        backgroundColor: Theme.of(context).primaryColor,
       ),
-      body: FutureBuilder<List<ProductoRankeado>>(
-        future: _recomendacionesFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator(color: Colors.red));
-          }
-          if (snapshot.hasError) {
-            debugPrint('Error al cargar recomendaciones: ${snapshot.error}');
-            return const Center(child: Text('Error al cargar el ranking.'));
-          }
+      body: RefreshIndicator(
+        onRefresh: () async => setState(() => _loadRecomendaciones()),
+        child: FutureBuilder<List<ProductoRankeado>>(
+          future: _recomendacionesFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (snapshot.hasError) {
+              return const Center(child: Text('Error al cargar el ranking.'));
+            }
+            if (!snapshot.hasData || snapshot.data!.isEmpty) {
+              return const Center(child: Text('No hay recomendaciones disponibles.'));
+            }
 
-          final ranking = snapshot.data ?? [];
-
-          if (ranking.isEmpty) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(20.0),
-                child: Text(
-                  'No hay productos en el ranking. Intenta añadir recomendaciones a la BD.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey),
-                ),
-              ),
+            final ranking = snapshot.data!;
+            return ListView.builder(
+              padding: const EdgeInsets.symmetric(vertical: 8.0),
+              itemCount: ranking.length,
+              itemBuilder: (context, index) {
+                return _RankingItem(index: index, productoRankeado: ranking[index]);
+              },
             );
-          }
-
-          return ListView.builder(
-            itemCount: ranking.length,
-            itemBuilder: (context, index) {
-              final productoRankeado = ranking[index];
-              return _RankingItem(
-                index: index,
-                productoRankeado: productoRankeado,
-              );
-            },
-          );
-        },
+          },
+        ),
       ),
     );
   }
 }
+
+// --- WIDGETS DE LA UI REDISEÑADOS ---
 
 class _RankingItem extends StatelessWidget {
   final int index;
@@ -81,55 +72,51 @@ class _RankingItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ranking = index + 1;
-    Color rankColor = Colors.grey.shade400;
-    if (ranking == 1) rankColor = Colors.amber.shade700;
-    if (ranking == 2) rankColor = Colors.blueGrey.shade300;
-    if (ranking == 3) rankColor = Colors.brown.shade400;
+    Color rankColor = Colors.grey.shade600;
+    IconData? rankIcon;
+
+    if (ranking == 1) {
+      rankColor = const Color(0xFFD4AF37); // Oro
+      rankIcon = Icons.emoji_events;
+    }
+    if (ranking == 2) {
+      rankColor = const Color(0xFFC0C0C0); // Plata
+      rankIcon = Icons.emoji_events;
+    }
+    if (ranking == 3) {
+      rankColor = const Color(0xFFCD7F32); // Bronce
+      rankIcon = Icons.emoji_events;
+    }
 
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      elevation: 5,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-        leading: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: rankColor,
-            shape: BoxShape.circle,
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            '$ranking',
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 18,
-            ),
-          ),
-        ),
-        title: Text(
-          productoRankeado.nombre,
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        subtitle: Text(
-          '${productoRankeado.totalReviews} opiniones',
-          style: const TextStyle(fontSize: 12),
-        ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        // Borde destacado para el Top 3
+        side: ranking <= 3 ? BorderSide(color: rankColor, width: 2) : BorderSide.none,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
           children: [
-            Text(
-              productoRankeado.ratingPromedio.toStringAsFixed(1),
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w900,
-                color: Colors.red.shade600,
+            Text('#$ranking', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: rankColor)),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      if (rankIcon != null) Icon(rankIcon, color: rankColor, size: 20),
+                      if (rankIcon != null) const SizedBox(width: 8),
+                      Expanded(child: Text(productoRankeado.nombre, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16), overflow: TextOverflow.ellipsis)),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  _StarRating(rating: productoRankeado.ratingPromedio, reviewCount: productoRankeado.totalReviews),
+                ],
               ),
             ),
-            const Icon(Icons.star, color: Colors.amber, size: 18),
           ],
         ),
       ),
@@ -137,3 +124,29 @@ class _RankingItem extends StatelessWidget {
   }
 }
 
+class _StarRating extends StatelessWidget {
+  final double rating;
+  final int reviewCount;
+  const _StarRating({required this.rating, required this.reviewCount});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Row(
+          children: List.generate(5, (index) {
+            if (index < rating.floor()) {
+              return const Icon(Icons.star, color: Colors.amber, size: 18);
+            } else if (index < rating) {
+              return const Icon(Icons.star_half, color: Colors.amber, size: 18);
+            } else {
+              return const Icon(Icons.star_border, color: Colors.amber, size: 18);
+            }
+          }),
+        ),
+        const SizedBox(width: 8),
+        Text('${rating.toStringAsFixed(1)} ($reviewCount)', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+      ],
+    );
+  }
+}

@@ -10,6 +10,7 @@ class AppRoutes {
   static const orderHistory = '/orders/history';
   static const editProfile = '/profile/edit';
   static const trackingSimulation = '/tracking/simulation';
-  static const checkout = '/checkout'; // RUTA AÑADIDA
-  static const orderSuccess = '/order_success'; // RUTA AÑADIDA
+  static const checkout = '/checkout';
+  static const checkoutAddress = '/checkout/address'; // RUTA AÑADIDA
+  static const orderSuccess = '/order_success';
 }

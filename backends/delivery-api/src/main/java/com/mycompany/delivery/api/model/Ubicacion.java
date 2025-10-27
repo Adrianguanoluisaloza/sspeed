@@ -84,6 +84,11 @@ public class Ubicacion {
         return activa;
     }
 
+    // 👇 Método adicional para compatibilidad con repositorios
+    public Boolean getActiva() {
+        return activa;
+    }
+
     public void setActiva(boolean activa) {
         this.activa = activa;
     }

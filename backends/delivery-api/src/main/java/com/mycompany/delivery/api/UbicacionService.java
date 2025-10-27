@@ -6,16 +6,11 @@ import com.mycompany.delivery.api.repository.UbicacionRepository;
 import com.mycompany.delivery.api.util.ApiException;
 
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Optional;
 
-import static com.mycompany.delivery.api.util.UbicacionValidator.normalizeDescripcion;
-import static com.mycompany.delivery.api.util.UbicacionValidator.requireNonBlank;
-import static com.mycompany.delivery.api.util.UbicacionValidator.requireValidCoordinates;
+import static com.mycompany.delivery.api.util.UbicacionValidator.*;
 
-/**
- * Servicio que gestiona la lógica principal de negocio relacionada con ubicaciones.
- * Sustituye al antiguo UbicacionDAO y coordina el flujo con el repositorio.
- */
 public class UbicacionService {
 
     private final UbicacionRepository repo;
@@ -24,9 +19,9 @@ public class UbicacionService {
         this.repo = new UbicacionRepository();
     }
 
-    /**
-     * Guarda o actualiza una ubicación en la base de datos tras validar todos los campos.
-     */
+    // ===============================
+    // GUARDAR O ACTUALIZAR UBICACIÓN
+    // ===============================
     public Optional<Ubicacion> guardarUbicacion(Ubicacion ubicacion) {
         if (ubicacion == null) {
             throw new ApiException(400, "La ubicación no puede ser nula");
@@ -46,9 +41,9 @@ public class UbicacionService {
         }
     }
 
-    /**
-     * Actualiza las coordenadas en tiempo real del repartidor.
-     */
+    // ===============================
+    // ACTUALIZAR UBICACIÓN EN VIVO (REPARTIDOR)
+    // ===============================
     public void actualizarUbicacionRepartidor(int idRepartidor, UbicacionUpdateRequest ubicacionRequest) {
         if (idRepartidor <= 0) {
             throw new ApiException(400, "El identificador del repartidor es inválido");
@@ -59,6 +54,11 @@ public class UbicacionService {
 
         double latitud = ubicacionRequest.getLatitud();
         double longitud = ubicacionRequest.getLongitud();
+
+        if (latitud == 0.0 || longitud == 0.0) {
+            throw new ApiException(400, "Las coordenadas son obligatorias");
+        }
+
         requireValidCoordinates(latitud, longitud, "Las coordenadas proporcionadas son inválidas");
 
         try {
@@ -69,5 +69,32 @@ public class UbicacionService {
         } catch (SQLException e) {
             throw new ApiException(500, "Error actualizando ubicación del repartidor", e);
         }
+    }
+
+    // ===============================
+    // OBTENER UBICACIONES POR USUARIO
+    // ===============================
+    public List<Ubicacion> obtenerUbicacionesPorUsuario(int idUsuario) throws SQLException {
+        if (idUsuario <= 0) {
+            throw new ApiException(400, "El ID del usuario es inválido");
+        }
+        return repo.obtenerPorUsuario(idUsuario);
+    }
+
+    // ===============================
+    // LISTAR TODAS LAS UBICACIONES ACTIVAS
+    // ===============================
+    public List<Ubicacion> listarUbicacionesActivas() throws SQLException {
+        return repo.listarActivas();
+    }
+
+    // ===============================
+    // ELIMINAR UBICACIÓN
+    // ===============================
+    public boolean eliminarUbicacion(int idUbicacion) throws SQLException {
+        if (idUbicacion <= 0) {
+            throw new ApiException(400, "El ID de la ubicación es inválido");
+        }
+        return repo.eliminar(idUbicacion);
     }
 }

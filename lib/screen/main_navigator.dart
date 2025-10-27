@@ -34,31 +34,56 @@ class _MainNavigatorState extends State<MainNavigator> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
       body: IndexedStack(
         index: _selectedIndex,
         children: _widgetOptions,
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: 'Inicio',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.support_agent_outlined),
-            activeIcon: Icon(Icons.support_agent),
-            label: 'Soporte',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
-            label: 'Perfil',
-          ),
-        ],
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
+      // SE APLICA EL REDISEÑO VISUAL A LA BARRA DE NAVEGACIÓN
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              spreadRadius: 1,
+              blurRadius: 10,
+              offset: const Offset(0, -5), // Sombra hacia arriba
+            ),
+          ],
+        ),
+        child: BottomNavigationBar(
+          items: const <BottomNavigationBarItem>[
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home_outlined),
+              activeIcon: Icon(Icons.home),
+              label: 'Inicio',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.support_agent_outlined),
+              activeIcon: Icon(Icons.support_agent),
+              label: 'Soporte',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.person_outline),
+              activeIcon: Icon(Icons.person),
+              label: 'Perfil',
+            ),
+          ],
+          currentIndex: _selectedIndex,
+          onTap: _onItemTapped,
+          
+          // --- Mejoras Visuales ---
+          backgroundColor: Colors.transparent, // Fondo transparente para ver el container
+          elevation: 0, // Eliminamos la sombra por defecto, usamos la nuestra
+          type: BottomNavigationBarType.fixed, // Mantiene el layout estable
+          selectedItemColor: theme.colorScheme.primary, // Color del tema para el ítem activo
+          unselectedItemColor: Colors.grey.shade600, // Color neutro para ítems inactivos
+          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold),
+          showUnselectedLabels: true,
+        ),
       ),
     );
   }
