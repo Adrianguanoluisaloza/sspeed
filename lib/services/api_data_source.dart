@@ -157,8 +157,12 @@ class ApiDataSource implements DataSource {
   @override
   Future<Usuario?> updateUsuario(Usuario usuario) async {
     final response = await _put('/usuarios/${usuario.idUsuario}', usuario.toMap());
-    if (response['success'] == true && response['usuario'] != null) {
-      return Usuario.fromMap(response['usuario'] as Map<String, dynamic>);
+    // Asumiendo que la API ahora devuelve el objeto de usuario actualizado directamente en la respuesta
+    if (response['success'] == true) {
+      // Si la API devuelve el usuario dentro de una clave 'usuario', usa eso.
+      // Si no, la respuesta misma podría ser el mapa del usuario.
+      final userMap = response['usuario'] as Map<String, dynamic>? ?? response;
+      return Usuario.fromMap(userMap);
     }
     return null;
   }

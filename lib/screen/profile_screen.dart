@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_application_2/models/ubicacion.dart';
-import 'package:flutter_application_2/models/usuario.dart';
-import 'package:flutter_application_2/services/database_service.dart';
+import '../models/ubicacion.dart';
+import '../models/usuario.dart';
+import '../services/database_service.dart';
 import '../models/session_state.dart';
 import '../routes/app_routes.dart';
 
@@ -53,7 +53,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return _buildLoggedInScreen(context);
   }
 
-  // --- PANTALLA PARA INVITADOS (VERSIÓN MEJORADA) ---
   Widget _buildLoggedOutScreen(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
@@ -70,7 +69,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Container(
                 padding: const EdgeInsets.all(24.0),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withOpacity(0.1),
+                  color: theme.colorScheme.primary.withAlpha(26),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(Icons.person_off_outlined, size: 80, color: theme.colorScheme.primary),
@@ -92,7 +91,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // --- PANTALLA PARA USUARIOS CON SESIÓN (VERSIÓN MEJORADA) ---
   Widget _buildLoggedInScreen(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
@@ -164,8 +162,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // --- WIDGETS AUXILIARES PARA UN CÓDIGO MÁS LIMPIO ---
-
   Widget _buildProfileHeader(ThemeData theme, Usuario usuario) {
     return Card(
       elevation: 4,
@@ -190,7 +186,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildMenuOption(BuildContext context, {required IconData icon, required Color color, required String title, required String subtitle, required VoidCallback onTap}) {
     return ListTile(
-      leading: CircleAvatar(backgroundColor: color.withOpacity(0.1), child: Icon(icon, color: color)),
+      leading: CircleAvatar(backgroundColor: color.withAlpha(26), child: Icon(icon, color: color)),
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
       subtitle: Text(subtitle, style: TextStyle(color: Colors.grey[600])),
       trailing: const Icon(Icons.chevron_right, color: Colors.grey),

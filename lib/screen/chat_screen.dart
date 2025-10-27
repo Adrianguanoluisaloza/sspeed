@@ -175,7 +175,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
         title: const Text('Centro de Mensajes', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         elevation: 1,
-        shadowColor: Colors.black.withOpacity(0.1),
+        shadowColor: Colors.black.withAlpha(26),
         bottom: TabBar(
           controller: _tabController,
           labelColor: theme.primaryColor,
@@ -206,7 +206,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     final conversations = _conversations[currentSection] ?? [];
 
     if (conversations.isEmpty) {
-      return const Center(child: Text('No hay conversaciones en esta sección.'));
+      return _buildEmptyChatView();
     }
 
     return Row(
@@ -243,7 +243,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
               style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
             ),
             selected: isSelected,
-            selectedTileColor: Theme.of(context).primaryColor.withOpacity(0.1),
+            selectedTileColor: Theme.of(context).primaryColor.withAlpha(26),
             onTap: () => setState(() => _selectedConversation = convo),
           );
         },
@@ -306,7 +306,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
           BoxShadow(
             offset: const Offset(0, -2),
             blurRadius: 5,
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withAlpha(8),
           )
         ],
       ),
@@ -386,6 +386,32 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
       ),
     );
   }
+
+  Widget _buildEmptyChatView() {
+  return Center(
+    child: Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.forum_outlined, size: 120, color: Colors.grey.shade300),
+          const SizedBox(height: 24),
+          Text(
+            'No hay chats aquí',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Cuando tengas una conversación, la verás en esta sección.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.grey.shade600),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 
   String _conversationLabel(ChatConversation conversation) {
     return conversation.idPedido != null ? 'Pedido #${conversation.idPedido}' : 'Conversación ${conversation.idConversacion}';

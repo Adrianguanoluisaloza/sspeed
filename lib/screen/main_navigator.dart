@@ -47,7 +47,7 @@ class _MainNavigatorState extends State<MainNavigator> {
           color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withAlpha(13),
               spreadRadius: 1,
               blurRadius: 10,
               offset: const Offset(0, -5), // Sombra hacia arriba

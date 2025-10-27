@@ -11,7 +11,6 @@ class CartScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // La lógica para usuarios no autenticados se mantiene igual
     if (!usuario.isAuthenticated) {
       return _buildLoggedOutView(context);
     }
@@ -23,9 +22,8 @@ class CartScreen extends StatelessWidget {
             title: const Text('Mi Carrito'),
           ),
           body: cart.items.isEmpty
-              ? _buildEmptyCartView(context) // Vista rediseñada para carrito vacío
-              : _buildCartListView(cart), // Vista rediseñada para la lista
-          // El resumen y botón de pago ahora están en una barra inferior fija
+              ? _buildEmptyCartView(context)
+              : _buildCartListView(cart),
           bottomNavigationBar: cart.items.isNotEmpty
               ? _buildSummaryAndCheckout(context, cart, usuario)
               : null,
@@ -33,8 +31,6 @@ class CartScreen extends StatelessWidget {
       },
     );
   }
-
-  // --- WIDGETS DE LA UI REDISEÑADOS ---
 
   Widget _buildEmptyCartView(BuildContext context) {
     return Center(
@@ -51,7 +47,7 @@ class CartScreen extends StatelessWidget {
             const SizedBox(height: 32),
             ElevatedButton.icon(
               icon: const Icon(Icons.store_outlined),
-              onPressed: () => Navigator.of(context).pop(), // Vuelve a la pantalla anterior (tienda)
+              onPressed: () => Navigator.of(context).pop(),
               label: const Text('Explorar productos'),
             ),
           ],
@@ -62,7 +58,7 @@ class CartScreen extends StatelessWidget {
 
   Widget _buildCartListView(CartModel cart) {
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(8, 8, 8, 90), // Padding inferior para que el último ítem no quede oculto por la barra
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 90),
       itemCount: cart.items.length,
       itemBuilder: (context, index) {
         final cartItem = cart.items[index];
@@ -76,10 +72,10 @@ class CartScreen extends StatelessWidget {
     final double total = cart.total + shippingCost;
 
     return Container(
-      padding: const EdgeInsets.all(16).copyWith(bottom: 24), // Padding seguro para la parte inferior
+      padding: const EdgeInsets.all(16).copyWith(bottom: 24),
       decoration: BoxDecoration(
         color: Theme.of(context).scaffoldBackgroundColor,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), spreadRadius: 1, blurRadius: 10, offset: const Offset(0, -5))],
+        boxShadow: [BoxShadow(color: Colors.black.withAlpha(13), spreadRadius: 1, blurRadius: 10, offset: const Offset(0, -5))],
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(

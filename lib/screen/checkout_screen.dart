@@ -211,7 +211,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> with SingleTickerProvid
       padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
         color: Theme.of(context).scaffoldBackgroundColor,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), spreadRadius: 1, blurRadius: 10, offset: const Offset(0, -5))],
+        boxShadow: [BoxShadow(color: Colors.black.withAlpha(13), spreadRadius: 1, blurRadius: 10, offset: const Offset(0, -5))],
       ),
       child: ElevatedButton(
         onPressed: _isLoading ? null : _confirmOrder,

@@ -1,9 +1,9 @@
-import 'package:flutter_application_2/models/cart_model.dart';
-import 'package:flutter_application_2/models/chat_conversation.dart';
-import 'package:flutter_application_2/models/chat_message.dart';
-import 'package:flutter_application_2/models/pedido.dart';
-import 'package:flutter_application_2/models/pedido_detalle.dart';
-import 'package:flutter_application_2/models/producto.dart';
+import '../models/cart_model.dart';
+import '../models/chat_conversation.dart';
+import '../models/chat_message.dart';
+import '../models/pedido.dart';
+import '../models/pedido_detalle.dart';
+import '../models/producto.dart';
 import '../models/usuario.dart';
 import '../models/ubicacion.dart';
 import 'api_data_source.dart';
