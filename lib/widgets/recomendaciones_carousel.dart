@@ -19,7 +19,6 @@ class _RecomendacionesCarouselState extends State<RecomendacionesCarousel> {
   @override
   void initState() {
     super.initState();
-    // Se instancia el future aquí para que no se llame en cada rebuild
     _recomendacionesFuture = context.read<DatabaseService>().getRecomendaciones();
   }
 
@@ -29,10 +28,9 @@ class _RecomendacionesCarouselState extends State<RecomendacionesCarousel> {
       future: _recomendacionesFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const RecommendationsLoading(); // Efecto Shimmer
+          return const RecommendationsLoading();
         }
         if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
-          // No muestra nada si hay error o no hay datos, para no ensuciar la UI.
           return const SizedBox.shrink();
         }
 
@@ -40,8 +38,8 @@ class _RecomendacionesCarouselState extends State<RecomendacionesCarousel> {
         return CarouselSlider.builder(
           itemCount: recomendaciones.length,
           itemBuilder: (context, index, realIndex) {
-            final rec = recomendaciones[index];
-            return RecommendationCard(producto: rec);
+            final producto = recomendaciones[index];
+            return RecommendationCard(producto: producto);
           },
           options: CarouselOptions(
             height: 180,
@@ -57,32 +55,47 @@ class _RecomendacionesCarouselState extends State<RecomendacionesCarousel> {
 }
 
 class RecommendationCard extends StatelessWidget {
-  final ProductoRankeado producto;
   const RecommendationCard({super.key, required this.producto});
+
+  final ProductoRankeado producto;
 
   @override
   Widget build(BuildContext context) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(producto.nombre, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16), maxLines: 2, overflow: TextOverflow.ellipsis),
+            Text(
+              producto.nombre,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
             const Spacer(),
             Row(
               children: [
-                Icon(Icons.star, color: Colors.amber, size: 20),
+                const Icon(Icons.star, color: Colors.amber, size: 20),
                 const SizedBox(width: 4),
-                Text(producto.ratingPromedio.toStringAsFixed(1), style: const TextStyle(fontWeight: FontWeight.bold)),
-                Text(' (${producto.totalReviews} reseñas)', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                Text(producto.ratingPromedio.toStringAsFixed(1),
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(
+                  ' (${producto.totalReviews} resenas)',
+                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                ),
               ],
             ),
             const SizedBox(height: 8),
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton(child: const Text('Ver Producto'), onPressed: () { /* TODO: Navegar al detalle */ }),
+              child: ElevatedButton(
+                onPressed: () {
+                  // TODO: Navegar al detalle del producto.
+                },
+                child: const Text('Ver Producto'),
+              ),
             ),
           ],
         ),
@@ -93,6 +106,7 @@ class RecommendationCard extends StatelessWidget {
 
 class RecommendationsLoading extends StatelessWidget {
   const RecommendationsLoading({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Shimmer.fromColors(
@@ -104,7 +118,7 @@ class RecommendationsLoading extends StatelessWidget {
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           itemCount: 3,
-          itemBuilder: (c, i) => const SizedBox(width: 280, child: Card()),
+          itemBuilder: (_, __) => const SizedBox(width: 280, child: Card()),
         ),
       ),
     );

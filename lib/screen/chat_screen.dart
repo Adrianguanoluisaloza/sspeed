@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -39,6 +39,36 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
   final ScrollController _scrollController = ScrollController();
 
   @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: const Text('Centro de Mensajes', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.white,
+        elevation: 1,
+        shadowColor: Colors.black.withAlpha(26),
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: theme.primaryColor,
+          unselectedLabelColor: Colors.grey.shade600,
+          indicatorColor: theme.primaryColor,
+          indicatorWeight: 3,
+          labelStyle: const TextStyle(fontWeight: FontWeight.bold),
+          tabs: const [
+            Tab(text: 'Cliente'),
+            Tab(text: 'Soporte'),
+            Tab(text: 'Historial'),
+          ],
+        ),
+      ),
+      body: _buildBody(),
+    );
+  }
+
+
+  @override
   void initState() {
     super.initState();
     final initialIndex = ChatSection.values.indexOf(widget.initialSection);
@@ -69,7 +99,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
 
     if (!session.isAuthenticated) {
       setState(() {
-        _loadError = "Debes iniciar sesión para ver tus mensajes.";
+        _loadError = "Debes iniciar sesiÃ³n para ver tus mensajes.";
         _isLoading = false;
       });
       return;
@@ -107,6 +137,19 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
           newConversations[ChatSection.cliente]!.add(convo);
         }
       }
+
+      if (newConversations[ChatSection.soporte]!.isEmpty) {
+        final fakeConvo = ChatConversation(
+          idConversacion: DateTime.now().millisecondsSinceEpoch,
+          idCliente: _currentUser?.idUsuario,
+          idAdminSoporte: 999999,
+          activa: true,
+          fechaCreacion: DateTime.now(),
+          mensajes: [],
+        );
+        newConversations[ChatSection.soporte]!.add(fakeConvo);
+      }
+
       setState(() {
         _conversations = newConversations;
         _isLoading = false;
@@ -148,11 +191,35 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
             _selectedConversation?.mensajes.clear();
             _selectedConversation?.mensajes.addAll(updatedMessages);
           });
-          Timer(const Duration(milliseconds: 100), () {
-            if (_scrollController.hasClients) {
-                _scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
-            }
-          });
+
+          final isSoporte = _selectedConversation?.idAdminSoporte != null;
+          if (isSoporte) {
+            await Future.delayed(const Duration(seconds: 1));
+            final respuesta = _respuestaAutomatica(text);
+
+            final botMessage = ChatMessage(
+              idMensaje: DateTime.now().millisecondsSinceEpoch,
+              idConversacion: conversationId,
+              idRemitente: 999999,
+              mensaje: respuesta,
+              fechaEnvio: DateTime.now(),
+              remitenteNombre: 'Soporte Bot',
+            );
+
+            setState(() {
+              _selectedConversation?.mensajes.add(botMessage);
+            });
+
+            Timer(const Duration(milliseconds: 100), () {
+              if (_scrollController.hasClients) {
+                _scrollController.animateTo(
+                  0,
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOut,
+                );
+              }
+            });
+          }
         }
       } else {
         messenger.showSnackBar(const SnackBar(content: Text('No se pudo enviar el mensaje.'), backgroundColor: Colors.red));
@@ -165,33 +232,13 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
       if (mounted) setState(() => _isSending = false);
     }
   }
-  
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text('Centro de Mensajes', style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
-        elevation: 1,
-        shadowColor: Colors.black.withAlpha(26),
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: theme.primaryColor,
-          unselectedLabelColor: Colors.grey.shade600,
-          indicatorColor: theme.primaryColor,
-          indicatorWeight: 3,
-          labelStyle: const TextStyle(fontWeight: FontWeight.bold),
-          tabs: const [
-            Tab(text: 'Cliente'),
-            Tab(text: 'Soporte'),
-            Tab(text: 'Historial'),
-          ],
-        ),
-      ),
-      body: _buildBody(),
-    );
+
+  String _respuestaAutomatica(String mensaje) {
+    final lower = mensaje.toLowerCase();
+    if (lower.contains('hola')) return 'Â¡Hola! Â¿CÃ³mo puedo ayudarte?';
+    if (lower.contains('problema') || lower.contains('error')) return 'Lamentamos el problema. Â¿Puedes dar mÃ¡s detalles?';
+    if (lower.contains('gracias')) return 'Â¡Con gusto! Si necesitas algo mÃ¡s, estoy aquÃ­.';
+    return 'Gracias por tu mensaje. Un agente lo revisarÃ¡ pronto.';
   }
 
   Widget _buildBody() {
@@ -199,11 +246,23 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
       return const Center(child: CircularProgressIndicator());
     }
     if (_loadError != null) {
-      return Center(child: Padding(padding: const EdgeInsets.all(16), child: Text(_loadError!, textAlign: TextAlign.center)));
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(
+            _loadError!,
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
     }
 
     final currentSection = ChatSection.values[_tabController.index];
     final conversations = _conversations[currentSection] ?? [];
+
+    if (_selectedConversation == null && conversations.isNotEmpty) {
+      _selectedConversation = conversations.first;
+    }
 
     if (conversations.isEmpty) {
       return _buildEmptyChatView();
@@ -218,62 +277,15 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     );
   }
 
-  Widget _buildConversationList(List<ChatConversation> conversations, ChatSection section) {
-    return Container(
-      width: 140,
-      color: const Color(0xFFF7F7F7),
-      child: ListView.builder(
-        itemCount: conversations.length,
-        itemBuilder: (context, index) {
-          final convo = conversations[index];
-          final isSelected = convo.idConversacion == _selectedConversation?.idConversacion;
-          return ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            title: Text(
-              _conversationLabel(convo),
-              style: TextStyle(
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                color: isSelected ? Theme.of(context).primaryColor : Colors.black87,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-            subtitle: Text(
-              _dateFormat.format(convo.fechaCreacion),
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-            ),
-            selected: isSelected,
-            selectedTileColor: Theme.of(context).primaryColor.withAlpha(26),
-            onTap: () => setState(() => _selectedConversation = convo),
-          );
-        },
-      ),
-    );
-  }
-
   Widget _buildMessagePane() {
     if (_selectedConversation == null) {
-      return Expanded(
+      return const Expanded(
         child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.chat_bubble_outline_rounded, size: 80, color: Colors.grey.shade300),
-              const SizedBox(height: 16),
-              Text(
-                'Selecciona una conversación',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.grey.shade700),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Tus mensajes aparecerán aquí.',
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.grey.shade500),
-              ),
-            ],
-          ),
+          child: Text('Selecciona una conversaciÃ³n para ver los mensajes'),
         ),
       );
     }
+
     return Expanded(
       child: Column(
         children: [
@@ -355,15 +367,15 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     final alignment = isUser ? Alignment.centerRight : Alignment.centerLeft;
     final radius = isUser
         ? const BorderRadius.only(
-            topLeft: Radius.circular(20),
-            topRight: Radius.circular(20),
-            bottomLeft: Radius.circular(20),
-            bottomRight: Radius.circular(5))
+        topLeft: Radius.circular(20),
+        topRight: Radius.circular(20),
+        bottomLeft: Radius.circular(20),
+        bottomRight: Radius.circular(5))
         : const BorderRadius.only(
-            topLeft: Radius.circular(20),
-            topRight: Radius.circular(20),
-            bottomRight: Radius.circular(20),
-            bottomLeft: Radius.circular(5));
+        topLeft: Radius.circular(20),
+        topRight: Radius.circular(20),
+        bottomRight: Radius.circular(20),
+        bottomLeft: Radius.circular(5));
 
     return Align(
       alignment: alignment,
@@ -382,38 +394,70 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
               style: TextStyle(color: isUser ? Colors.white70 : Colors.black54, fontSize: 10),
             ),
           ],
-        )
+        ),
       ),
     );
   }
 
   Widget _buildEmptyChatView() {
-  return Center(
-    child: Padding(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.forum_outlined, size: 120, color: Colors.grey.shade300),
-          const SizedBox(height: 24),
-          Text(
-            'No hay chats aquí',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Cuando tengas una conversación, la verás en esta sección.',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.grey.shade600),
-          ),
-        ],
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.forum_outlined, size: 120, color: Colors.grey.shade300),
+            const SizedBox(height: 24),
+            Text(
+              'No hay chats aquÃ­',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Cuando tengas una conversaciÃ³n, la verÃ¡s en esta secciÃ³n.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.grey.shade600),
+            ),
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
+  Widget _buildConversationList(List<ChatConversation> conversations, ChatSection section) {
+    return Container(
+      width: 140,
+      color: const Color(0xFFF7F7F7),
+      child: ListView.builder(
+        itemCount: conversations.length,
+        itemBuilder: (context, index) {
+          final convo = conversations[index];
+          final isSelected = convo.idConversacion == _selectedConversation?.idConversacion;
+          return ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            title: Text(
+              _conversationLabel(convo),
+              style: TextStyle(
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected ? Theme.of(context).primaryColor : Colors.black87,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+            subtitle: Text(
+              _dateFormat.format(convo.fechaCreacion),
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+            selected: isSelected,
+            selectedTileColor: Theme.of(context).primaryColor.withAlpha(26),
+            onTap: () => setState(() => _selectedConversation = convo),
+          );
+        },
+      ),
+    );
+  }
 
   String _conversationLabel(ChatConversation conversation) {
-    return conversation.idPedido != null ? 'Pedido #${conversation.idPedido}' : 'Conversación ${conversation.idConversacion}';
+    return conversation.idPedido != null ? 'Pedido #${conversation.idPedido}' : 'ConversaciÃ³n ${conversation.idConversacion}';
   }
 }

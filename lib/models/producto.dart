@@ -1,4 +1,4 @@
-/// Modelo de datos para la tabla `productos` conforme al esquema SQL.
+﻿/// Modelo de datos para la tabla `productos` conforme al esquema SQL.
 class Producto {
   final int idProducto;
   final int? idNegocio;
@@ -9,7 +9,7 @@ class Producto {
   final String? categoria;
   final int? idCategoria;
   final bool disponible;
-  final int? stock; // CAMPO AÑADIDO
+  final int? stock; // CAMPO AÃ‘ADIDO
   final DateTime? fechaCreacion;
 
   const Producto({
@@ -22,7 +22,7 @@ class Producto {
     this.categoria,
     this.idCategoria,
     this.disponible = true,
-    this.stock, // CAMPO AÑADIDO
+    this.stock, // CAMPO AÃ‘ADIDO
     this.fechaCreacion,
   });
 
@@ -66,7 +66,7 @@ class Producto {
         if (raw is String) return raw.toLowerCase() == 'true' || raw == '1';
         return true;
       })(),
-      stock: parseInt(readValue(['stock'])), // CAMPO AÑADIDO
+      stock: parseInt(readValue(['stock'])), // CAMPO AÃ‘ADIDO
       fechaCreacion: parseDate(readValue(['fecha_creacion', 'fechaCreacion', 'createdAt'])),
     );
   }
@@ -82,12 +82,12 @@ class Producto {
       'categoria': categoria,
       'id_categoria': idCategoria,
       'disponible': disponible,
-      'stock': stock, // CAMPO AÑADIDO
+      'stock': stock, // CAMPO AÃ‘ADIDO
     }..removeWhere((key, value) => value == null);
   }
 
   bool get estaDisponible => disponible;
-  String get categoriaVisible => categoria ?? 'Sin categoría';
+  String get categoriaVisible => categoria ?? 'Sin categoria';
 }
 
 class ProductoRankeado {
@@ -103,7 +103,7 @@ class ProductoRankeado {
     required this.totalReviews,
   });
 
-  // CORRECCIÓN: Se añade el factory constructor que faltaba
+  // CORRECCIÃ“N: Se aÃ±ade el factory constructor que faltaba
   factory ProductoRankeado.fromMap(Map<String, dynamic> map) {
     num? readNumeric(List<String> keys) {
       for (final key in keys) {
@@ -119,9 +119,10 @@ class ProductoRankeado {
 
     return ProductoRankeado(
       idProducto: (readNumeric(['id_producto', 'idProducto']) ?? 0).toInt(),
-      nombre: map['nombre']?.toString() ?? 'Producto Desconocido',
-      ratingPromedio: (readNumeric(['rating_promedio', 'ratingPromedio']) ?? 0.0).toDouble(),
-      totalReviews: (readNumeric(['total_reviews', 'totalReviews']) ?? 0).toInt(),
+      nombre: (map['nombre'] ?? map['producto'])?.toString() ?? 'Producto Desconocido',
+      ratingPromedio: (readNumeric(['rating_promedio', 'ratingPromedio', 'rating', 'promedio', 'average_rating']) ?? 0.0).toDouble(),
+      totalReviews: (readNumeric(['total_reviews', 'totalReviews', 'total', 'cantidad', 'reviews']) ?? 0).toInt(),
     );
   }
 }
+

@@ -4,6 +4,7 @@ import '../models/chat_message.dart';
 import '../models/pedido.dart';
 import '../models/pedido_detalle.dart';
 import '../models/producto.dart';
+import '../models/recomendacion_data.dart';
 import '../models/ubicacion.dart';
 import '../models/usuario.dart';
 
@@ -21,6 +22,7 @@ abstract class DataSource {
   Future<Producto?> getProductoById(int id); // MÉTODO AÑADIDO
   Future<List<Ubicacion>> getUbicaciones(int idUsuario);
   Future<List<ProductoRankeado>> getRecomendaciones();
+  Future<RecomendacionesProducto> getRecomendacionesPorProducto(int idProducto);
   Future<bool> addRecomendacion({
     required int idProducto,
     required int idUsuario,

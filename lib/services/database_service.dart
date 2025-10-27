@@ -6,6 +6,7 @@ import '../models/pedido_detalle.dart';
 import '../models/producto.dart';
 import '../models/usuario.dart';
 import '../models/ubicacion.dart';
+import '../models/recomendacion_data.dart';
 import 'api_data_source.dart';
 import 'data_source.dart';
 
@@ -41,6 +42,10 @@ class DatabaseService implements DataSource {
 
   @override
   Future<List<ProductoRankeado>> getRecomendaciones() => _dataSource.getRecomendaciones();
+
+  @override
+  Future<RecomendacionesProducto> getRecomendacionesPorProducto(int idProducto) =>
+      _dataSource.getRecomendacionesPorProducto(idProducto);
 
   @override
   Future<bool> addRecomendacion({

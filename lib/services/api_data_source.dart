@@ -12,6 +12,7 @@ import '../models/chat_message.dart';
 import '../models/pedido.dart';
 import '../models/pedido_detalle.dart';
 import '../models/producto.dart';
+import '../models/recomendacion_data.dart';
 import '../models/ubicacion.dart';
 import '../models/usuario.dart';
 import 'api_exception.dart';
@@ -66,7 +67,7 @@ class ApiDataSource implements DataSource {
           if (raw.containsKey(key) && raw[key] is List<dynamic>) return raw[key];
         }
       }
-      throw const ApiException('Formato de lista no válido.');
+      throw const ApiException('Formato de lista no valido.');
     }
 
     final message = raw is Map<String, dynamic> ? raw['message']?.toString() : 'Error del servidor (${response.statusCode})';
@@ -83,7 +84,7 @@ class ApiDataSource implements DataSource {
 
   Future<Map<String, dynamic>> _post(String endpoint, Map<String, dynamic> data) async {
     final url = Uri.parse('$_baseUrl$endpoint');
-    debugPrint('🌍 POST: $url');
+    debugPrint('API POST: $url');
     debugPrint('   -> Payload: ${jsonEncode(data)}');
     try {
       final response = await _httpClient.post(url, headers: _jsonHeaders, body: jsonEncode(data)).timeout(_timeout);
@@ -96,7 +97,7 @@ class ApiDataSource implements DataSource {
 
   Future<Map<String, dynamic>> _put(String endpoint, Map<String, dynamic> data) async {
     final url = Uri.parse('$_baseUrl$endpoint');
-    debugPrint('🌍 PUT: $url');
+    debugPrint('API PUT: $url');
     debugPrint('   -> Payload: ${jsonEncode(data)}');
     try {
       final response = await _httpClient.put(url, headers: _jsonHeaders, body: jsonEncode(data)).timeout(_timeout);
@@ -109,7 +110,7 @@ class ApiDataSource implements DataSource {
 
   Future<List<dynamic>> _get(String endpoint) async {
     final uri = Uri.parse('$_baseUrl$endpoint');
-    debugPrint('🌍 GET List: $uri');
+    debugPrint('API GET List: $uri');
     try {
       final response = await _httpClient.get(uri, headers: _jsonHeaders).timeout(_timeout);
       return await _parseListResponse(response);
@@ -121,7 +122,7 @@ class ApiDataSource implements DataSource {
 
   Future<Map<String, dynamic>> _getMap(String endpoint) async {
     final url = Uri.parse('$_baseUrl$endpoint');
-    debugPrint('🌍 GET Map: $url');
+    debugPrint('API GET Map: $url');
     try {
       final response = await _httpClient.get(url, headers: _jsonHeaders).timeout(_timeout);
       return await _parseMapResponse(response);
@@ -129,6 +130,20 @@ class ApiDataSource implements DataSource {
       debugPrint('   <- Error: $e');
       throw _mapToApiException(e);
     }
+  }
+
+  int _asInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value) ?? 0;
+    return 0;
+  }
+
+  double _asDouble(dynamic value) {
+    if (value is double) return value;
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? 0.0;
+    return 0.0;
   }
 
   // --- IMPLEMENTACIONES ---
@@ -153,46 +168,95 @@ class ApiDataSource implements DataSource {
     });
     return response['success'] ?? false;
   }
-  
+
   @override
   Future<Usuario?> updateUsuario(Usuario usuario) async {
     final response = await _put('/usuarios/${usuario.idUsuario}', usuario.toMap());
-    // Asumiendo que la API ahora devuelve el objeto de usuario actualizado directamente en la respuesta
+
     if (response['success'] == true) {
-      // Si la API devuelve el usuario dentro de una clave 'usuario', usa eso.
-      // Si no, la respuesta misma podría ser el mapa del usuario.
       final userMap = response['usuario'] as Map<String, dynamic>? ?? response;
       return Usuario.fromMap(userMap);
     }
+
     return null;
   }
 
   @override
   Future<List<Producto>> getProductos({String? query, String? categoria}) async {
-    final data = await _get('/productos?query=${query ?? ''}&categoria=${categoria ?? ''}');
+    final params = <String, String>{};
+    if (query != null && query.isNotEmpty) params['q'] = query;
+    if (categoria != null && categoria.isNotEmpty) params['categoria'] = categoria;
+
+    final uri = params.isEmpty ? Uri.parse('$_baseUrl/productos') : Uri.parse('$_baseUrl/productos').replace(queryParameters: params);
+    final response = await _httpClient.get(uri, headers: _jsonHeaders).timeout(_timeout);
+    final data = await _parseListResponse(response);
     return data.map((item) => Producto.fromMap(item as Map<String, dynamic>)).toList();
   }
 
-  // CORRECCIÓN: Se implementa el método faltante
   @override
   Future<Producto?> getProductoById(int id) async {
     final data = await _getMap('/productos/$id');
-    if (data.isNotEmpty) {
-      return Producto.fromMap(data);
-    }
-    return null;
+    return Producto.fromMap(data);
   }
 
   @override
   Future<List<Ubicacion>> getUbicaciones(int idUsuario) async {
-    final data = await _get('/ubicaciones/usuario/$idUsuario');
-    return data.map((item) => Ubicacion.fromMap(item as Map<String, dynamic>)).toList();
+    final data = await _get('/usuarios/$idUsuario/ubicaciones');
+    return data.cast<Map<String, dynamic>>().map(Ubicacion.fromMap).toList();
   }
 
   @override
   Future<List<ProductoRankeado>> getRecomendaciones() async {
     final data = await _get('/recomendaciones');
-    return data.map((item) => ProductoRankeado.fromMap(item as Map<String, dynamic>)).toList();
+    final Map<int, _ProductoRating> acumulados = {};
+
+    for (final item in data.cast<Map<String, dynamic>>()) {
+      final idProducto = _asInt(item['id_producto']);
+      if (idProducto == 0) continue;
+
+      final nombre = (item['producto'] ?? item['nombre'] ?? 'Producto').toString();
+      final rating = _asDouble(item['rating'] ?? item['puntuacion']);
+
+      final acumulado = acumulados.putIfAbsent(idProducto, () => _ProductoRating(nombre));
+      acumulado.add(rating);
+    }
+
+    final recomendados = acumulados.entries
+        .map((entry) => ProductoRankeado(
+              idProducto: entry.key,
+              nombre: entry.value.nombre,
+              ratingPromedio: entry.value.promedio,
+              totalReviews: entry.value.cantidad,
+            ))
+        .toList();
+
+    recomendados.sort((a, b) {
+      final ratingDiff = b.ratingPromedio.compareTo(a.ratingPromedio);
+      if (ratingDiff != 0) return ratingDiff;
+      return b.totalReviews.compareTo(a.totalReviews);
+    });
+
+    return recomendados;
+  }
+
+  @override
+  Future<RecomendacionesProducto> getRecomendacionesPorProducto(int idProducto) async {
+    final data = await _get('/recomendaciones');
+    final List<Recomendacion> resenas = [];
+    double suma = 0;
+
+    for (final item in data.cast<Map<String, dynamic>>()) {
+      if (_asInt(item['id_producto']) != idProducto) continue;
+
+      final recomendacion = Recomendacion.fromMap(item);
+      resenas.add(recomendacion);
+      suma += recomendacion.puntuacion.toDouble();
+    }
+
+    final promedio = resenas.isEmpty ? 0.0 : suma / resenas.length;
+    final resumen = RecomendacionResumen(ratingPromedio: promedio, totalResenas: resenas.length);
+
+    return RecomendacionesProducto(resumen: resumen, recomendaciones: resenas);
   }
 
   @override
@@ -223,7 +287,7 @@ class ApiDataSource implements DataSource {
 
     final payload = {
       'id_cliente': user.idUsuario,
-      'id_ubicacion': location.id, 
+      'id_ubicacion': location.id,
       'direccion_entrega': location.direccion,
       'metodo_pago': paymentMethod,
       'estado': 'pendiente',
@@ -352,4 +416,21 @@ class ApiDataSource implements DataSource {
     });
     return response['success'] ?? false;
   }
+}
+
+
+class _ProductoRating {
+  _ProductoRating(this.nombre);
+
+  final String nombre;
+  double _acumulado = 0;
+  int _cantidad = 0;
+
+  void add(double rating) {
+    _acumulado += rating;
+    _cantidad++;
+  }
+
+  double get promedio => _cantidad == 0 ? 0.0 : _acumulado / _cantidad;
+  int get cantidad => _cantidad;
 }

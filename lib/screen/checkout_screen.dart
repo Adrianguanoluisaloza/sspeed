@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/cart_model.dart';
@@ -44,13 +44,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> with SingleTickerProvid
   Future<void> _confirmOrder() async {
     final cart = context.read<CartModel>();
     final dbService = context.read<DatabaseService>();
-    final session = context.read<SessionController>();
     final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
-    final usuarioActivo = widget.usuario.isAuthenticated ? widget.usuario : session.usuario;
 
     if (cart.items.isEmpty) {
-      messenger.showSnackBar(const SnackBar(content: Text('Tu carrito está vacío.')));
+      messenger.showSnackBar(const SnackBar(content: Text('Tu carrito esta vacio.')));
       return;
     }
 
@@ -58,7 +56,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> with SingleTickerProvid
 
     try {
       final success = await dbService.placeOrder(
-        user: usuarioActivo,
+        user: widget.usuario,
         cart: cart,
         location: widget.ubicacion,
         paymentMethod: _paymentMethod,
@@ -68,14 +66,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> with SingleTickerProvid
 
       if (success) {
         cart.clearCart();
-        if (!usuarioActivo.isGuest) {
-          session.setUser(usuarioActivo);
-        }
-        navigator.pushNamedAndRemoveUntil(
-          AppRoutes.orderSuccess,
-          (route) => false,
-          arguments: usuarioActivo,
-        );
+        navigator.pushNamedAndRemoveUntil(AppRoutes.orderSuccess, (route) => false);
       } else {
         messenger.showSnackBar(const SnackBar(content: Text('No se pudo procesar el pedido.'), backgroundColor: Colors.red));
       }
@@ -84,14 +75,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> with SingleTickerProvid
       messenger.showSnackBar(SnackBar(content: Text('Error: ${e.message}'), backgroundColor: Colors.red));
     } catch (e) {
       if (!mounted) return;
-      messenger.showSnackBar(const SnackBar(content: Text('Ocurrió un error inesperado.'), backgroundColor: Colors.red));
+      messenger.showSnackBar(const SnackBar(content: Text('Ocurri├│ un error inesperado.'), backgroundColor: Colors.red));
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
       }
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -108,11 +98,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> with SingleTickerProvid
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildSectionTitle(context, 'Direcci├│n de Entrega'),
+                _buildSectionTitle(context, 'Direccion de Entrega'),
                 _buildAddressCard(context),
                 const SizedBox(height: 24),
 
-                _buildSectionTitle(context, 'M├®todo de Pago'),
+                _buildSectionTitle(context, 'Metodo de Pago'),
                 _buildPaymentOption(
                   title: 'Efectivo contra entrega',
                   subtitle: 'Paga cuando recibas tu pedido',
@@ -120,7 +110,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> with SingleTickerProvid
                   icon: Icons.money_outlined,
                 ),
                 _buildPaymentOption(
-                  title: 'Tarjeta de Cr├®dito/D├®bito',
+                  title: 'Tarjeta de Cedito o debito',
                   subtitle: 'Paga de forma segura online',
                   value: 'tarjeta',
                   icon: Icons.credit_card_outlined,
@@ -155,7 +145,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> with SingleTickerProvid
     return Card(
       child: ListTile(
         leading: const Icon(Icons.location_on_outlined, color: Colors.green, size: 32),
-        title: Text(widget.ubicacion.direccion ?? 'Direcci├│n no especificada', style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(widget.ubicacion.direccion ?? 'Direccion especificada', style: const TextStyle(fontWeight: FontWeight.bold)),
         subtitle: Text('Lat: ${widget.ubicacion.latitud.toStringAsFixed(4)}, Lon: ${widget.ubicacion.longitud.toStringAsFixed(4)}'),
       ),
     );
@@ -193,7 +183,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> with SingleTickerProvid
           children: [
             _buildCostRow('Subtotal', '\$${cart.total.toStringAsFixed(2)}'),
             const SizedBox(height: 12),
-            _buildCostRow('Costo de Env├¡o', '\$${shippingCost.toStringAsFixed(2)}'),
+            _buildCostRow('Costo de Envio', '\$${shippingCost.toStringAsFixed(2)}'),
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 12.0),
               child: DottedLine(),
@@ -265,4 +255,3 @@ class DottedLine extends StatelessWidget {
     );
   }
 }
-
