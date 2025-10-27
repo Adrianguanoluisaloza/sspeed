@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../models/session_state.dart';
+import '../models/usuario.dart';
 import '../routes/app_routes.dart';
 
 class OrderSuccessScreen extends StatefulWidget {
-  const OrderSuccessScreen({super.key});
+  const OrderSuccessScreen({super.key, this.usuario});
+
+  final Usuario? usuario;
 
   @override
   State<OrderSuccessScreen> createState() => _OrderSuccessScreenState();
@@ -43,7 +48,7 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen> with SingleTick
                 child: Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    // CORRECCIÓN: Se usa withAlpha en lugar de withOpacity
+                    // CORRECCIÃ“N: Se usa withAlpha en lugar de withOpacity
                     color: Colors.green.withAlpha(26),
                     shape: BoxShape.circle,
                   ),
@@ -52,20 +57,41 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen> with SingleTick
               ),
               const SizedBox(height: 32),
               const Text(
-                '¡Pedido Realizado con Éxito!',
+                'Â¡Pedido Realizado con Ã‰xito!',
                 style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 12),
               Text(
-                'Gracias por tu compra. Recibirás una notificación cuando tu pedido esté en camino.',
+                'Gracias por tu compra. RecibirÃ¡s una notificaciÃ³n cuando tu pedido estÃ© en camino.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey[600], fontSize: 16),
               ),
               const SizedBox(height: 40),
               ElevatedButton(
-                // Se pasa null como argumento porque la pantalla principal decidirá si el usuario es invitado o no
-                onPressed: () => Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.mainNavigator, (route) => false, arguments: null), 
+                onPressed: () {
+                  // Utilizamos el usuario autenticado para no cerrar la sesión al volver al inicio.
+                  final settingsUsuario = ModalRoute.of(context)?.settings.arguments;
+                  final session = context.read<SessionController>();
+                  Usuario? usuario = widget.usuario ?? (settingsUsuario is Usuario ? settingsUsuario : null);
+
+                  if (usuario == null || usuario.isGuest) {
+                    final sessionUsuario = session.usuario;
+                    if (!sessionUsuario.isGuest) {
+                      usuario = sessionUsuario;
+                    }
+                  }
+
+                  if (usuario != null && !usuario.isGuest) {
+                    session.setUser(usuario);
+                  }
+
+                  Navigator.of(context).pushNamedAndRemoveUntil(
+                    AppRoutes.mainNavigator,
+                    (route) => false,
+                    arguments: usuario ?? session.usuario,
+                  );
+                },
                 child: const Text('Volver al Inicio'),
               ),
             ],
@@ -75,3 +101,5 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen> with SingleTick
     );
   }
 }
+
+

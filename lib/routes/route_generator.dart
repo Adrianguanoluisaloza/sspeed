@@ -50,6 +50,10 @@ class RouteGenerator {
         }
         return _redirectToLogin(settings);
       case AppRoutes.orderSuccess:
+        final usuario = settings.arguments;
+        if (usuario is Usuario) {
+          return _fade(settings, OrderSuccessScreen(usuario: usuario));
+        }
         return _fade(settings, const OrderSuccessScreen());
       case AppRoutes.checkoutAddress:
         final usuario = settings.arguments;
