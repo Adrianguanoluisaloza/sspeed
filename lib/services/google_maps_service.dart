@@ -8,7 +8,7 @@ import 'package:http/http.dart' as http;
 
 class GoogleMapsService {
   // ¡IMPORTANTE! Reemplaza esto con tu propia API Key de Google Maps.
-  static const String _apiKey = 'AQUI_VA_TU_API_KEY_DE_GOOGLE_MAPS';
+  static const String _apiKey = 'AIzaSyAIvLI8lMrPF4gNnMiBW2Pd52ZAgnV6BTw';
 
   final http.Client _httpClient;
 
