@@ -22,7 +22,7 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   final TextEditingController _controller = TextEditingController();
-  final DateFormat _dateFormat = DateFormat('dd/MM HH:mm');
+  final DateFormat _dateFormat = DateFormat('dd MMM, HH:mm');
 
   Usuario? _currentUser;
   bool _isLoading = true;
@@ -36,6 +36,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
   };
 
   ChatConversation? _selectedConversation;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -50,6 +51,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     _controller.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -63,6 +65,8 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
 
   Future<void> _initializeChat() async {
     final session = context.read<SessionController>();
+    if (!mounted) return;
+
     if (!session.isAuthenticated) {
       setState(() {
         _loadError = "Debes iniciar sesión para ver tus mensajes.";
@@ -71,11 +75,11 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
       return;
     }
     _currentUser = session.usuario;
-    await _loadConversations(context);
+    await _loadConversations();
   }
 
-  Future<void> _loadConversations(BuildContext currentContext) async {
-    if (_currentUser == null) return;
+  Future<void> _loadConversations() async {
+    if (_currentUser == null || !mounted) return;
 
     setState(() {
       _isLoading = true;
@@ -83,7 +87,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     });
 
     try {
-      final dbService = currentContext.read<DatabaseService>();
+      final dbService = context.read<DatabaseService>();
       final allConversations = await dbService.getConversaciones(_currentUser!.idUsuario);
 
       if (!mounted) return;
@@ -110,7 +114,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     } catch (e) {
       if (mounted) {
         setState(() {
-          _loadError = e.toString();
+          _loadError = "Error al cargar: ${e.toString()}";
           _isLoading = false;
         });
       }
@@ -119,11 +123,11 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
 
   Future<void> _sendMessage() async {
     final text = _controller.text.trim();
-    if (text.isEmpty || _selectedConversation == null || _currentUser == null) return;
+    if (text.isEmpty || _selectedConversation == null || _currentUser == null || !mounted) return;
 
-    final conversationId = _selectedConversation!.idConversacion;
     final dbService = context.read<DatabaseService>();
     final messenger = ScaffoldMessenger.of(context);
+    final conversationId = _selectedConversation!.idConversacion;
 
     setState(() => _isSending = true);
 
@@ -139,28 +143,52 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
       if (success) {
         _controller.clear();
         final updatedMessages = await dbService.getMensajesDeConversacion(conversationId);
-        if (!mounted) return;
-        setState(() {
-          _selectedConversation?.mensajes.clear();
-          _selectedConversation?.mensajes.addAll(updatedMessages);
-        });
+        if (mounted) {
+          setState(() {
+            _selectedConversation?.mensajes.clear();
+            _selectedConversation?.mensajes.addAll(updatedMessages);
+          });
+          Timer(const Duration(milliseconds: 100), () {
+            if (_scrollController.hasClients) {
+                _scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+            }
+          });
+        }
       } else {
         messenger.showSnackBar(const SnackBar(content: Text('No se pudo enviar el mensaje.'), backgroundColor: Colors.red));
       }
     } catch (e) {
-      if (!mounted) return;
-      messenger.showSnackBar(SnackBar(content: Text('Error al enviar: ${e.toString()}'), backgroundColor: Colors.red));
+      if (mounted) {
+        messenger.showSnackBar(SnackBar(content: Text('Error al enviar: ${e.toString()}'), backgroundColor: Colors.red));
+      }
     } finally {
       if (mounted) setState(() => _isSending = false);
     }
   }
-
+  
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Centro de Mensajes'),
-        bottom: TabBar(controller: _tabController, tabs: const [Tab(text: 'Cliente'), Tab(text: 'Soporte'), Tab(text: 'Historial')]),
+        title: const Text('Centro de Mensajes', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.white,
+        elevation: 1,
+        shadowColor: Colors.black.withOpacity(0.1),
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: theme.primaryColor,
+          unselectedLabelColor: Colors.grey.shade600,
+          indicatorColor: theme.primaryColor,
+          indicatorWeight: 3,
+          labelStyle: const TextStyle(fontWeight: FontWeight.bold),
+          tabs: const [
+            Tab(text: 'Cliente'),
+            Tab(text: 'Soporte'),
+            Tab(text: 'Historial'),
+          ],
+        ),
       ),
       body: _buildBody(),
     );
@@ -184,24 +212,38 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     return Row(
       children: [
         _buildConversationList(conversations, currentSection),
-        const VerticalDivider(width: 1),
+        const VerticalDivider(width: 1, thickness: 1, color: Color(0xFFE0E0E0)),
         _buildMessagePane(),
       ],
     );
   }
 
   Widget _buildConversationList(List<ChatConversation> conversations, ChatSection section) {
-    return SizedBox(
-      width: 130,
+    return Container(
+      width: 140,
+      color: const Color(0xFFF7F7F7),
       child: ListView.builder(
         itemCount: conversations.length,
         itemBuilder: (context, index) {
           final convo = conversations[index];
+          final isSelected = convo.idConversacion == _selectedConversation?.idConversacion;
           return ListTile(
-            title: Text(_conversationLabel(convo), style: const TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text(_dateFormat.format(convo.fechaCreacion), overflow: TextOverflow.ellipsis),
-            selected: convo.idConversacion == _selectedConversation?.idConversacion,
-            selectedTileColor: Colors.blue.withAlpha(26),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            title: Text(
+              _conversationLabel(convo),
+              style: TextStyle(
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected ? Theme.of(context).primaryColor : Colors.black87,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+            subtitle: Text(
+              _dateFormat.format(convo.fechaCreacion),
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+            selected: isSelected,
+            selectedTileColor: Theme.of(context).primaryColor.withOpacity(0.1),
             onTap: () => setState(() => _selectedConversation = convo),
           );
         },
@@ -211,20 +253,41 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
 
   Widget _buildMessagePane() {
     if (_selectedConversation == null) {
-      return const Expanded(child: Center(child: Text('Selecciona una conversación para ver los mensajes.')));
+      return Expanded(
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.chat_bubble_outline_rounded, size: 80, color: Colors.grey.shade300),
+              const SizedBox(height: 16),
+              Text(
+                'Selecciona una conversación',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.grey.shade700),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Tus mensajes aparecerán aquí.',
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.grey.shade500),
+              ),
+            ],
+          ),
+        ),
+      );
     }
     return Expanded(
       child: Column(
         children: [
           Expanded(
             child: ListView.builder(
-              padding: const EdgeInsets.all(8.0),
+              controller: _scrollController,
+              padding: const EdgeInsets.all(16.0),
               reverse: true,
               itemCount: _selectedConversation!.mensajes.length,
               itemBuilder: (context, index) {
                 final reversedIndex = _selectedConversation!.mensajes.length - 1 - index;
                 final message = _selectedConversation!.mensajes[reversedIndex];
-                return _buildMessageBubble(message, isUser: message.idRemitente == _currentUser?.idUsuario);
+                final isUser = message.idRemitente == _currentUser?.idUsuario;
+                return _buildMessageBubble(message, isUser: isUser);
               },
             ),
           ),
@@ -235,47 +298,89 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
   }
 
   Widget _buildComposer() {
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: Row(children: [
-        Expanded(
-          child: TextField(
-            controller: _controller,
-            decoration: InputDecoration(hintText: 'Escribe un mensaje...', border: OutlineInputBorder(borderRadius: BorderRadius.circular(25)), contentPadding: const EdgeInsets.symmetric(horizontal: 16)),
-            onSubmitted: (_) => _sendMessage(),
-          ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        boxShadow: [
+          BoxShadow(
+            offset: const Offset(0, -2),
+            blurRadius: 5,
+            color: Colors.black.withOpacity(0.03),
+          )
+        ],
+      ),
+      child: SafeArea(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _controller,
+                decoration: InputDecoration(
+                  hintText: 'Escribe un mensaje...',
+                  fillColor: Colors.grey.shade100,
+                  filled: true,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(30),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                ),
+                onSubmitted: _isSending ? null : (_) => _sendMessage(),
+              ),
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              icon: _isSending
+                  ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.send_rounded, color: Colors.white),
+              onPressed: _isSending ? null : _sendMessage,
+              style: IconButton.styleFrom(
+                backgroundColor: Theme.of(context).primaryColor,
+                shape: const CircleBorder(),
+                padding: const EdgeInsets.all(12),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 8),
-        IconButton.filled(
-          icon: _isSending ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.send),
-          onPressed: _isSending ? null : _sendMessage,
-          style: IconButton.styleFrom(backgroundColor: Theme.of(context).primaryColor),
-        ),
-      ]),
+      ),
     );
   }
 
   Widget _buildMessageBubble(ChatMessage message, {required bool isUser}) {
-    final bubbleColor = isUser ? Theme.of(context).primaryColor : Colors.grey.shade200;
+    final theme = Theme.of(context);
+    final bubbleColor = isUser ? theme.primaryColor : const Color(0xFFEFEFEF);
     final textColor = isUser ? Colors.white : Colors.black87;
+    final alignment = isUser ? Alignment.centerRight : Alignment.centerLeft;
     final radius = isUser
-        ? const BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16), bottomLeft: Radius.circular(16))
-        : const BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16), bottomRight: Radius.circular(16));
+        ? const BorderRadius.only(
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
+            bottomLeft: Radius.circular(20),
+            bottomRight: Radius.circular(5))
+        : const BorderRadius.only(
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
+            bottomRight: Radius.circular(20),
+            bottomLeft: Radius.circular(5));
 
     return Align(
-      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+      alignment: alignment,
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
-        padding: const EdgeInsets.all(12.0),
+        margin: const EdgeInsets.symmetric(vertical: 5.0, horizontal: 8.0),
+        padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 10.0),
         decoration: BoxDecoration(color: bubbleColor, borderRadius: radius),
         constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          // CORRECCIÓN: Se elimina la llamada inválida a `widget()`
+          crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
-            Text(message.mensaje, style: TextStyle(color: textColor)),
-            const SizedBox(height: 4),
-            Text(message.fechaEnvio != null ? _dateFormat.format(message.fechaEnvio!) : '', style: TextStyle(color: isUser ? Colors.white70 : Colors.black54, fontSize: 10)),
+            Text(message.mensaje, style: TextStyle(color: textColor, fontSize: 16)),
+            const SizedBox(height: 5),
+            Text(
+              message.fechaEnvio != null ? _dateFormat.format(message.fechaEnvio!) : 'Enviando...',
+              style: TextStyle(color: isUser ? Colors.white70 : Colors.black54, fontSize: 10),
+            ),
           ],
         )
       ),
