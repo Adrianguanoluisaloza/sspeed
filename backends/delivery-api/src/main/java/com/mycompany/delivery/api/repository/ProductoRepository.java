@@ -105,6 +105,20 @@ public class ProductoRepository {
         }
     }
 
+    public Optional<Producto> obtenerPorId(int idProducto) throws SQLException {
+        String sql = "SELECT * FROM productos WHERE id_producto = ?";
+        try (Connection conn = Database.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, idProducto);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return Optional.of(mapRow(rs));
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
     private List<Producto> ejecutarConsultaProductos(String sql) throws SQLException {
         List<Producto> productos = new ArrayList<>();
         try (Connection conn = Database.getConnection();

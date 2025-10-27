@@ -7,15 +7,62 @@ import java.util.*;
 
 public class RecomendacionRepository {
 
+    private static final String SQL_INSERT = "INSERT INTO recomendaciones (id_producto, id_usuario, puntuacion, comentario, fecha) VALUES (?, ?, ?, ?, NOW())";
+    private static final String SQL_UPDATE = "UPDATE recomendaciones SET puntuacion = ?, comentario = ?, fecha = NOW() WHERE id_producto = ? AND id_usuario = ?";
+
     public boolean guardar(int idProducto, int idUsuario, int puntuacion, String comentario) throws SQLException {
-        String sql = "INSERT INTO recomendaciones (id_producto, id_usuario, puntuacion, comentario, fecha) VALUES (?, ?, ?, ?, NOW())";
-        try (Connection c = Database.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql)) {
+        try (Connection c = Database.getConnection()) {
+            boolean previousAutoCommit = c.getAutoCommit();
+            if (previousAutoCommit) {
+                c.setAutoCommit(false);
+            }
+            try {
+                int updated = actualizarRecomendacion(c, idProducto, idUsuario, puntuacion, comentario);
+                if (updated > 0) {
+                    if (previousAutoCommit) {
+                        c.commit();
+                    }
+                    return true;
+                }
+                int inserted = insertarRecomendacion(c, idProducto, idUsuario, puntuacion, comentario);
+                if (previousAutoCommit) {
+                    c.commit();
+                }
+                return inserted > 0;
+            } catch (SQLException ex) {
+                if (previousAutoCommit) {
+                    try {
+                        c.rollback();
+                    } catch (SQLException rollbackEx) {
+                        ex.addSuppressed(rollbackEx);
+                    }
+                }
+                throw ex;
+            } finally {
+                if (previousAutoCommit) {
+                    c.setAutoCommit(true);
+                }
+            }
+        }
+    }
+
+    private int insertarRecomendacion(Connection c, int idProducto, int idUsuario, int puntuacion, String comentario) throws SQLException {
+        try (PreparedStatement ps = c.prepareStatement(SQL_INSERT)) {
             ps.setInt(1, idProducto);
             ps.setInt(2, idUsuario);
             ps.setInt(3, puntuacion);
             ps.setString(4, comentario);
-            return ps.executeUpdate() > 0;
+            return ps.executeUpdate();
+        }
+    }
+
+    private int actualizarRecomendacion(Connection c, int idProducto, int idUsuario, int puntuacion, String comentario) throws SQLException {
+        try (PreparedStatement ps = c.prepareStatement(SQL_UPDATE)) {
+            ps.setInt(1, puntuacion);
+            ps.setString(2, comentario);
+            ps.setInt(3, idProducto);
+            ps.setInt(4, idUsuario);
+            return ps.executeUpdate();
         }
     }
 
