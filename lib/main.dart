@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:intl/date_symbol_data_local.dart';
+import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 
@@ -10,7 +14,11 @@ import 'services/gemini_service.dart';
 import 'routes/app_routes.dart';
 import 'routes/route_generator.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  Intl.defaultLocale = 'es_EC';
+  await initializeDateFormatting('es_EC', null);
+
   runApp(
     MultiProvider(
       providers: [
@@ -22,7 +30,8 @@ void main() {
       child: const MyApp(),
     ),
   );
-  requestLocationPermission();
+
+  unawaited(requestLocationPermission());
 }
 
 Future<void> requestLocationPermission() async {
