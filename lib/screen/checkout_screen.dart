@@ -148,7 +148,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> with SingleTickerProvid
       child: ListTile(
         leading: const Icon(Icons.location_on_outlined, color: Colors.green, size: 32),
         title: Text(widget.ubicacion.direccion ?? 'Dirección no especificada', style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text('Lat: ${widget.ubicacion.latitud.toStringAsFixed(4)}, Lon: ${widget.ubicacion.longitud.toStringAsFixed(4)}'),
+        subtitle: Text('Lat: ${widget.ubicacion.latitud?.toStringAsFixed(4) ?? 'N/A'}, Lon: ${widget.ubicacion.longitud?.toStringAsFixed(4) ?? 'N/A'}'),
       ),
     );
   }

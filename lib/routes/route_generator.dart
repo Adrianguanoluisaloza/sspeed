@@ -27,7 +27,8 @@ class RouteGenerator {
       case AppRoutes.register:
         return _slideUp(settings, const RegisterScreen());
       case AppRoutes.mainNavigator:
-        final usuario = settings.arguments as Usuario? ?? Usuario.noAuth();
+        final usuario = settings.arguments as Usuario? ??
+            const Usuario(idUsuario: 0, nombre: '', correo: '', rol: 'cliente');
         return _fade(settings, MainNavigator(usuario: usuario));
       case AppRoutes.editProfile:
         final usuario = settings.arguments;

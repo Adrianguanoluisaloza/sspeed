@@ -114,7 +114,7 @@ class _CheckoutSummaryScreenState extends State<CheckoutSummaryScreen> {
         leading: const Icon(Icons.location_on, color: Colors.deepOrange),
         title: Text(direccionVisible, style: const TextStyle(fontWeight: FontWeight.bold)),
         subtitle: Text(
-            'Lat: ${location.latitud.toStringAsFixed(4)}, Lon: ${location.longitud.toStringAsFixed(4)}'),
+            'Lat: ${location.latitud?.toStringAsFixed(4) ?? 'N/A'}, Lon: ${location.longitud?.toStringAsFixed(4) ?? 'N/A'}'),
       ),
     );
   }

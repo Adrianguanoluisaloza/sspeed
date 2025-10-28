@@ -39,7 +39,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
     if (mounted) {
       session.clearUser();
-      navigator.pushNamedAndRemoveUntil(AppRoutes.mainNavigator, (route) => false, arguments: Usuario.noAuth());
+      navigator.pushNamedAndRemoveUntil(AppRoutes.login, (route) => false);
     }
   }
 

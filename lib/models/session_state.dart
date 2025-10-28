@@ -4,22 +4,19 @@ import 'usuario.dart';
 
 /// Controlador sencillo para manejar el estado de sesión dentro de la app.
 class SessionController extends ChangeNotifier {
-  Usuario _usuario = Usuario.guest();
+  Usuario? _usuario;
 
-  Usuario get usuario => _usuario;
-  bool get isGuest => _usuario.isGuest;
-  bool get isAuthenticated => !_usuario.isGuest && _usuario.idUsuario > 0;
-
-  void setGuest() {
-    _usuario = Usuario.guest();
-    notifyListeners();
-  }
+  Usuario? get usuario => _usuario;
+  bool get isAuthenticated => _usuario != null && _usuario!.idUsuario > 0;
 
   void setUser(Usuario usuario) {
     _usuario = usuario;
     notifyListeners();
   }
 
-  // Limpia la sesión y vuelve a invitado
-  void clearUser() => setGuest();
+  // Limpia la sesión
+  void clearUser() {
+    _usuario = null;
+    notifyListeners();
+  }
 }

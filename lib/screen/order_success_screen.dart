@@ -48,7 +48,6 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen> with SingleTick
                 child: Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    // CORRECCIÃ“N: Se usa withAlpha en lugar de withOpacity
                     color: Colors.green.withAlpha(26),
                     shape: BoxShape.circle,
                   ),
@@ -56,40 +55,28 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen> with SingleTick
                 ),
               ),
               const SizedBox(height: 32),
+              // CORRECCIÓN: Se arreglan los caracteres especiales.
               const Text(
-                'Â¡Pedido Realizado con Ã‰xito!',
+                '¡Pedido Realizado con Éxito!',
                 style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 12),
+              // CORRECCIÓN: Se arreglan los caracteres especiales.
               Text(
-                'Gracias por tu compra. RecibirÃ¡s una notificaciÃ³n cuando tu pedido estÃ© en camino.',
+                'Gracias por tu compra. Recibirás una notificación cuando tu pedido esté en camino.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey[600], fontSize: 16),
               ),
               const SizedBox(height: 40),
               ElevatedButton(
+                // CORRECCIÓN: Lógica de navegación simplificada y robusta.
                 onPressed: () {
-                  // Utilizamos el usuario autenticado para no cerrar la sesión al volver al inicio.
-                  final settingsUsuario = ModalRoute.of(context)?.settings.arguments;
                   final session = context.read<SessionController>();
-                  Usuario? usuario = widget.usuario ?? (settingsUsuario is Usuario ? settingsUsuario : null);
-
-                  if (usuario == null || usuario.isGuest) {
-                    final sessionUsuario = session.usuario;
-                    if (!sessionUsuario.isGuest) {
-                      usuario = sessionUsuario;
-                    }
-                  }
-
-                  if (usuario != null && !usuario.isGuest) {
-                    session.setUser(usuario);
-                  }
-
                   Navigator.of(context).pushNamedAndRemoveUntil(
                     AppRoutes.mainNavigator,
                     (route) => false,
-                    arguments: usuario ?? session.usuario,
+                    arguments: session.usuario, // Se pasa el usuario de la sesión actual.
                   );
                 },
                 child: const Text('Volver al Inicio'),
@@ -101,5 +88,3 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen> with SingleTick
     );
   }
 }
-
-

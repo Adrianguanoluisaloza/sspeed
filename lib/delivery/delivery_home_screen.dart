@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import "package:badges/badges.dart" as badges;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 
@@ -7,11 +8,18 @@ import '../models/session_state.dart';
 import '../models/usuario.dart';
 import '../routes/app_routes.dart';
 import '../services/database_service.dart';
-import '../screen/chat_screen.dart'; 
+import '../screen/chat_screen.dart';
 
-import 'delivery_activearders_view.dart';
-import 'delivery_availableorders_view.dart';
+// Importa las otras vistas que ya tenías separadas
+
+import 'delivery_activearders_view.dart' show DeliveryActiveOrdersView;
+
+import 'delivery_availableorders_view.dart' show DeliveryAvailableOrdersView;
 import 'delivery_history_orders_view.dart';
+
+// -------------------------------------------------------------------
+// VISTA PRINCIPAL (HOME SCREEN)
+// -------------------------------------------------------------------
 
 class DeliveryHomeScreen extends StatefulWidget {
   final Usuario deliveryUser;
@@ -23,11 +31,18 @@ class DeliveryHomeScreen extends StatefulWidget {
 
 class _DeliveryHomeScreenState extends State<DeliveryHomeScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  int _availableOrdersCount = 0;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 5, vsync: this);
+  }
+
+  void _onAvailableOrdersChanged(int count) {
+    if (mounted && _availableOrdersCount != count) {
+      setState(() => _availableOrdersCount = count);
+    }
   }
 
   @override
@@ -47,8 +62,8 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen> with SingleTick
       sessionController.clearUser();
       navigator.pushNamedAndRemoveUntil(
         AppRoutes.mainNavigator,
-        (route) => false,
-        arguments: Usuario.noAuth(),
+            (route) => false,
+        arguments: const Usuario(idUsuario: 0, nombre: '', correo: '', rol: 'cliente'),
       );
     }
   }
@@ -68,28 +83,61 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen> with SingleTick
         bottom: TabBar(
           isScrollable: true,
           controller: _tabController,
-          tabs: const [
-            Tab(text: 'Disponibles'),
-            Tab(text: 'En Curso'),
-            Tab(text: 'Historial'),
-            Tab(text: 'Chat'),
-            Tab(text: 'Estadísticas'),
+          tabs: <Widget>[
+            _buildTabWithBadge(
+              text: 'Disponibles',
+              icon: Icons.list_alt,
+              count: _availableOrdersCount,
+            ),
+            const Tab(text: 'En Curso', icon: Icon(Icons.delivery_dining)),
+            const Tab(text: 'Historial', icon: Icon(Icons.history)),
+            const Tab(text: 'Chat', icon: Icon(Icons.chat)),
+            const Tab(text: 'Estadísticas', icon: Icon(Icons.bar_chart)),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
-          DeliveryAvailableOrdersView(deliveryUser: widget.deliveryUser),
+          DeliveryAvailableOrdersView(
+            deliveryUser: widget.deliveryUser,
+            onOrderCountChanged: _onAvailableOrdersChanged,
+          ),
           DeliveryActiveOrdersView(deliveryUser: widget.deliveryUser),
           DeliveryHistoryOrdersView(deliveryUser: widget.deliveryUser),
+          // Las vistas que estaban en el mismo archivo
           DeliveryChatHubView(deliveryUser: widget.deliveryUser),
           DeliveryStatsView(deliveryUser: widget.deliveryUser),
         ],
       ),
     );
   }
+
+  Widget _buildTabWithBadge({required String text, required IconData icon, required int count}) {
+    return Tab(
+      child: badges.Badge(
+        showBadge: count > 0,
+        badgeContent: Text(
+          count.toString(),
+          style: const TextStyle(color: Colors.white, fontSize: 10),
+        ),
+        position: badges.BadgePosition.topEnd(top: -12, end: -20),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon),
+            const SizedBox(width: 8),
+            Text(text),
+          ],
+        ),
+      ),
+    );
+  }
 }
+
+// -------------------------------------------------------------------
+// VISTA DE LA PESTAÑA "CHAT"
+// -------------------------------------------------------------------
 
 class DeliveryChatHubView extends StatelessWidget {
   final Usuario deliveryUser;
@@ -98,7 +146,7 @@ class DeliveryChatHubView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    // CORRECCIÓN: Se elimina `const` para solucionar el error de tipo en el constructor
+    // CORRECCIÓN: Se elimina `const` de la lista, ya que sus elementos no son constantes de compilación.
     final entries = <_ChatEntry>[
       _ChatEntry(
         section: ChatSection.cliente,
@@ -144,7 +192,7 @@ class _ChatEntry {
   final String description;
   final IconData icon;
 
-  // Se elimina const del constructor para permitir la creación no constante
+  // CORRECCIÓN: Se elimina `const` del constructor para permitir la creación de la lista en tiempo de ejecución.
   _ChatEntry({
     required this.section,
     required this.title,
@@ -152,6 +200,10 @@ class _ChatEntry {
     required this.icon,
   });
 }
+
+// -------------------------------------------------------------------
+// VISTA DE LA PESTAÑA "ESTADÍSTICAS"
+// -------------------------------------------------------------------
 
 class DeliveryStatsView extends StatefulWidget {
   final Usuario deliveryUser;
@@ -213,6 +265,10 @@ class _DeliveryStatsViewState extends State<DeliveryStatsView> {
     );
   }
 }
+
+// -------------------------------------------------------------------
+// WIDGET INTERNO USADO POR "ESTADÍSTICAS"
+// -------------------------------------------------------------------
 
 class _StatTile extends StatelessWidget {
   final String title, value;

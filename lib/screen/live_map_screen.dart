@@ -28,8 +28,9 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   Timer? _refreshTimer;
 
   LatLng? _userPosition;
-  bool _isLoading = true;
-  String? _error;
+  bool _isMapReady = false;
+  String? _infoMessage;
+  String? _errorMessage;
 
   Set<Marker> _markers = <Marker>{};
 
@@ -39,15 +40,20 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
     _bootstrap();
   }
 
+  @override
+  void dispose() {
+    _mapController?.dispose();
+    _locationSubscription?.cancel();
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
   Future<void> _bootstrap() async {
     try {
       if (kIsWeb) {
         final key = SecretConfig.googleMapsApiKey;
         if (key.isEmpty) {
-          setState(() {
-            _error = 'Configura GOOGLE_MAPS_API_KEY para visualizar el mapa.';
-            _isLoading = false;
-          });
+          setState(() => _errorMessage = 'Configura GOOGLE_MAPS_API_KEY.');
           return;
         }
         await ensureGoogleMapsScriptLoaded(key);
@@ -56,17 +62,14 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
       await _loadUserLocation();
       await _refreshMarkers();
       if (mounted) {
-        setState(() => _isLoading = false);
-        _refreshTimer ??= Timer.periodic(
-          const Duration(seconds: 20),
-          (_) => _refreshMarkers(),
-        );
+        setState(() => _isMapReady = true);
+        _refreshTimer ??= Timer.periodic(const Duration(seconds: 20), (_) => _refreshMarkers());
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = 'No se pudo inicializar el mapa: $e';
-          _isLoading = false;
+          _errorMessage = 'Error al inicializar: $e';
+          _isMapReady = true;
         });
       }
     }
@@ -78,7 +81,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
       if (!serviceEnabled) {
         serviceEnabled = await _location.requestService();
         if (!serviceEnabled) {
-          setState(() => _error = 'Activa el servicio de ubicacion para ver el mapa.');
+          setState(() => _infoMessage = 'Activa la ubicación para ver el mapa.');
           return;
         }
       }
@@ -86,9 +89,8 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
       PermissionStatus permission = await _location.hasPermission();
       if (permission == PermissionStatus.denied) {
         permission = await _location.requestPermission();
-        if (permission != PermissionStatus.granted &&
-            permission != PermissionStatus.grantedLimited) {
-          setState(() => _error = 'Se requieren permisos de ubicacion.');
+        if (permission != PermissionStatus.granted) {
+          setState(() => _infoMessage = 'Se requieren permisos de ubicación.');
           return;
         }
       }
@@ -96,31 +98,38 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
       final currentLocation = await _location.getLocation();
       if (currentLocation.latitude != null && currentLocation.longitude != null) {
         final latLng = LatLng(currentLocation.latitude!, currentLocation.longitude!);
-        setState(() => _userPosition = latLng);
-        _moveCamera(latLng, zoom: 15);
-      }
-
-      _locationSubscription?.cancel();
-      _locationSubscription = _location.onLocationChanged.listen((event) {
-        if (event.latitude != null && event.longitude != null) {
-          final latLng = LatLng(event.latitude!, event.longitude!);
+        if (mounted) {
           setState(() => _userPosition = latLng);
+          _moveCamera(latLng, zoom: 15);
         }
-      });
+      }
     } catch (e) {
-      setState(() => _error = 'No se pudo obtener tu ubicacion: $e');
+      if (mounted) setState(() => _infoMessage = 'No se pudo obtener tu ubicación.');
     }
   }
 
   Future<void> _refreshMarkers() async {
+    if (!mounted) return;
+    final db = context.read<DatabaseService>();
+    final session = context.read<SessionController>();
+    final usuario = session.usuario;
+
+    if (usuario == null) {
+      setState(() {
+        _infoMessage = 'Inicia sesión para ver tus pedidos en el mapa.';
+        _markers.clear();
+      });
+      return;
+    }
+
+    setState(() {
+      _infoMessage = 'Actualizando...';
+      _errorMessage = null;
+    });
+
     try {
-      final db = context.read<DatabaseService>();
-      final session = context.read<SessionController>();
-      final usuario = session.usuario;
-
       List<Pedido> pedidos = [];
-
-      if (!usuario.isGuest) {
+      if (usuario.isAuthenticated) {
         switch (usuario.rol) {
           case 'delivery':
             pedidos = await db.getPedidosPorDelivery(usuario.idUsuario);
@@ -130,8 +139,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
             pedidos = await db.getPedidosPorEstado('en camino');
             break;
           default:
-            pedidos = await db.getPedidos(usuario.idUsuario);
-            pedidos = pedidos
+            pedidos = (await db.getPedidos(usuario.idUsuario))
                 .where((p) => p.estado != 'entregado' && p.estado != 'cancelado')
                 .toList();
         }
@@ -139,150 +147,99 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
 
       final markers = <Marker>{};
       if (_userPosition != null) {
-        markers.add(
-          Marker(
-            markerId: const MarkerId('usuario_actual'),
-            position: _userPosition!,
-            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-            infoWindow: const InfoWindow(title: 'Estas aqui'),
-          ),
-        );
+        markers.add(Marker(markerId: const MarkerId('user'), position: _userPosition!, icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure), infoWindow: const InfoWindow(title: 'Estás aquí')));
       }
 
       final pedidosEnRuta = pedidos.where((p) => p.idDelivery != null).toList();
       if (pedidosEnRuta.isNotEmpty) {
-        final futures = pedidosEnRuta.map((pedido) async {
-          final ubicacion = await db.getRepartidorLocation(pedido.idPedido);
-          return (pedido, ubicacion);
-        });
-
+        final futures = pedidosEnRuta.map((p) => db.getRepartidorLocation(p.idPedido).then((loc) => (p, loc)));
         final results = await Future.wait(futures);
+
         for (final (pedido, ubicacion) in results) {
           if (ubicacion == null) continue;
           final lat = _parseDouble(ubicacion['latitud'] ?? ubicacion['lat']);
           final lon = _parseDouble(ubicacion['longitud'] ?? ubicacion['lng']);
           if (lat == null || lon == null) continue;
 
-          final markerId = MarkerId('delivery_${pedido.idDelivery}_${pedido.idPedido}');
-          markers.add(
-            Marker(
-              markerId: markerId,
-              position: LatLng(lat, lon),
-              icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
-              infoWindow: InfoWindow(
-                title: 'Repartidor #${pedido.idDelivery}',
-                snippet: 'Pedido ${pedido.idPedido} · ${pedido.estado}',
-              ),
-            ),
-          );
+          markers.add(Marker(markerId: MarkerId('delivery_${pedido.idDelivery}_${pedido.idPedido}'), position: LatLng(lat, lon), icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange), infoWindow: InfoWindow(title: 'Repartidor #${pedido.idDelivery}', snippet: 'Pedido ${pedido.idPedido}')));
         }
       }
 
       if (mounted) {
         setState(() {
           _markers = markers;
-          _error = markers.isEmpty ? 'Sin repartidores activos por el momento.' : null;
+          final deliveryCount = markers.length - (_userPosition != null ? 1 : 0);
+          _infoMessage = deliveryCount == 0 ? 'Sin repartidores activos.' : 'Mostrando $deliveryCount repartidores.';
         });
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _error = 'Error al actualizar el mapa: $e');
+        setState(() => _errorMessage = 'Error al actualizar: ${e.toString()}');
       }
     }
   }
 
-  double? _parseDouble(dynamic value) {
-    if (value is num) return value.toDouble();
-    if (value is String) return double.tryParse(value);
-    return null;
-  }
-
-  void _moveCamera(LatLng target, {double zoom = 13}) {
-    _mapController?.animateCamera(
-      CameraUpdate.newCameraPosition(CameraPosition(target: target, zoom: zoom)),
-    );
-  }
-
-  @override
-  void dispose() {
-    _mapController?.dispose();
-    _locationSubscription?.cancel();
-    _refreshTimer?.cancel();
-    super.dispose();
-  }
+  void _moveCamera(LatLng target, {double zoom = 13}) => _mapController?.animateCamera(CameraUpdate.newCameraPosition(CameraPosition(target: target, zoom: zoom)));
+  double? _parseDouble(dynamic value) => (value is num) ? value.toDouble() : (value is String ? double.tryParse(value) : null);
 
   @override
   Widget build(BuildContext context) {
-    final markers = _markers;
-    final error = _error;
-
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mapa en tiempo real'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 1,
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Stack(
-              children: [
-                GoogleMap(
-                  initialCameraPosition: CameraPosition(
-                    target: _userPosition ?? _esmeraldasCenter,
-                    zoom: _userPosition != null ? 14 : 12,
-                  ),
-                  markers: markers,
-                  myLocationEnabled: _userPosition != null,
-                  myLocationButtonEnabled: false,
-                  zoomControlsEnabled: false,
-                  onMapCreated: (controller) => _mapController = controller,
-                ),
-                Positioned(
-                  top: 16,
-                  right: 16,
-                  child: _buildInfoCard(markers.length, error),
-                ),
-              ],
-            ),
-      floatingActionButton: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          FloatingActionButton.small(
-            heroTag: 'center-map',
-            onPressed: () {
-              final target = _userPosition ?? _esmeraldasCenter;
-              _moveCamera(target, zoom: _userPosition != null ? 15 : 12);
-            },
-            child: const Icon(Icons.my_location),
-          ),
-          const SizedBox(height: 12),
-          FloatingActionButton.small(
-            heroTag: 'refresh-map',
-            onPressed: _refreshMarkers,
-            child: const Icon(Icons.refresh),
-          ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('Mapa en tiempo real')),
+      body: _buildMapBody(),
+      floatingActionButton: _buildMapControls(),
     );
   }
 
-  Widget _buildInfoCard(int markerCount, String? error) {
-    final message = error ??
-        (markerCount <= 1
-            ? 'Mapa centrado en Esmeraldas.\nAguardando repartidores activos.'
-            : 'Mostrando $markerCount puntos activos en tiempo real.');
+  // --- WIDGETS DE LA UI REDISEÑADA ---
 
-    return Card(
-      elevation: 4,
-      color: Colors.white,
-      shadowColor: Colors.black12,
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Text(
-          message,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+  Widget _buildMapBody() {
+    if (!_isMapReady) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    return Stack(children: [
+      GoogleMap(
+        initialCameraPosition: CameraPosition(target: _userPosition ?? _esmeraldasCenter, zoom: _userPosition != null ? 14 : 12),
+        markers: _markers,
+        myLocationEnabled: false,
+        myLocationButtonEnabled: false,
+        zoomControlsEnabled: false,
+        onMapCreated: (controller) => _mapController = controller,
+      ),
+      _buildTopInfoBar(),
+    ]);
+  }
+
+  Widget _buildMapControls() {
+    return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.end, children: [
+      FloatingActionButton(heroTag: 'center-map', onPressed: () => _moveCamera(_userPosition ?? _esmeraldasCenter, zoom: _userPosition != null ? 15 : 12), child: const Icon(Icons.my_location)),
+      const SizedBox(height: 12),
+      FloatingActionButton(heroTag: 'refresh-map', onPressed: _refreshMarkers, child: const Icon(Icons.refresh)),
+    ]);
+  }
+
+  Widget _buildTopInfoBar() {
+    final bool hasError = _errorMessage != null;
+    final String message = _errorMessage ?? _infoMessage ?? 'Cargando mapa...';
+    final Color bgColor = hasError ? Colors.red.shade400 : Colors.black.withOpacity(0.6);
+    final IconData icon = hasError ? Icons.warning_amber_rounded : Icons.info_outline_rounded;
+
+    return Positioned(
+      top: 0, left: 0, right: 0,
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8).copyWith(top: MediaQuery.of(context).padding.top + 8),
+          decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.black.withOpacity(0.5), Colors.transparent])),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(10), boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 5, offset: Offset(0, 2))]),
+            child: Row(children: [
+              Icon(icon, color: Colors.white, size: 20),
+              const SizedBox(width: 8),
+              Expanded(child: Text(message, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13))),
+            ]),
+          ),
         ),
       ),
     );

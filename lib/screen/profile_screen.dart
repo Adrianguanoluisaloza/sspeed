@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:location/location.dart' as loc;
+import 'package:permission_handler/permission_handler.dart';
 
 import '../models/ubicacion.dart';
 import '../models/usuario.dart';
@@ -27,6 +29,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
           .getUbicaciones(widget.usuario.idUsuario);
     }
   }
+  
+  void _refreshUbicaciones() {
+    if (mounted) {
+      setState(() {
+        _ubicacionesFuture = Provider.of<DatabaseService>(context, listen: false).getUbicaciones(widget.usuario.idUsuario);
+      });
+    }
+  }
 
   Future<void> _handleLogout() async {
     final navigator = Navigator.of(context);
@@ -35,14 +45,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
 
-    if (mounted) {
-      sessionController.clearUser();
-      navigator.pushNamedAndRemoveUntil(
-        AppRoutes.mainNavigator,
-        (route) => false,
-        arguments: Usuario.noAuth(),
-      );
-    }
+    if (!mounted) return;
+    sessionController.clearUser();
+    navigator.pushNamedAndRemoveUntil(
+      AppRoutes.mainNavigator,
+      (route) => false,
+      arguments: const Usuario(idUsuario: 0, nombre: '', correo: '', rol: 'cliente'),
+    );
   }
 
   @override
@@ -92,7 +101,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildLoggedInScreen(BuildContext context) {
-    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mi Perfil'),
@@ -106,6 +114,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ],
       ),
       body: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: _buildLoggedInContent(context),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _addLocation(context),
+        label: const Text('Añadir Ubicación'),
+        icon: const Icon(Icons.add_location_alt_outlined),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        foregroundColor: Theme.of(context).colorScheme.onPrimary,
+      ),
+    );
+  }
+
+  Widget _buildLoggedInContent(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -127,7 +151,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(height: 24),
 
             Text('Mis Ubicaciones', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             FutureBuilder<List<Ubicacion>>(
               future: _ubicacionesFuture,
               builder: (context, snapshot) {
@@ -135,31 +159,60 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   return const Center(child: Padding(padding: EdgeInsets.all(32.0), child: CircularProgressIndicator()));
                 }
                 if (snapshot.hasError) {
-                  return _buildErrorState('Error al cargar', 'No pudimos obtener tus ubicaciones.');
+                  return _buildErrorState('Error al cargar', 'No pudimos obtener tus ubicaciones: ${snapshot.error}');
                 }
                 if (!snapshot.hasData || snapshot.data!.isEmpty) {
                   return _buildEmptyState('Sin ubicaciones', 'Aún no has guardado ninguna dirección. ¡Añade una para agilizar tus pedidos!');
                 }
                 final ubicaciones = snapshot.data!;
                 return Column(
-                  children: ubicaciones.map((ubicacion) => Card(
-                    elevation: 2,
-                    margin: const EdgeInsets.symmetric(vertical: 6.0),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    child: ListTile(
-                      leading: const Icon(Icons.place_outlined, color: Colors.green, size: 30),
-                      title: Text(ubicacion.direccion ?? 'Dirección sin especificar', style: const TextStyle(fontWeight: FontWeight.w500)),
-                      trailing: const Icon(Icons.chevron_right, color: Colors.grey),
-                      onTap: () { /* Acción futura: editar o ver ubicación */ },
-                    ),
-                  )).toList(),
+                  children: ubicaciones.map((ubicacion) => _buildUbicacionTile(ubicacion)).toList(),
                 );
               },
             ),
           ],
         ),
+    );
+  }
+
+  Widget _buildUbicacionTile(Ubicacion ubicacion) {
+    return Card(
+      elevation: 2,
+      margin: const EdgeInsets.symmetric(vertical: 6.0),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ListTile(
+        leading: const Icon(Icons.place_outlined, color: Colors.green, size: 30),
+        title: Text(ubicacion.descripcion ?? 'Ubicación', style: const TextStyle(fontWeight: FontWeight.w500)),
+        subtitle: ubicacion.direccion != null && ubicacion.direccion!.isNotEmpty
+            ? Text(ubicacion.direccion!, style: TextStyle(color: Colors.grey[600]))
+            : null,
+        trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+        onTap: () { /* Acción futura: editar o ver ubicación */ },
       ),
     );
+  }
+
+  Future<void> _addLocation(BuildContext context) async {
+    final newUbicacion = await showDialog<Ubicacion>(
+      context: context,
+      builder: (context) => _AddLocationDialog(userId: widget.usuario.idUsuario),
+    );
+
+    if (newUbicacion == null) return;
+
+    final dbService = Provider.of<DatabaseService>(context, listen: false);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await dbService.guardarUbicacion(newUbicacion);
+      _refreshUbicaciones();
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Ubicación guardada exitosamente!')),
+      );
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Error al guardar ubicación: ${e.toString()}')),
+      );
+    }
   }
 
   Widget _buildProfileHeader(ThemeData theme, Usuario usuario) {
@@ -195,7 +248,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildErrorState(String title, String message) {
-    return Center(child: Padding(padding: const EdgeInsets.symmetric(vertical: 32.0, horizontal: 16.0), child: Column(children: [
+    return Center(child: Padding(padding: const EdgeInsets.symmetric(vertical: 32.0, horizontal: 16.0), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
       const Icon(Icons.cloud_off, size: 48, color: Colors.redAccent),
       const SizedBox(height: 16),
       Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -205,12 +258,120 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildEmptyState(String title, String message) {
-    return Center(child: Padding(padding: const EdgeInsets.symmetric(vertical: 32.0, horizontal: 16.0), child: Column(children: [
+    return Center(child: Padding(padding: const EdgeInsets.symmetric(vertical: 32.0, horizontal: 16.0), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
       const Icon(Icons.map_outlined, size: 48, color: Colors.grey),
       const SizedBox(height: 16),
       Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
       const SizedBox(height: 8),
       Text(message, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[600])),
     ])));
+  }
+}
+
+// Widget de diálogo para añadir una nueva ubicación
+class _AddLocationDialog extends StatefulWidget {
+  final int userId;
+  const _AddLocationDialog({required this.userId});
+
+  @override
+  State<_AddLocationDialog> createState() => _AddLocationDialogState();
+}
+
+class _AddLocationDialogState extends State<_AddLocationDialog> {
+  final TextEditingController _addressController = TextEditingController();
+  final TextEditingController _descriptionController = TextEditingController();
+  double? _currentLat, _currentLong;
+  bool _isDetectingLocation = false;
+  final loc.Location _location = loc.Location();
+
+  @override
+  void dispose() {
+    _addressController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _detectCurrentLocation() async {
+    setState(() => _isDetectingLocation = true);
+    final messenger = ScaffoldMessenger.of(context);
+
+    try {
+      final status = await Permission.location.request();
+      if (status.isGranted) {
+        final locationData = await _location.getLocation();
+        if (!mounted) return;
+        setState(() {
+          _currentLat = locationData.latitude;
+          _currentLong = locationData.longitude;
+        });
+        messenger.showSnackBar(const SnackBar(content: Text('Ubicación detectada!')));
+      } else {
+        messenger.showSnackBar(const SnackBar(content: Text('Permiso de ubicación denegado.')));
+      }
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Error al detectar ubicación: $e')));
+    } finally {
+      if (mounted) {
+        setState(() => _isDetectingLocation = false);
+      }
+    }
+  }
+
+  void _save() {
+    if (_descriptionController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('La descripción (ej. Casa, Trabajo) es obligatoria.')));
+      return;
+    }
+    final newUbicacion = Ubicacion(
+      idUsuario: widget.userId,
+      direccion: _addressController.text.isNotEmpty ? _addressController.text : null,
+      descripcion: _descriptionController.text,
+      latitud: _currentLat,
+      longitud: _currentLong,
+    );
+    Navigator.of(context).pop(newUbicacion);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Añadir Nueva Ubicación'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _descriptionController,
+              decoration: const InputDecoration(labelText: 'Descripción (ej. Casa, Trabajo)'),
+              textCapitalization: TextCapitalization.words,
+            ),
+            TextField(
+              controller: _addressController,
+              decoration: const InputDecoration(labelText: 'Dirección (Opcional)'),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: _isDetectingLocation ? null : _detectCurrentLocation,
+              icon: _isDetectingLocation 
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.gps_fixed),
+              label: const Text('Detectar Ubicación Actual'),
+            ),
+            if (_currentLat != null && _currentLong != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: Text('Lat: ${_currentLat!.toStringAsFixed(4)}, Long: ${_currentLong!.toStringAsFixed(4)}', style: Theme.of(context).textTheme.bodySmall),
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
+        ElevatedButton(
+          onPressed: _save,
+          child: const Text('Guardar'),
+        ),
+      ],
+    );
   }
 }

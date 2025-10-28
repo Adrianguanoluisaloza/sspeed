@@ -5,6 +5,13 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "type": "java",
+            "name": "DeliveryApi",
+            "request": "launch",
+            "mainClass": "com.mycompany.delivery.api.DeliveryApi",
+            "projectName": "delivery-api"
+        },
+        {
             "name": "sspeed",
             "request": "launch",
             "type": "dart"

@@ -12,7 +12,7 @@ class Usuario {
   final DateTime? fechaRegistro;
   final bool activo;
   final String? contrasena;
-  final bool esInvitado;
+  // Eliminado: final bool esInvitado;
   final String? token;
 
   const Usuario({
@@ -24,7 +24,7 @@ class Usuario {
     this.fechaRegistro,
     this.contrasena,
     this.activo = true,
-    this.esInvitado = false,
+  // Eliminado: this.esInvitado = false,
     this.token,
   });
 
@@ -77,21 +77,7 @@ class Usuario {
     );
   }
 
-  /// Instancia utilizada para el modo invitado (sin autenticación).
-  factory Usuario.guest() {
-    return Usuario(
-      idUsuario: 0,
-      nombre: 'Invitado',
-      correo: 'invitado@local',
-      rol: 'invitado',
-      activo: true,
-      esInvitado: true,
-      token: null,
-    );
-  }
-
-  // Alias usado en algunas pantallas para indicar no autenticado
-  factory Usuario.noAuth() => Usuario.guest();
+  // Eliminado: factory Usuario.guest() y factory Usuario.noAuth()
 
   /// Conversión a mapa para peticiones POST/PUT cuando sea necesario.
   Map<String, dynamic> toMap() {
@@ -109,23 +95,22 @@ class Usuario {
   }
 
   bool get estaActivo => activo;
-  bool get isGuest => esInvitado;
-  bool get isAuthenticated => !esInvitado && idUsuario > 0;
+  bool get isAuthenticated => idUsuario > 0;
+  bool get isGuest => idUsuario <= 0;
 
   /// Método auxiliar para actualizar propiedades opcionales sin perder la
   /// información original del usuario autenticado (por ejemplo, al adjuntar
   /// el token JWT proveniente de la API unificada).
   Usuario copyWith({
-    int? idUsuario,
-    String? nombre,
-    String? correo,
-    String? rol,
-    String? telefono,
-    DateTime? fechaRegistro,
-    bool? activo,
-    String? contrasena,
-    bool? esInvitado,
-    String? token,
+  int? idUsuario,
+  String? nombre,
+  String? correo,
+  String? rol,
+  String? telefono,
+  DateTime? fechaRegistro,
+  bool? activo,
+  String? contrasena,
+  String? token,
   }) {
     return Usuario(
       idUsuario: idUsuario ?? this.idUsuario,
@@ -136,7 +121,6 @@ class Usuario {
       fechaRegistro: fechaRegistro ?? this.fechaRegistro,
       contrasena: contrasena ?? this.contrasena,
       activo: activo ?? this.activo,
-      esInvitado: esInvitado ?? this.esInvitado,
       token: token ?? this.token,
     );
   }

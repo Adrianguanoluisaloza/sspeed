@@ -1,12 +1,13 @@
 package com.mycompany.delivery.api.controller;
 
+import java.sql.SQLException;
+import java.util.List;
+import java.util.Optional;
+
 import com.mycompany.delivery.api.model.Usuario;
 import com.mycompany.delivery.api.repository.UsuarioRepository;
 import com.mycompany.delivery.api.util.ApiException;
 import com.mycompany.delivery.api.util.ApiResponse;
-import java.sql.SQLException;
-import java.util.List;
-import java.util.Optional;
 
 /**
  * Controlador REST para la gestión de usuarios.
@@ -16,19 +17,57 @@ public class UsuarioController {
 
     private final UsuarioRepository repo = new UsuarioRepository();
 
+        /**
+         * Valida el token JWT y devuelve el usuario autenticado.
+         * Simulación: decodifica el token y busca el usuario por id.
+         * Reemplaza por tu lógica real de validación JWT.
+         */
+        public Usuario validarToken(String token) {
+            // Simulación: el token es el id_usuario en texto
+            try {
+                int idUsuario = Integer.parseInt(token); // Reemplaza por decodificación JWT real
+                Optional<Usuario> usuarioOpt = repo.obtenerPorId(idUsuario);
+                if (usuarioOpt.isEmpty()) {
+                    throw new ApiException(401, "Usuario no encontrado para el token");
+                }
+                Usuario usuario = usuarioOpt.get();
+                if (!usuario.isActivo()) {
+                    throw new ApiException(403, "Usuario inactivo");
+                }
+                if (usuario.getRol() == null || usuario.getRol().isBlank()) {
+                    throw new ApiException(403, "Usuario sin rol definido");
+                }
+                return usuario;
+            } catch (NumberFormatException e) {
+                throw new ApiException(401, "Token inválido");
+            } catch (Exception e) {
+                throw new ApiException(500, "Error validando token", e);
+            }
+        }
     // ===========================
     // LOGIN
     // ===========================
-    public ApiResponse<Usuario> login(String correo, String contrasena) {
+    public ApiResponse<java.util.Map<String, Object>> login(String correo, String contrasena) {
         if (correo == null || correo.isBlank() || contrasena == null || contrasena.isBlank()) {
             throw new ApiException(400, "Correo y contraseña son obligatorios");
         }
         try {
-            Optional<Usuario> usuario = repo.autenticar(correo, contrasena);
-            if (usuario.isEmpty()) {
+            Optional<Usuario> usuarioOpt = repo.autenticar(correo, contrasena);
+            if (usuarioOpt.isEmpty()) {
                 throw new ApiException(401, "Credenciales incorrectas");
             }
-            return ApiResponse.success(200, "Inicio de sesión exitoso", usuario.get());
+            Usuario usuario = usuarioOpt.get();
+            // Simulación: el token es el idUsuario en texto. Reemplaza por JWT real cuando esté listo.
+            java.util.Map<String, Object> userMap = new java.util.HashMap<>();
+            userMap.put("idUsuario", usuario.getIdUsuario());
+            userMap.put("nombre", usuario.getNombre());
+            userMap.put("correo", usuario.getCorreo());
+            userMap.put("contrasena", usuario.getContrasena());
+            userMap.put("telefono", usuario.getTelefono());
+            userMap.put("rol", usuario.getRol());
+            userMap.put("activo", usuario.isActivo());
+            userMap.put("token", String.valueOf(usuario.getIdUsuario()));
+            return ApiResponse.success(200, "Inicio de sesión exitoso", userMap);
         } catch (SQLException e) {
             throw new ApiException(500, "Error al autenticar usuario", e);
         }

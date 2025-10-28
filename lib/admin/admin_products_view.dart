@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 
 import '../models/producto.dart';
 import '../services/database_service.dart';
+import 'admin_edit_product_screen.dart';
+import '../services/api_exception.dart';
 
 class AdminProductsView extends StatefulWidget {
   const AdminProductsView({super.key});
@@ -31,14 +33,33 @@ class _AdminProductsViewState extends State<AdminProductsView> {
     });
   }
 
+  void _navigateAndRefresh(BuildContext context, {Producto? product}) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AdminEditProductScreen(producto: product),
+      ),
+    );
+    if (result == true && mounted) {
+      _refresh();
+    }
+  }
+
   /// Widget auxiliar para mostrar el estado del stock de forma visual.
-  Widget _buildStockChip(int? stock) {
+  Widget _buildStockChip(int? stock, bool disponible) {
     if (stock == null) {
       return const Chip(
         avatar: Icon(Icons.help_outline, color: Colors.white, size: 16),
         label: Text('N/A'),
         backgroundColor: Colors.grey,
         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      );
+    }
+    if (!disponible) {
+      return const Chip(
+        avatar: Icon(Icons.cancel_outlined, color: Colors.white, size: 16),
+        label: Text('No Disponible', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
+        backgroundColor: Colors.grey,
       );
     }
 
@@ -77,7 +98,11 @@ class _AdminProductsViewState extends State<AdminProductsView> {
       appBar: AppBar(
         title: const Text('Gestionar Productos'),
         actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _refresh),
+          IconButton(
+            icon: const Icon(Icons.add_circle_outline),
+            onPressed: () => _navigateAndRefresh(context),
+            tooltip: 'Añadir Producto',
+          ),
         ],
       ),
       body: FutureBuilder<List<Producto>>(
@@ -144,7 +169,7 @@ class _AdminProductsViewState extends State<AdminProductsView> {
                             const SizedBox(height: 8),
                             // --- CAMBIO REALIZADO AQUÍ ---
                             // Se reemplaza el Text simple por el Chip visual.
-                            _buildStockChip(product.stock),
+                            _buildStockChip(product.stock, product.disponible),
                           ],
                         ),
                       ),
@@ -152,12 +177,39 @@ class _AdminProductsViewState extends State<AdminProductsView> {
                       IconButton(
                           icon: const Icon(Icons.edit, color: Colors.blue),
                           onPressed: () {
-                            /* TODO: Implementar edición */
+                            _navigateAndRefresh(context, product: product);
                           }),
                       IconButton(
                           icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () {
-                            /* TODO: Implementar eliminación */
+                          onPressed: () async {
+                            final confirm = await showDialog<bool>(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: const Text('Confirmar'),
+                                content: Text('¿Seguro que quieres eliminar "${product.nombre}"?'),
+                                actions: [
+                                  TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancelar')),
+                                  TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Eliminar', style: TextStyle(color: Colors.red))),
+                                ],
+                              ),
+                            );
+                            if (confirm == true) {
+                              if (!mounted) return;
+                              final dbService = Provider.of<DatabaseService>(context, listen: false);
+                              final messenger = ScaffoldMessenger.of(context);
+
+                              try {
+                                final success = await dbService.deleteProducto(product.idProducto);
+                                if (success) {
+                                  messenger.showSnackBar(const SnackBar(content: Text('Producto eliminado'), backgroundColor: Colors.green));
+                                  _refresh();
+                                } else {
+                                  messenger.showSnackBar(const SnackBar(content: Text('No se pudo eliminar el producto'), backgroundColor: Colors.red));
+                                }
+                              } on ApiException catch (e) {
+                                messenger.showSnackBar(SnackBar(content: Text('Error: ${e.message}'), backgroundColor: Colors.red));
+                              }
+                            }
                           }),
                     ],
                   ),
@@ -169,7 +221,7 @@ class _AdminProductsViewState extends State<AdminProductsView> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // TODO: Implementar lógica para añadir un nuevo producto
+          _navigateAndRefresh(context);
         },
         tooltip: 'Añadir Producto',
         child: const Icon(Icons.add),

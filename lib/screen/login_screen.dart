@@ -72,22 +72,27 @@ class _LoginScreenState extends State<LoginScreen>
     setState(() => _isLoading = true);
 
     try {
-      final user =
-      await databaseService.login(_emailController.text.trim(), _passwordController.text);
+      final user = await databaseService.login(_emailController.text.trim(), _passwordController.text);
 
       if (user != null && user.isAuthenticated) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('userEmail', user.correo);
         await prefs.setString('userPassword', _passwordController.text);
-
+        await prefs.remove('authToken');
+        if (user.token != null && user.token!.isNotEmpty) {
+          await prefs.setString('authToken', user.token!);
+        }
+        databaseService.setAuthToken(user.token);
         sessionController.setUser(user);
 
-        String targetRoute = AppRoutes.mainNavigator;
-        if (user.rol == 'admin') targetRoute = AppRoutes.adminHome;
-        if (user.rol == 'delivery') targetRoute = AppRoutes.deliveryHome;
-
-        navigator.pushNamedAndRemoveUntil(targetRoute, (route) => false,
-            arguments: user);
+        // Navega según el rol
+        if (user.rol == 'admin') {
+          navigator.pushNamedAndRemoveUntil(AppRoutes.adminHome, (route) => false, arguments: user);
+        } else if (user.rol == 'delivery') {
+          navigator.pushNamedAndRemoveUntil(AppRoutes.deliveryHome, (route) => false, arguments: user);
+        } else {
+          navigator.pushNamedAndRemoveUntil(AppRoutes.mainNavigator, (route) => false, arguments: user);
+        }
       } else {
         messenger.showSnackBar(
           const SnackBar(

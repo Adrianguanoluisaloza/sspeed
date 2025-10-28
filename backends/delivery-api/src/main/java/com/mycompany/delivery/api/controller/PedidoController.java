@@ -1,13 +1,20 @@
 package com.mycompany.delivery.api.controller;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Types;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import com.mycompany.delivery.api.config.Database;
 import com.mycompany.delivery.api.model.DetallePedido;
 import com.mycompany.delivery.api.model.Pedido;
 import com.mycompany.delivery.api.util.ApiException;
 import com.mycompany.delivery.api.util.ApiResponse;
-
-import java.sql.*;
-import java.util.*;
 
 /**
  * Controlador para manejar la lógica de negocio de los pedidos.
@@ -338,19 +345,23 @@ public class PedidoController {
     // METODOS INTERNOS SIN ApiResponse
     // ===============================
     private List<Pedido> listarPedidosDisponiblesRaw() throws SQLException {
-        String sql = "SELECT * FROM pedidos WHERE estado = 'pendiente'";
+        String sql = "SELECT id_pedido, id_cliente, id_delivery, id_ubicacion, fecha_pedido, fecha_entrega, estado, total, direccion_entrega, metodo_pago, notas, coordenadas_entrega FROM pedidos WHERE estado = 'pendiente'";
         try (Connection conn = Database.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql);
              ResultSet rs = stmt.executeQuery()) {
-
             List<Pedido> pedidos = new ArrayList<>();
             while (rs.next()) {
                 Pedido p = new Pedido();
                 p.setIdPedido(rs.getInt("id_pedido"));
                 p.setIdCliente(rs.getInt("id_cliente"));
+                p.setIdDelivery((Integer) rs.getObject("id_delivery"));
+                p.setIdUbicacion((Integer) rs.getObject("id_ubicacion"));
+                p.setFechaPedido(rs.getTimestamp("fecha_pedido"));
+                p.setFechaEntrega(rs.getTimestamp("fecha_entrega"));
                 p.setEstado(rs.getString("estado"));
                 p.setTotal(rs.getDouble("total"));
-                p.setFechaPedido(rs.getTimestamp("fecha_pedido"));
+                p.setDireccionEntrega(rs.getString("direccion_entrega"));
+                p.setMetodoPago(rs.getString("metodo_pago"));
                 pedidos.add(p);
             }
             return pedidos;

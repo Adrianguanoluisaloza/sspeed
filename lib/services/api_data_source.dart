@@ -32,6 +32,7 @@ class ApiDataSource implements DataSource {
 
   Map<String, String> get _jsonHeaders {
     final headers = {'Content-Type': 'application/json; charset=UTF-8'};
+    debugPrint('[ApiDataSource] Token actual: \033[33m$_token\033[0m');
     if (_token != null) {
       headers['Authorization'] = 'Bearer $_token';
     }
@@ -220,6 +221,11 @@ class ApiDataSource implements DataSource {
   Future<List<Ubicacion>> getUbicaciones(int idUsuario) async {
     final data = await _get('/ubicaciones/usuario/$idUsuario');
     return data.cast<Map<String, dynamic>>().map(Ubicacion.fromMap).toList();
+  }
+
+  @override
+  Future<void> guardarUbicacion(Ubicacion ubicacion) async {
+    await _post('/ubicaciones', ubicacion.toMap());
   }
 
   @override

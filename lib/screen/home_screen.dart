@@ -7,6 +7,8 @@ import '../models/cart_model.dart';
 import '../models/producto.dart';
 import '../models/usuario.dart';
 import '../widgets/recomendaciones_carousel.dart'; 
+import 'live_map_screen.dart';
+import 'profile_screen.dart';
 import '../services/database_service.dart';
 import 'widgets/login_required_dialog.dart';
 import 'product_detail_screen.dart';
@@ -21,99 +23,6 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  late Future<List<Producto>> _productosFuture;
-  late DatabaseService _databaseService;
-
-  final TextEditingController _searchController = TextEditingController();
-  String _selectedCategory = "Todos";
-  Timer? _debounce;
-
-  final List<String> _categories = const [
-    'Todos', 'Pizzas', 'Hamburguesas', 'Acompañamientos', 'Bebidas',
-    'Postres', 'Ensaladas', 'Pastas', 'Mexicana', 'Japonesa', 'Mariscos',
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    _databaseService = Provider.of<DatabaseService>(context, listen: false);
-    _loadData();
-    _searchController.addListener(_onSearchChanged);
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    _debounce?.cancel();
-    super.dispose();
-  }
-
-  void _loadData() => _loadProducts();
-
-  void _loadProducts() {
-    final query = _searchController.text.trim();
-    final categoryFilter = _selectedCategory == 'Todos' ? '' : _selectedCategory;
-    setState(() {
-      _productosFuture = _databaseService.getProductos(query: query, categoria: categoryFilter);
-    });
-  }
-
-  void _onSearchChanged() {
-    if (_debounce?.isActive ?? false) _debounce!.cancel();
-    _debounce = Timer(const Duration(milliseconds: 500), _loadProducts);
-  }
-
-  void _handleCartTap() {
-    if (!widget.usuario.isAuthenticated) {
-      showLoginRequiredDialog(context);
-    } else {
-      Navigator.push(context, MaterialPageRoute(builder: (context) => CartScreen(usuario: widget.usuario)));
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final firstName = widget.usuario.nombre.split(' ').first;
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Hola, ${!widget.usuario.isAuthenticated ? 'invitado' : firstName}'),
-        actions: [
-          Consumer<CartModel>(
-            builder: (context, cart, child) => Badge(
-              label: Text(cart.items.length.toString()),
-              isLabelVisible: cart.items.isNotEmpty,
-              child: IconButton(icon: const Icon(Icons.shopping_cart_outlined), onPressed: _handleCartTap),
-            ),
-          ),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: () async => _loadData(),
-        child: CustomScrollView(
-          slivers: <Widget>[
-            SliverToBoxAdapter(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildSearchBar(),
-                  // CORRECCIÓN: Se pasa el usuario requerido al carrusel.
-                  RecomendacionesCarousel(usuario: widget.usuario),
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-                    child: Text('Nuestro Menú', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                  ),
-                  _buildCategoryList(),
-                ],
-              ),
-            ),
-            _buildProductsGrid(),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildSearchBar() => Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
         child: TextField(
@@ -181,6 +90,212 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         },
       );
+  late Future<List<Producto>> _productosFuture;
+  late DatabaseService _databaseService;
+
+  final TextEditingController _searchController = TextEditingController();
+  String _selectedCategory = "Todos";
+  Timer? _debounce;
+
+  final List<String> _categories = const [
+    'Todos', 'Pizzas', 'Hamburguesas', 'Acompañamientos', 'Bebidas',
+    'Postres', 'Ensaladas', 'Pastas', 'Mexicana', 'Japonesa', 'Mariscos',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _databaseService = Provider.of<DatabaseService>(context, listen: false);
+    _loadData();
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  void _loadData() => _loadProducts();
+
+  void _loadProducts() {
+    final query = _searchController.text.trim();
+    final categoryFilter = _selectedCategory == 'Todos' ? '' : _selectedCategory;
+    setState(() {
+      _productosFuture = _databaseService.getProductos(query: query, categoria: categoryFilter);
+    });
+  }
+
+  void _onSearchChanged() {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), _loadProducts);
+  }
+
+  void _handleCartTap() {
+    if (!widget.usuario.isAuthenticated) {
+      showLoginRequiredDialog(context);
+    } else {
+      Navigator.push(context, MaterialPageRoute(builder: (context) => CartScreen(usuario: widget.usuario)));
+    }
+  }
+
+  int _selectedIndex = 0;
+
+  Widget _buildProductosTab() {
+    return RefreshIndicator(
+      onRefresh: () async => _loadData(),
+      child: CustomScrollView(
+        slivers: <Widget>[
+          SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildSearchBar(),
+                RecomendacionesCarousel(usuario: widget.usuario),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: Text('Nuestro Menú', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                ),
+                _buildCategoryList(),
+              ],
+            ),
+          ),
+          _buildProductsGrid(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMapaTab() => const LiveMapScreen();
+  Widget _buildPerfilTab() => ProfileScreen(usuario: widget.usuario);
+
+  void _onTabTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Solo cliente tiene BottomNavigationBar y burbuja de chat
+    final isCliente = widget.usuario.rol == 'cliente';
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Hola, ${widget.usuario.nombre.split(' ').first}'),
+        actions: [
+          Consumer<CartModel>(
+            builder: (context, cart, child) => Badge(
+              label: Text(cart.items.length.toString()),
+              isLabelVisible: cart.items.isNotEmpty,
+              child: IconButton(icon: const Icon(Icons.shopping_cart_outlined), onPressed: _handleCartTap),
+            ),
+          ),
+        ],
+      ),
+      body: isCliente
+          ? Stack(
+              children: [
+                if (_selectedIndex == 0) _buildProductosTab(),
+                if (_selectedIndex == 1) _buildMapaTab(),
+                if (_selectedIndex == 2) _buildPerfilTab(),
+                Positioned(
+                  bottom: 24,
+                  right: 24,
+                  child: _ChatBubble(),
+                ),
+              ],
+            )
+          : _buildProductosTab(),
+      bottomNavigationBar: isCliente
+          ? BottomNavigationBar(
+              currentIndex: _selectedIndex,
+              onTap: _onTabTapped,
+              items: const [
+                BottomNavigationBarItem(icon: Icon(Icons.fastfood), label: 'Productos'),
+                BottomNavigationBarItem(icon: Icon(Icons.map), label: 'Mapa'),
+                BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Perfil'),
+              ],
+            )
+          : null,
+    );
+  }
+
+}
+
+class _ChatBubble extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      alignment: Alignment.bottomRight,
+      children: [
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+          margin: const EdgeInsets.only(right: 0, bottom: 0),
+          child: Material(
+            elevation: 8,
+            shape: const CircleBorder(),
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(32),
+              onTap: () {
+                // Aquí puedes abrir el chat real
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Abrir chat...')));
+              },
+              child: Container(
+                width: 62,
+                height: 62,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF4F8CFF), Color(0xFF3EDBF0)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.18),
+                      blurRadius: 12,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    const Icon(Icons.chat_bubble_rounded, color: Colors.white, size: 32),
+                    Positioned(
+                      top: 12,
+                      right: 12,
+                      child: Container(
+                        width: 16,
+                        height: 16,
+                        decoration: BoxDecoration(
+                          color: Colors.redAccent,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.redAccent.withOpacity(0.5),
+                              blurRadius: 6,
+                            ),
+                          ],
+                        ),
+                        child: const Center(
+                          child: Text('1', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
 }
 
 class ProductCard extends StatelessWidget {

@@ -1,11 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-import '../models/session_state.dart';
-import '../models/usuario.dart';
-import '../services/api_exception.dart';
-import '../services/database_service.dart';
 import '../routes/app_routes.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -22,66 +16,13 @@ class _SplashScreenState extends State<SplashScreen> {
     _checkLoginStatus();
   }
   Future<void> _checkLoginStatus() async {
-    await Future.delayed(const Duration(milliseconds: 1200));
+    // Siempre mostrar login al iniciar
     if (!mounted) return;
-    final prefs = await SharedPreferences.getInstance();
-    if (!mounted) return; // Validamos nuevamente antes de acceder al contexto tras obtener preferencias asíncronas.
-    final userEmail = prefs.getString('userEmail');
-    final userPassword = prefs.getString('userPassword');
-    final storedToken = prefs.getString('authToken');
-    final databaseService = context.read<DatabaseService>();
-    final session = context.read<SessionController>();
-
-    databaseService.setAuthToken(storedToken);
-
-    if (userEmail != null && userPassword != null) {
-      try {
-        final user = await databaseService.login(userEmail, userPassword);
-        if (!mounted) return;
-        if (user != null && user.estaActivo) {
-          databaseService.setAuthToken(user.token);
-          if (user.token != null && user.token!.isNotEmpty) {
-            await prefs.setString('authToken', user.token!);
-          }
-          session.setUser(user);
-          _navigateForUser(user);
-          return;
-        }
-      } on ApiException catch (_) {
-        // Ignoramos, el flujo continuará como invitado
-      } catch (_) {
-        // Cualquier otro error redirige al flujo invitado
-      }
-    }
-
-    if (!mounted) return;
-    await prefs.remove('authToken');
-    databaseService.setAuthToken(null);
-    session.setGuest();
-    _navigateAsGuest();
+    Navigator.of(context).pushReplacementNamed(AppRoutes.login);
   }
 
-  void _navigateForUser(Usuario user) {
-    String targetRoute;
-    switch (user.rol) {
-      case 'admin':
-        targetRoute = AppRoutes.adminHome;
-        break;
-      case 'delivery':
-        targetRoute = AppRoutes.deliveryHome;
-        break;
-      default:
-        targetRoute = AppRoutes.mainNavigator;
-    }
 
-    Navigator.of(context).pushReplacementNamed(targetRoute, arguments: user);
-  }
 
-  void _navigateAsGuest() {
-    final guest = context.read<SessionController>().usuario;
-    Navigator.of(context)
-        .pushReplacementNamed(AppRoutes.mainNavigator, arguments: guest);
-  }
 
   @override
   Widget build(BuildContext context) {

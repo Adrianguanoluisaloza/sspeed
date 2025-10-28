@@ -1,4 +1,4 @@
-/// Mensaje individual intercambiado dentro de una conversación.
+/// Mensaje individual intercambiado dentro de una conversaciÃ³n.
 class ChatMessage {
   final int idMensaje;
   final int idConversacion;
@@ -15,6 +15,17 @@ class ChatMessage {
     this.fechaEnvio,
     this.remitenteNombre,
   });
+
+  // CORRECCIÃ“N: Se aÃ±ade el factory constructor para el indicador de "escribiendo..."
+  factory ChatMessage.typing() {
+    return ChatMessage(
+      idMensaje: -1, // ID especial para identificar este estado en la UI
+      idConversacion: 0,
+      idRemitente: 0,
+      mensaje: '...',
+      fechaEnvio: DateTime.now(),
+    );
+  }
 
   factory ChatMessage.fromMap(Map<String, dynamic> map) {
     int parseInt(dynamic value) {

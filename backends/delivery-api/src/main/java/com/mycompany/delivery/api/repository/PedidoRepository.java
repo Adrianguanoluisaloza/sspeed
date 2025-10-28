@@ -1,11 +1,18 @@
 package com.mycompany.delivery.api.repository;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.sql.Types;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
 import com.mycompany.delivery.api.config.Database;
 import com.mycompany.delivery.api.model.DetallePedido;
 import com.mycompany.delivery.api.model.Pedido;
-
-import java.sql.*;
-import java.util.*;
 
 /**
  * Repositorio JDBC para operaciones con la tabla pedidos.
@@ -15,7 +22,7 @@ public class PedidoRepository {
 
     public int crearPedido(Pedido pedido, List<DetallePedido> detalles) throws SQLException {
         String sqlPedido = "INSERT INTO pedidos (id_cliente, id_delivery, id_ubicacion, estado, total, direccion_entrega, metodo_pago) VALUES (?, ?, ?, ?, ?, ?, ?)";
-        String sqlDetalle = "INSERT INTO detalle_pedido (id_pedido, id_producto, cantidad, precio_unitario, subtotal) VALUES (?, ?, ?, ?, ?)";
+    String sqlDetalle = "INSERT INTO detalle_pedidos (id_pedido, id_producto, cantidad, precio_unitario, subtotal) VALUES (?, ?, ?, ?, ?)";
 
         try (Connection conn = Database.getConnection()) {
             conn.setAutoCommit(false);

@@ -6,6 +6,8 @@ import com.google.gson.annotations.SerializedName;
 import com.mycompany.delivery.api.config.Database;
 import com.mycompany.delivery.api.controller.*;
 import com.mycompany.delivery.api.model.*;
+import com.mycompany.delivery.api.payloads.Payloads.PedidoDetallePayload;
+import com.mycompany.delivery.api.payloads.Payloads.PedidoPayload;
 import com.mycompany.delivery.api.repository.ChatRepository;
 import com.mycompany.delivery.api.repository.UbicacionRepository;
 import com.mycompany.delivery.api.util.ApiException;
@@ -28,8 +30,9 @@ import static spark.Spark.*;
  * API principal unificada y lista para compilar.
  */
 public final class DeliveryApi {
-
-    private static final Gson GSON = new Gson();
+ 
+    private static 
+final Gson GSON = new Gson();
 
     private static final UsuarioController USUARIO_CONTROLLER = new UsuarioController();
     private static final ProductoController PRODUCTO_CONTROLLER = new ProductoController();
@@ -171,9 +174,33 @@ public final class DeliveryApi {
         port(4567);
         Database.ping();
         enableCORS();
+            // Filtro de autenticación para pedidos/disponibles
+            before("/pedidos/disponibles", (var request, var response) -> {
+                String authHeader = request.headers("Authorization");
+                if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                    halt(401, GSON.toJson(ApiResponse.error(401, "Token de autenticación requerido")));
+                }
+                String token = authHeader.substring(7);
+                // Simulación de validación de token y obtención de usuario
+                // Reemplaza esto por tu lógica real de validación JWT
+                Usuario usuario = USUARIO_CONTROLLER.validarToken(token);
+                if (usuario == null) {
+                    halt(401, GSON.toJson(ApiResponse.error(401, "Token inválido")));
+                }
+                if (!"delivery".equalsIgnoreCase(usuario.getRol())) {
+                     System.out.println("[DEBUG] usuario.getRol() = '" + usuario.getRol() + "'");
+                      System.out.println("[DEBUG] ID de usuario: " + usuario.getIdUsuario());
+    System.out.println("[DEBUG] Token recibido: " + token);
+                    halt(403, GSON.toJson(ApiResponse.error(403, "Acceso solo para repartidores")));
+                }
+                request.attribute("id_usuario", usuario.getIdUsuario());
+            });
         setupRoutes();
         setupExceptionHandlers();
-        System.out.println("Â­Æ’ÃœÃ‡ Servidor Delivery API iniciado en http://localhost:4567");
+        
+       System.out.println("[INFO] Servidor Delivery API iniciado en http://localhost:4567");
+
+       
     }
 
     private static void setupRoutes() {
@@ -242,7 +269,7 @@ public final class DeliveryApi {
                 GSON::toJson);
     }
     
-    
+// (Eliminado bloque duplicado de before("/pedidos/disponibles", ...) aquí)
 
 // ===================== AUTH =====================
     private static void registerAuthRoutes() {
@@ -349,9 +376,9 @@ private static void registerPedidoRoutes() {
     }, GSON::toJson);
 
     // Listar todos los pedidos
-    get("/pedidos", (req, res)
-            -> respond(res, PEDIDO_CONTROLLER.getPedidos()),
-            GSON::toJson);
+    get("/pedidos", (req, res) -> {
+        return respond(res, PEDIDO_CONTROLLER.getPedidos());
+    }, GSON::toJson);
 
         get("/pedidos/:id", (req, res)
                 -> respond(res, PEDIDO_CONTROLLER.obtenerPedidoConDetalle(parseId(req.params(":id")))),

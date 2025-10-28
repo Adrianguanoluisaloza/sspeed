@@ -41,6 +41,9 @@ class DatabaseService implements DataSource {
   Future<List<Ubicacion>> getUbicaciones(int idUsuario) => _dataSource.getUbicaciones(idUsuario);
 
   @override
+  Future<void> guardarUbicacion(Ubicacion ubicacion) => _dataSource.guardarUbicacion(ubicacion);
+
+  @override
   Future<List<ProductoRankeado>> getRecomendaciones() => _dataSource.getRecomendaciones();
 
   @override

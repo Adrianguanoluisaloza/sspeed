@@ -1,19 +1,21 @@
 /// Modelo de datos para la tabla `ubicaciones`.
 class Ubicacion {
-  final int id;
+  final int? id;
   final int idUsuario;
-  final double latitud;
-  final double longitud;
+  final double? latitud;
+  final double? longitud;
   final String? direccion;
+  final String? descripcion;
   final DateTime? fechaRegistro;
   final bool activa;
 
   const Ubicacion({
-    required this.id,
+    this.id,
     required this.idUsuario,
-    required this.latitud,
-    required this.longitud,
+    this.latitud,
+    this.longitud,
     this.direccion,
+    this.descripcion,
     this.fechaRegistro,
     this.activa = true,
   });
@@ -52,7 +54,7 @@ class Ubicacion {
     }
 
     return Ubicacion(
-      id: parseInt(readValue(['id_ubicacion', 'idUbicacion'])),
+      id: parseInt(readValue(['id_ubicacion', 'idUbicacion', 'id'])),
       idUsuario: parseInt(readValue(['id_usuario', 'idUsuario'])),
       latitud: parseDouble(
         readValue(['latitud', 'lat', 'latitude']) ?? 0,
@@ -62,6 +64,7 @@ class Ubicacion {
       ),
       direccion:
           readValue(['direccion', 'direccion_entrega', 'address'])?.toString(),
+      descripcion: readValue(['descripcion', 'description'])?.toString(),
       fechaRegistro:
           parseDate(readValue(['fecha_registro', 'fechaRegistro', 'createdAt'])),
       activa: (() {
@@ -74,5 +77,17 @@ class Ubicacion {
         return true;
       })(),
     );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'idUsuario': idUsuario,
+      'latitud': latitud,
+      'longitud': longitud,
+      'direccion': direccion,
+      'descripcion': descripcion,
+      'activa': activa,
+    };
   }
 }

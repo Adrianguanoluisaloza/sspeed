@@ -4,20 +4,34 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-
-import com.mycompany.delivery.api.config.Database;
 import java.util.Map;
 
+import com.mycompany.delivery.api.config.Database;
+
+/**
+ * Repositorio para gestionar las operaciones de la base de datos relacionadas con el chat.
+ * Incluye la gestión de conversaciones y mensajes.
+ */
 public class ChatRepository {
 
     private static final String BOT_EMAIL = "chatbot@system.local";
     private static final String BOT_NAME = "Asistente Virtual";
 
-    public void ensureConversation(long idConversacion,
+    /**
+     * Asegura que una conversación exista en la base de datos.
+     * Si no existe, la crea. Si ya existe, actualiza sus participantes si son nulos.
+     *
+     * @param idConversacion   El identificador único de la conversación.
+     * @param idCliente        El ID del cliente participante.
+     * @param idDelivery       El ID del repartidor participante.
+     * @param idAdminSoporte   El ID del administrador de soporte.
+     * @param idPedido         El ID del pedido asociado a la conversación.
+     * @throws SQLException Si ocurre un error en la base de datos.
+     */
+    public void ensureConversation(long idConversacion, //
                                    Integer idCliente,
                                    Integer idDelivery,
                                    Integer idAdminSoporte,
@@ -43,7 +57,17 @@ public class ChatRepository {
         }
     }
 
-    public Map<String, Object> insertMensaje(long idConversacion,
+    /**
+     * Inserta un nuevo mensaje en una conversación.
+     *
+     * @param idConversacion   El ID de la conversación.
+     * @param idRemitente      El ID del usuario que envía el mensaje.
+     * @param idDestinatario   El ID del usuario que recibe el mensaje (puede ser nulo).
+     * @param mensaje          El contenido del mensaje.
+     * @return Un mapa que representa el mensaje insertado, o un mapa vacío si falla.
+     * @throws SQLException Si ocurre un error en la base de datos.
+     */
+    public Map<String, Object> insertMensaje(long idConversacion, //
                                              int idRemitente,
                                              Integer idDestinatario,
                                              String mensaje) throws SQLException {
@@ -74,6 +98,13 @@ public class ChatRepository {
         return Map.of();
     }
 
+    /**
+     * Lista todos los mensajes de una conversación específica, ordenados por fecha.
+     *
+     * @param idConversacion El ID de la conversación.
+     * @return Una lista de mapas, donde cada mapa es un mensaje.
+     * @throws SQLException Si ocurre un error en la base de datos.
+     */
     public List<Map<String, Object>> listarMensajes(long idConversacion) throws SQLException {
         String sql = """
             SELECT id_mensaje, id_conversacion, id_remitente, id_destinatario, mensaje, fecha_envio
@@ -101,6 +132,13 @@ public class ChatRepository {
         }
     }
 
+    /**
+     * Lista todas las conversaciones en las que participa un usuario.
+     *
+     * @param idUsuario El ID del usuario.
+     * @return Una lista de mapas, donde cada mapa representa una conversación.
+     * @throws SQLException Si ocurre un error en la base de datos.
+     */
     public List<Map<String, Object>> listarConversacionesPorUsuario(int idUsuario) throws SQLException {
         String sql = """
             SELECT id_conversacion, id_pedido, id_cliente, id_delivery, id_admin_soporte, fecha_creacion, activa
@@ -131,6 +169,13 @@ public class ChatRepository {
         }
     }
 
+    /**
+     * Verifica si una conversación existe.
+     *
+     * @param idConversacion El ID de la conversación a verificar.
+     * @return {@code true} si la conversación existe, {@code false} en caso contrario.
+     * @throws SQLException Si ocurre un error en la base de datos.
+     */
     public boolean conversationExists(long idConversacion) throws SQLException {
         String sql = "SELECT 1 FROM chat_conversaciones WHERE id_conversacion = ?";
         try (Connection c = Database.getConnection();
@@ -142,6 +187,14 @@ public class ChatRepository {
         }
     }
 
+    /**
+     * Asegura que un usuario tenga al menos una conversación.
+     * Busca la conversación más reciente del usuario. Si no encuentra ninguna, crea una nueva.
+     *
+     * @param idUsuario El ID del usuario.
+     * @return El ID de la conversación existente o recién creada.
+     * @throws SQLException Si ocurre un error en la base de datos.
+     */
     public long ensureConversationForUser(int idUsuario) throws SQLException {
         String sql = """
             SELECT id_conversacion
@@ -166,6 +219,13 @@ public class ChatRepository {
         return newId;
     }
 
+    /**
+     * Asegura que el usuario del "Asistente Virtual" (chatbot) exista en la base de datos.
+     * Si no existe, lo crea con el rol de 'soporte'.
+     *
+     * @return El ID del usuario del chatbot.
+     * @throws SQLException Si no se puede crear o encontrar el usuario del bot.
+     */
     public int ensureBotUser() throws SQLException {
         String select = "SELECT id_usuario FROM usuarios WHERE correo = ?";
         try (Connection c = Database.getConnection();

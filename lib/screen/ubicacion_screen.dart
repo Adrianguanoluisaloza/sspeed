@@ -96,11 +96,11 @@ class _LocationCard extends StatelessWidget {
             ),
             const Divider(height: 16),
             Text(
-              'Latitud: ${ubicacion.latitud.toStringAsFixed(4)}',
+              'Latitud: ${(ubicacion.latitud ?? 0.0).toStringAsFixed(4)}',
               style: const TextStyle(fontSize: 14, color: Colors.grey),
             ),
             Text(
-              'Longitud: ${ubicacion.longitud.toStringAsFixed(4)}',
+              'Longitud: ${(ubicacion.longitud ?? 0.0).toStringAsFixed(4)}',
               style: const TextStyle(fontSize: 14, color: Colors.grey),
             ),
             const SizedBox(height: 8),

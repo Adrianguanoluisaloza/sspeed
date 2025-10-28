@@ -1,10 +1,14 @@
 package com.mycompany.delivery.api;
 
-import com.mycompany.delivery.api.config.Database;
-import com.mycompany.delivery.api.util.ApiException;
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
+
+import com.mycompany.delivery.api.config.Database;
+import com.mycompany.delivery.api.util.ApiException;
 
 public class DashboardDAO {
 
@@ -34,7 +38,7 @@ public class DashboardDAO {
                 SELECT p.nombre AS producto_mas_vendido,
                        COALESCE(SUM(dp.cantidad),0)::int AS producto_mas_vendido_cantidad
                 FROM productos p
-                LEFT JOIN detalle_pedido dp ON p.id_producto = dp.id_producto
+                LEFT JOIN detalle_pedidos dp ON p.id_producto = dp.id_producto
                 GROUP BY p.id_producto, p.nombre
                 ORDER BY producto_mas_vendido_cantidad DESC
                 LIMIT 1
