@@ -57,16 +57,9 @@ public class UsuarioController {
                 throw new ApiException(401, "Credenciales incorrectas");
             }
             Usuario usuario = usuarioOpt.get();
-            // Simulación: el token es el idUsuario en texto. Reemplaza por JWT real cuando esté listo.
-            java.util.Map<String, Object> userMap = new java.util.HashMap<>();
-            userMap.put("idUsuario", usuario.getIdUsuario());
-            userMap.put("nombre", usuario.getNombre());
-            userMap.put("correo", usuario.getCorreo());
-            userMap.put("contrasena", usuario.getContrasena());
-            userMap.put("telefono", usuario.getTelefono());
-            userMap.put("rol", usuario.getRol());
-            userMap.put("activo", usuario.isActivo());
-            userMap.put("token", String.valueOf(usuario.getIdUsuario()));
+            // El token es el idUsuario. Se añade al mapa del usuario.
+            java.util.Map<String, Object> userMap = usuario.toMap();
+            userMap.put("token", String.valueOf(usuario.getIdUsuario())); // Simulación JWT
             return ApiResponse.success(200, "Inicio de sesión exitoso", userMap);
         } catch (SQLException e) {
             throw new ApiException(500, "Error al autenticar usuario", e);

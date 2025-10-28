@@ -1,11 +1,17 @@
 package com.mycompany.delivery.api.repository;
 
-import com.mycompany.delivery.api.config.Database;
-import com.mycompany.delivery.api.model.Usuario;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
 import org.mindrot.jbcrypt.BCrypt;
 
-import java.sql.*;
-import java.util.*;
+import com.mycompany.delivery.api.config.Database;
+import com.mycompany.delivery.api.model.Usuario;
 
 /**
  * Repositorio que maneja las operaciones CRUD de los usuarios.
@@ -74,11 +80,10 @@ public class UsuarioRepository {
         try (Connection conn = Database.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-            String hash = BCrypt.hashpw(usuario.getContrasena(), BCrypt.gensalt());
-
             stmt.setString(1, usuario.getNombre());
             stmt.setString(2, usuario.getCorreo());
-            stmt.setString(3, hash);
+            // Se pasa la contraseña en texto plano. La BD la cifrará con el trigger.
+            stmt.setString(3, usuario.getContrasena());
             stmt.setString(4, usuario.getTelefono());
             stmt.setString(5, usuario.getRol());
             return stmt.executeUpdate() > 0;
@@ -131,12 +136,11 @@ public class UsuarioRepository {
         try (Connection conn = Database.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-            String hash = BCrypt.hashpw(usuario.getContrasena(), BCrypt.gensalt());
-
             stmt.setString(1, usuario.getNombre());
             stmt.setString(2, usuario.getCorreo());
             stmt.setString(3, usuario.getTelefono());
-            stmt.setString(4, hash);
+            // Se pasa la contraseña en texto plano. La BD la cifrará con el trigger si es nueva.
+            stmt.setString(4, usuario.getContrasena());
             stmt.setString(5, usuario.getRol());
             stmt.setBoolean(6, usuario.isActivo());
             stmt.setInt(7, usuario.getIdUsuario());
@@ -168,6 +172,14 @@ public class UsuarioRepository {
         u.setTelefono(rs.getString("telefono"));
         u.setRol(rs.getString("rol"));
         u.setActivo(rs.getBoolean("activo"));
+        // No incluir la contraseña en el mapeo por defecto por seguridad.
+        // Se puede añadir un método específico si se necesita explícitamente.
+        return u;
+    }
+
+    private Usuario mapRowWithPassword(ResultSet rs) throws SQLException {
+        Usuario u = mapRow(rs);
+        u.setContrasena(rs.getString("contrasena"));
         return u;
     }
 }

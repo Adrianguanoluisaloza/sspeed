@@ -61,6 +61,15 @@ public class RecomendacionController {
         }
     }
 
+    public ApiResponse<List<Map<String, Object>>> listarRecomendacionesPrincipales() {
+        try {
+            List<Map<String, Object>> recomendaciones = recomendacionRepository.listarPrincipales();
+            return ApiResponse.success(200, "Recomendaciones principales obtenidas", recomendaciones);
+        } catch (SQLException e) {
+            throw new ApiException(500, "Error al listar recomendaciones", e);
+        }
+    }
+
     private String mapForeignKeyMessage(PSQLException ex) {
         String detail = ex.getServerErrorMessage() != null ? ex.getServerErrorMessage().getDetail() : null;
         if (detail != null) {

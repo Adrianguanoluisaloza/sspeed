@@ -25,20 +25,18 @@ class GeminiService {
     List<ChatMessage> history = const [],
   }) async {
     if (_apiKey.isEmpty) {
-      return _fallbackReply(prompt);
+      return 'No se pudo conectar a la IA.';
     }
 
     final uri = Uri.parse('$_endpoint?key=$_apiKey');
+    // Prompt inicial sin restricciones, solo identidad y tono amigable
     final contents = <Map<String, dynamic>>[
       {
         'role': 'user',
         'parts': [
           {
             'text':
-                'Eres un asistente virtual de soporte para una aplicación de delivery llamada Unite7speed. '
-                    'Responde con mensajes cortos, empáticos y accionables. '
-                    'Si el usuario pregunta por un pedido, limita la respuesta a posibles soluciones '
-                    'y nunca inventes información.'
+                'Eres CIA Bot, un asistente virtual amigable y curioso. Puedes responder cualquier pregunta sobre delivery, tecnología, curiosidades, consejos, o simplemente conversar. Sé empático y útil.'
           },
         ],
       },
@@ -80,7 +78,7 @@ class GeminiService {
         debugPrint(
           'GeminiService error ${response.statusCode}: ${response.body}',
         );
-        return _fallbackReply(prompt);
+        return 'No se pudo obtener respuesta de la IA.';
       }
 
       final decoded = jsonDecode(response.body) as Map<String, dynamic>;
@@ -99,24 +97,12 @@ class GeminiService {
         if (text.isNotEmpty) return text;
       }
 
-      return _fallbackReply(prompt);
+  return 'No se pudo obtener respuesta de la IA.';
     } catch (e, stack) {
       debugPrint('GeminiService exception: $e\n$stack');
-      return _fallbackReply(prompt);
+  return 'No se pudo obtener respuesta de la IA.';
     }
   }
 
-  String _fallbackReply(String prompt) {
-    final lower = prompt.toLowerCase();
-    if (lower.contains('hola')) {
-      return 'Hola! Estoy listo para ayudarte con tu pedido.';
-    }
-    if (lower.contains('pedido') || lower.contains('orden')) {
-      return 'Estoy verificando la información de tu pedido. Enseguida te comento los pasos a seguir.';
-    }
-    if (lower.contains('gracias')) {
-      return 'Gracias a ti. Si necesitas algo más, aquí estoy.';
-    }
-    return 'Estoy aquí para ayudarte. ¿Quieres conocer el estado de un pedido o necesitas soporte con la app?';
-  }
+  // Eliminado método de respuestas predeterminadas
 }

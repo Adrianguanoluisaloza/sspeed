@@ -30,10 +30,16 @@ public class PedidoController {
             throw new ApiException(400, "Datos del pedido incompletos o inválidos");
         }
 
+        // Recalcular el total en el servidor para seguridad
+        final double shippingCost = 2.0;
+        double subtotal = detalles.stream().mapToDouble(DetallePedido::getSubtotal).sum();
+        double totalFinal = subtotal + shippingCost;
+        pedido.setTotal(totalFinal); // Actualiza el total en el objeto
+
         String sqlPedido = """
-            INSERT INTO pedidos 
-            (id_cliente, id_delivery, id_ubicacion, estado, total, direccion_entrega, metodo_pago) 
-            VALUES (?, ?, ?, ?, ?, ?, ?) 
+            INSERT INTO pedidos
+            (id_cliente, id_delivery, id_ubicacion, estado, direccion_entrega, metodo_pago, total)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             RETURNING id_pedido
         """;
 
@@ -44,7 +50,7 @@ public class PedidoController {
             VALUES (?, ?, ?, ?, ?)
         """;
 
-        try (Connection conn = Database.getConnection()) {
+        try (var conn = Database.getConnection()) {
             conn.setAutoCommit(false);
             int idPedidoGenerado;
 
@@ -52,7 +58,7 @@ public class PedidoController {
             // 1️⃣ Insertar pedido
             // ==========================
             try (PreparedStatement stmtPedido = conn.prepareStatement(sqlPedido)) {
-                stmtPedido.setInt(1, pedido.getIdCliente());
+               stmtPedido.setInt(1, pedido.getIdCliente());
 
                 if (pedido.getIdDelivery() != null) {
                     stmtPedido.setInt(2, pedido.getIdDelivery());
@@ -60,19 +66,18 @@ public class PedidoController {
                     stmtPedido.setNull(2, Types.INTEGER);
                 }
 
-               if (pedido.getIdUbicacion() > 0) {
-    stmtPedido.setInt(3, pedido.getIdUbicacion());
-} else {
-    stmtPedido.setNull(3, Types.INTEGER);
-}
-
+                if (pedido.getIdUbicacion() > 0) {
+                    stmtPedido.setInt(3, pedido.getIdUbicacion());
+                } else {
+                    stmtPedido.setNull(3, Types.INTEGER);
+                }
 
                 stmtPedido.setString(4, pedido.getEstado() != null ? pedido.getEstado() : "pendiente");
-                stmtPedido.setDouble(5, pedido.getTotal());
-                stmtPedido.setString(6, pedido.getDireccionEntrega());
-                stmtPedido.setString(7, pedido.getMetodoPago());
+                stmtPedido.setString(5, pedido.getDireccionEntrega());
+                stmtPedido.setString(6, pedido.getMetodoPago());
+                stmtPedido.setDouble(7, pedido.getTotal()); // Añadir el total calculado
 
-                try (ResultSet rs = stmtPedido.executeQuery()) {
+                try (var rs = stmtPedido.executeQuery()) {
                     if (!rs.next()) {
                         conn.rollback();
                         throw new SQLException("No se generó el ID del pedido");
@@ -84,8 +89,8 @@ public class PedidoController {
             // ==========================
             // 2️⃣ Insertar detalles
             // ==========================
-            try (PreparedStatement stmtDetalle = conn.prepareStatement(sqlDetalle)) {
-                for (DetallePedido d : detalles) {
+            try (var stmtDetalle = conn.prepareStatement(sqlDetalle)) {
+                for (var d : detalles) {
                     stmtDetalle.setInt(1, idPedidoGenerado);
                     stmtDetalle.setInt(2, d.getIdProducto());
                     stmtDetalle.setInt(3, d.getCantidad());
@@ -120,19 +125,13 @@ public class PedidoController {
     // ===============================
     public ApiResponse<List<Pedido>> getPedidos() {
         String sql = "SELECT * FROM pedidos ORDER BY fecha_pedido DESC";
-        try (Connection conn = Database.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql);
-             ResultSet rs = stmt.executeQuery()) {
+        try (var conn = Database.getConnection();
+             var stmt = conn.prepareStatement(sql);
+             var rs = stmt.executeQuery()) {
 
-            List<Pedido> pedidos = new ArrayList<>();
+            var pedidos = new ArrayList<Pedido>();
             while (rs.next()) {
-                Pedido p = new Pedido();
-                p.setIdPedido(rs.getInt("id_pedido"));
-                p.setIdCliente(rs.getInt("id_cliente"));
-                p.setEstado(rs.getString("estado"));
-                p.setTotal(rs.getDouble("total"));
-                p.setFechaPedido(rs.getTimestamp("fecha_pedido"));
-                pedidos.add(p);
+                pedidos.add(mapRowToPedido(rs));
             }
             return ApiResponse.success(200, "Pedidos obtenidos correctamente", pedidos);
 
@@ -146,22 +145,16 @@ public class PedidoController {
     // ===============================
     public ApiResponse<List<Pedido>> getPedidosPorCliente(int idCliente) {
         String sql = "SELECT * FROM pedidos WHERE id_cliente = ? ORDER BY fecha_pedido DESC";
-        try (Connection conn = Database.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+        try (var conn = Database.getConnection();
+             var stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, idCliente);
-            ResultSet rs = stmt.executeQuery();
-
-            List<Pedido> pedidos = new ArrayList<>();
-            while (rs.next()) {
-                Pedido p = new Pedido();
-                p.setIdPedido(rs.getInt("id_pedido"));
-                p.setIdCliente(rs.getInt("id_cliente"));
-                p.setEstado(rs.getString("estado"));
-                p.setTotal(rs.getDouble("total"));
-                p.setFechaPedido(rs.getTimestamp("fecha_pedido"));
-                pedidos.add(p);
+            try (var rs = stmt.executeQuery()) {
+                var pedidos = new ArrayList<Pedido>();
+                while (rs.next()) {
+                    pedidos.add(mapRowToPedido(rs));
+                }
+                return ApiResponse.success(200, "Pedidos por cliente obtenidos", pedidos);
             }
-            return ApiResponse.success(200, "Pedidos por cliente obtenidos", pedidos);
 
         } catch (SQLException e) {
             throw new ApiException(500, "Error al obtener pedidos por cliente", e);
@@ -173,22 +166,16 @@ public class PedidoController {
     // ===============================
     public ApiResponse<List<Pedido>> getPedidosPorEstado(String estado) {
         String sql = "SELECT * FROM pedidos WHERE estado = ?";
-        try (Connection conn = Database.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+        try (var conn = Database.getConnection();
+             var stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, estado);
-            ResultSet rs = stmt.executeQuery();
-
-            List<Pedido> pedidos = new ArrayList<>();
-            while (rs.next()) {
-                Pedido p = new Pedido();
-                p.setIdPedido(rs.getInt("id_pedido"));
-                p.setIdCliente(rs.getInt("id_cliente"));
-                p.setEstado(rs.getString("estado"));
-                p.setTotal(rs.getDouble("total"));
-                p.setFechaPedido(rs.getTimestamp("fecha_pedido"));
-                pedidos.add(p);
+            try (var rs = stmt.executeQuery()) {
+                var pedidos = new ArrayList<Pedido>();
+                while (rs.next()) {
+                    pedidos.add(mapRowToPedido(rs));
+                }
+                return ApiResponse.success(200, "Pedidos por estado obtenidos", pedidos);
             }
-            return ApiResponse.success(200, "Pedidos por estado obtenidos", pedidos);
 
         } catch (SQLException e) {
             throw new ApiException(500, "Error al listar pedidos por estado", e);
@@ -200,8 +187,8 @@ public class PedidoController {
     // ===============================
     public ApiResponse<Void> updateEstadoPedido(int idPedido, String nuevoEstado) {
         String sql = "UPDATE pedidos SET estado = ? WHERE id_pedido = ?";
-        try (Connection conn = Database.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+        try (var conn = Database.getConnection();
+             var stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, nuevoEstado);
             stmt.setInt(2, idPedido);
             int rows = stmt.executeUpdate();
@@ -221,8 +208,8 @@ public class PedidoController {
     // ===============================
     public ApiResponse<Void> asignarPedido(int idPedido, int idDelivery) {
         String sql = "UPDATE pedidos SET id_delivery = ? WHERE id_pedido = ?";
-        try (Connection conn = Database.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+        try (var conn = Database.getConnection();
+             var stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, idDelivery);
             stmt.setInt(2, idPedido);
             int rows = stmt.executeUpdate();
@@ -272,22 +259,22 @@ public class PedidoController {
             SELECT dp.id_detalle, dp.id_producto, dp.cantidad, dp.precio_unitario, dp.subtotal,
                    pr.nombre AS nombre_producto, pr.imagen_url
             FROM detalle_pedidos dp
-            LEFT JOIN productos pr ON pr.id_producto = dp.id_producto
+            JOIN productos pr ON pr.id_producto = dp.id_producto
             WHERE dp.id_pedido = ?
             ORDER BY dp.id_detalle
             """;
 
-        try (Connection conn = Database.getConnection();
-             PreparedStatement pedidoStmt = conn.prepareStatement(pedidoSql);
-             PreparedStatement detalleStmt = conn.prepareStatement(detallesSql)) {
+        try (var conn = Database.getConnection();
+             var pedidoStmt = conn.prepareStatement(pedidoSql);
+             var detalleStmt = conn.prepareStatement(detallesSql)) {
 
             pedidoStmt.setInt(1, idPedido);
             Map<String, Object> pedidoMap;
-            try (ResultSet rs = pedidoStmt.executeQuery()) {
+            try (var rs = pedidoStmt.executeQuery()) {
                 if (rs.next()) {
                     pedidoMap = mapPedido(rs);
                 } else {
-                    throw new ApiException(404, "Pedido no encontrado");
+                    throw new ApiException(404, "Pedido no encontrado con ID: " + idPedido);
                 }
             }
 
@@ -295,7 +282,7 @@ public class PedidoController {
             List<Map<String, Object>> detalles = new ArrayList<>();
             try (ResultSet rs = detalleStmt.executeQuery()) {
                 while (rs.next()) {
-                    Map<String, Object> det = new HashMap<>();
+                    var det = new HashMap<String, Object>();
                     det.put("id_detalle", rs.getInt("id_detalle"));
                     det.put("id_producto", rs.getInt("id_producto"));
                     det.put("cantidad", rs.getInt("cantidad"));
@@ -307,7 +294,7 @@ public class PedidoController {
                 }
             }
 
-            Map<String, Object> out = new HashMap<>();
+            var out = new HashMap<String, Object>();
             out.put("pedido", pedidoMap);
             out.put("detalles", detalles);
             return ApiResponse.success(200, "Pedido obtenido", out);
@@ -325,7 +312,7 @@ public class PedidoController {
     }
 
     private Map<String, Object> mapPedido(ResultSet rs) throws SQLException {
-        Map<String, Object> map = new HashMap<>();
+        var map = new HashMap<String, Object>();
         map.put("id_pedido", rs.getInt("id_pedido"));
         map.put("id_cliente", rs.getInt("id_cliente"));
         map.put("id_delivery", (Integer) rs.getObject("id_delivery"));
@@ -342,50 +329,33 @@ public class PedidoController {
     }
 
     // ===============================
-    // METODOS INTERNOS SIN ApiResponse
+    // MÉTODOS INTERNOS SIN ApiResponse
     // ===============================
     private List<Pedido> listarPedidosDisponiblesRaw() throws SQLException {
         String sql = "SELECT id_pedido, id_cliente, id_delivery, id_ubicacion, fecha_pedido, fecha_entrega, estado, total, direccion_entrega, metodo_pago, notas, coordenadas_entrega FROM pedidos WHERE estado = 'pendiente'";
-        try (Connection conn = Database.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql);
-             ResultSet rs = stmt.executeQuery()) {
-            List<Pedido> pedidos = new ArrayList<>();
+        try (var conn = Database.getConnection();
+             var stmt = conn.prepareStatement(sql);
+             var rs = stmt.executeQuery()) {
+            var pedidos = new ArrayList<Pedido>();
             while (rs.next()) {
-                Pedido p = new Pedido();
-                p.setIdPedido(rs.getInt("id_pedido"));
-                p.setIdCliente(rs.getInt("id_cliente"));
-                p.setIdDelivery((Integer) rs.getObject("id_delivery"));
-                p.setIdUbicacion((Integer) rs.getObject("id_ubicacion"));
-                p.setFechaPedido(rs.getTimestamp("fecha_pedido"));
-                p.setFechaEntrega(rs.getTimestamp("fecha_entrega"));
-                p.setEstado(rs.getString("estado"));
-                p.setTotal(rs.getDouble("total"));
-                p.setDireccionEntrega(rs.getString("direccion_entrega"));
-                p.setMetodoPago(rs.getString("metodo_pago"));
-                pedidos.add(p);
+                pedidos.add(mapRowToPedido(rs));
             }
             return pedidos;
         }
     }
 
     private List<Pedido> listarPedidosPorDeliveryRaw(int idDelivery) throws SQLException {
-        String sql = "SELECT * FROM pedidos WHERE id_delivery = ?";
-        try (Connection conn = Database.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+        String sql = "SELECT * FROM pedidos WHERE id_delivery = ? ORDER BY fecha_pedido DESC";
+        try (var conn = Database.getConnection();
+             var stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, idDelivery);
-            ResultSet rs = stmt.executeQuery();
-
-            List<Pedido> pedidos = new ArrayList<>();
-            while (rs.next()) {
-                Pedido p = new Pedido();
-                p.setIdPedido(rs.getInt("id_pedido"));
-                p.setIdCliente(rs.getInt("id_cliente"));
-                p.setEstado(rs.getString("estado"));
-                p.setTotal(rs.getDouble("total"));
-                p.setFechaPedido(rs.getTimestamp("fecha_pedido"));
-                pedidos.add(p);
+            try (var rs = stmt.executeQuery()) {
+                var pedidos = new ArrayList<Pedido>();
+                while (rs.next()) {
+                    pedidos.add(mapRowToPedido(rs));
+                }
+                return pedidos;
             }
-            return pedidos;
         }
     }
 
@@ -394,7 +364,7 @@ public class PedidoController {
             SELECT
               COUNT(*) FILTER (WHERE estado='entregado' AND fecha_entrega::date=CURRENT_DATE)::int AS pedidos_completados_hoy,
               COALESCE(SUM(total) FILTER (WHERE estado='entregado' AND fecha_entrega::date=CURRENT_DATE),0) AS total_generado_hoy,
-              AVG(EXTRACT(EPOCH FROM (fecha_entrega - fecha_pedido))/60.0) FILTER (WHERE estado='entregado'
+              AVG(EXTRACT(EPOCH FROM (fecha_entrega - fecha_pedido))/60.0) FILTER (WHERE estado='entregado' 
                     AND fecha_entrega IS NOT NULL AND fecha_pedido IS NOT NULL) AS tiempo_promedio_min
             FROM pedidos
             WHERE id_delivery = ?
@@ -402,11 +372,11 @@ public class PedidoController {
 
         try (Connection conn = Database.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setInt(1, idDelivery);
-            ResultSet rs = stmt.executeQuery();
+            stmt.setInt(1, idDelivery); 
+            var rs = stmt.executeQuery();
 
-            Map<String, Object> stats = new HashMap<>();
-            if (rs.next()) {
+            var stats = new HashMap<String, Object>();
+            if (rs.next()) { 
                 stats.put("pedidos_completados_hoy", rs.getInt("pedidos_completados_hoy"));
                 stats.put("total_generado_hoy", rs.getDouble("total_generado_hoy"));
                 stats.put("tiempo_promedio_min", rs.getDouble("tiempo_promedio_min"));
@@ -417,5 +387,20 @@ public class PedidoController {
             }
             return stats;
         }
+    }
+
+    private Pedido mapRowToPedido(ResultSet rs) throws SQLException {
+        var p = new Pedido();
+        p.setIdPedido(rs.getInt("id_pedido"));
+        p.setIdCliente(rs.getInt("id_cliente"));
+        p.setIdDelivery((Integer) rs.getObject("id_delivery"));
+        p.setIdUbicacion(rs.getInt("id_ubicacion"));
+        p.setEstado(rs.getString("estado"));
+        p.setTotal(rs.getDouble("total"));
+        p.setDireccionEntrega(rs.getString("direccion_entrega"));
+        p.setMetodoPago(rs.getString("metodo_pago"));
+        p.setFechaPedido(rs.getTimestamp("fecha_pedido"));
+        p.setFechaEntrega(rs.getTimestamp("fecha_entrega"));
+        return p;
     }
 }

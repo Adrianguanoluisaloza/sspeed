@@ -1,5 +1,6 @@
 package com.mycompany.delivery.api.repository;
 
+import com.mycompany.delivery.api.model.Ubicacion;
 import com.mycompany.delivery.api.config.Database;
 import com.mycompany.delivery.api.model.Ubicacion;
 
@@ -7,6 +8,7 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Map;
 
 public class UbicacionRepository {
 
@@ -15,15 +17,12 @@ public class UbicacionRepository {
     // ===============================
     public Optional<Ubicacion> guardar(Ubicacion ubicacion) throws SQLException {
         String sql = """
-            INSERT INTO ubicaciones (id_usuario, latitud, longitud, descripcion, direccion, activa, estado, fecha_registro)
-            VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
-            ON CONFLICT (id_usuario) DO UPDATE
-            SET latitud = EXCLUDED.latitud,
-                longitud = EXCLUDED.longitud,
+            INSERT INTO ubicaciones (id_usuario, latitud, longitud, descripcion, direccion, activa, fecha_registro)
+            VALUES (?, ?, ?, ?, ?, ?, NOW())
+            ON CONFLICT (id_ubicacion) DO UPDATE
+            SET latitud = EXCLUDED.latitud, longitud = EXCLUDED.longitud,
                 descripcion = EXCLUDED.descripcion,
-                direccion = EXCLUDED.direccion,
-                activa = EXCLUDED.activa,
-                estado = EXCLUDED.estado
+                direccion = EXCLUDED.direccion, activa = EXCLUDED.activa
             RETURNING *;
         """;
 
@@ -36,7 +35,6 @@ public class UbicacionRepository {
             stmt.setString(4, ubicacion.getDescripcion());
             stmt.setString(5, ubicacion.getDireccion());
             stmt.setBoolean(6, ubicacion.isActiva());
-            stmt.setString(7, ubicacion.getEstado());
 
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
@@ -52,16 +50,47 @@ public class UbicacionRepository {
     // ===============================
     public boolean actualizarUbicacionLive(int idUsuario, double latitud, double longitud) throws SQLException {
         String sql = """
-            UPDATE ubicaciones
-            SET latitud = ?, longitud = ?, fecha_registro = NOW()
-            WHERE id_usuario = ?
+            UPDATE ubicaciones SET latitud = ?, longitud = ?, fecha_registro = NOW()
+            WHERE id_usuario = ? AND descripcion = 'LIVE_TRACKING'
         """;
         try (Connection conn = Database.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setDouble(1, latitud);
             stmt.setDouble(2, longitud);
             stmt.setInt(3, idUsuario);
-            return stmt.executeUpdate() > 0;
+            int updatedRows = stmt.executeUpdate();
+            return updatedRows > 0;
+        }
+    }
+
+    public void insertarUbicacionLive(int idUsuario, double latitud, double longitud) throws SQLException {
+        String sql = """
+            INSERT INTO ubicaciones (id_usuario, latitud, longitud, descripcion, activa)
+            VALUES (?, ?, ?, 'LIVE_TRACKING', TRUE)
+            """;
+        try (Connection conn = Database.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, idUsuario);
+            stmt.setDouble(2, latitud);
+            stmt.setDouble(3, longitud);
+            stmt.executeUpdate();
+        }
+    }
+
+    public Optional<Map<String, Double>> obtenerUbicacionTracking(int idPedido) throws SQLException {
+        String sql = """
+            SELECT u.latitud, u.longitud FROM ubicaciones u
+            JOIN pedidos p ON p.id_delivery = u.id_usuario
+            WHERE p.id_pedido = ? AND u.descripcion = 'LIVE_TRACKING'
+            ORDER BY u.fecha_registro DESC LIMIT 1
+            """;
+        try (Connection conn = Database.getConnection(); PreparedStatement st = conn.prepareStatement(sql)) {
+            st.setInt(1, idPedido);
+            try (ResultSet rs = st.executeQuery()) {
+                if (rs.next()) {
+                    return Optional.of(Map.of("latitud", rs.getDouble("latitud"), "longitud", rs.getDouble("longitud")));
+                }
+            }
         }
     }
 
@@ -123,7 +152,6 @@ public class UbicacionRepository {
         u.setDescripcion(rs.getString("descripcion"));
         u.setDireccion(rs.getString("direccion"));
         u.setActiva(rs.getBoolean("activa"));
-        u.setEstado(rs.getString("estado"));
         u.setFechaRegistro(rs.getTimestamp("fecha_registro"));
         return u;
     }

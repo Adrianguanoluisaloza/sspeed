@@ -1,10 +1,8 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 
 import 'models/cart_model.dart';
@@ -15,10 +13,12 @@ import 'routes/app_routes.dart';
 import 'routes/route_generator.dart';
 
 Future<void> main() async {
+  // --- INICIALIZACIÓN SEGURA ---
   WidgetsFlutterBinding.ensureInitialized();
   Intl.defaultLocale = 'es_EC';
   await initializeDateFormatting('es_EC', null);
 
+  // --- EJECUCIÓN DE LA APP ---
   runApp(
     MultiProvider(
       providers: [
@@ -31,16 +31,13 @@ Future<void> main() async {
     ),
   );
 
-  unawaited(requestLocationPermission());
+  // --- LÍNEA PROBLEMÁTICA ELIMINADA ---
+  // unawaited(requestLocationPermission()); // <-- ESTO SE ELIMINÓ//
 }
 
-Future<void> requestLocationPermission() async {
-  if (kIsWeb) return;
-  var status = await Permission.locationWhenInUse.request();
-  if (status.isPermanentlyDenied) {
-    openAppSettings();
-  }
-}
+// --- FUNCIÓN PROBLEMÁTICA ELIMINADA ---
+// La función 'requestLocationPermission' también se eliminó de este archivo.
+// Esta lógica ahora debe vivir DENTRO de un widget (ej. la pantalla de dirección).
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -58,10 +55,10 @@ class MyApp extends StatelessWidget {
         seedColor: primaryColor,
         primary: primaryColor,
         secondary: accentColor,
-        surface: backgroundColor, // CORRECCIÓN: 'background' renombrado a 'surface'
+        surface: backgroundColor,
       ),
       scaffoldBackgroundColor: backgroundColor,
-      fontFamily: 'Inter', // Asegúrate de tener esta fuente en tu pubspec.yaml y carpeta de assets
+      fontFamily: 'Inter',
 
       // Estilo de AppBar
       appBarTheme: const AppBarTheme(
@@ -88,7 +85,7 @@ class MyApp extends StatelessWidget {
         elevation: 2,
         margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        clipBehavior: Clip.antiAlias, // Previene que los hijos se desborden
+        clipBehavior: Clip.antiAlias,
       ),
 
       // Estilo de Campos de Texto
@@ -111,7 +108,7 @@ class MyApp extends StatelessWidget {
       title: 'Unite7speed',
       debugShowCheckedModeBanner: false,
       theme: theme,
-      initialRoute: AppRoutes.splash,
+      initialRoute: AppRoutes.splash, // Tu 'splash_screen.dart' ahora funcionará
       onGenerateRoute: RouteGenerator.generateRoute,
     );
   }

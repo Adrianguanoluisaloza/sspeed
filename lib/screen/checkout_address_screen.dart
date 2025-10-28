@@ -22,6 +22,7 @@ class _CheckoutAddressScreenState extends State<CheckoutAddressScreen> {
   @override
   void initState() {
     super.initState();
+    // Solo cargar ubicaciones si el usuario está autenticado.
     if (widget.usuario.isAuthenticated) {
       _ubicacionesFuture = Provider.of<DatabaseService>(context, listen: false)
           .getUbicaciones(widget.usuario.idUsuario);

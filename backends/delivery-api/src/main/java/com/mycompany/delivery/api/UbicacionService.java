@@ -7,6 +7,7 @@ import com.mycompany.delivery.api.util.ApiException;
 
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.mycompany.delivery.api.util.UbicacionValidator.*;
@@ -64,7 +65,7 @@ public class UbicacionService {
         try {
             boolean updated = repo.actualizarUbicacionLive(idRepartidor, latitud, longitud);
             if (!updated) {
-                throw new ApiException(404, "No se pudo registrar la ubicación en vivo del repartidor");
+                repo.insertarUbicacionLive(idRepartidor, latitud, longitud);
             }
         } catch (SQLException e) {
             throw new ApiException(500, "Error actualizando ubicación del repartidor", e);
@@ -97,4 +98,10 @@ public class UbicacionService {
         }
         return repo.eliminar(idUbicacion);
     }
+
+    public Map<String, Double> obtenerUbicacionTracking(int idPedido) throws SQLException {
+        return repo.obtenerUbicacionTracking(idPedido)
+                .orElseThrow(() -> new ApiException(404, "No hay tracking activo para el pedido"));
+    }
+
 }

@@ -1,7 +1,8 @@
 package com.mycompany.delivery.api.payloads;
 
-import com.google.gson.annotations.SerializedName;
 import java.util.List;
+
+import com.google.gson.annotations.SerializedName;
 
 /**
  * Clases de soporte para la API Delivery (compatibles con snake_case y camelCase).
@@ -183,4 +184,22 @@ public static class PedidoPayload {
         public Integer getIdUsuario()   { return idUsuarioSnake != null ? idUsuarioSnake : idUsuarioCamel; }
         public Integer getPuntuacion()  { return puntuacion != null ? puntuacion : rating; }
     }
+
+    // =========================== CHAT ===========================
+    public static class ChatMensajePayload {
+        @SerializedName("idConversacion")
+        public Long idConversacion;
+        @SerializedName("idRemitente")
+        public Integer idRemitente;
+        @SerializedName("idDestinatario")
+        public Integer idDestinatario;
+        @SerializedName("idPedido")
+        public Integer idPedido;
+        @SerializedName("idCliente")
+        public Integer idCliente;
+        @SerializedName("idDelivery")
+        public Integer idDelivery;
+        public String mensaje;
+    }
+
 }

@@ -11,13 +11,14 @@ import '../services/gemini_service.dart';
 // Sección de chat para organizar las conversaciones
 enum ChatSection {
   cliente,
-  soporte,
+  ciaBot,
+  soporte, // Añadido para repartidores
   historial,
 }
 
 class ChatScreen extends StatefulWidget {
   final ChatSection initialSection;
-  const ChatScreen({Key? key, this.initialSection = ChatSection.cliente}) : super(key: key);
+  const ChatScreen({super.key, this.initialSection = ChatSection.cliente});
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -39,26 +40,34 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     setState(() => _isSending = true);
 
     try {
-      final tempMessage = ChatMessage(
-        idMensaje: -DateTime.now().millisecondsSinceEpoch,
-        idConversacion: conversation.idConversacion,
-        idRemitente: _currentUser!.idUsuario,
-        mensaje: text,
-        fechaEnvio: DateTime.now(),
-        remitenteNombre: _currentUser!.nombre,
-      );
+      final isBotChat = conversation.idAdminSoporte != null;
 
-      setState(() {
-        conversation.mensajes.add(tempMessage);
-        _controller.clear();
-      });
-      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+      // 1. Limpiar el campo de texto inmediatamente.
+      _controller.clear();
 
+      // 2. Enviar el mensaje al backend.
+      //    El parámetro 'isBot' le dice al backend si debe generar una respuesta.
       await dbService.enviarMensaje(
         idConversacion: conversation.idConversacion,
         idRemitente: _currentUser!.idUsuario,
         mensaje: text,
+        isBot: isBotChat,
       );
+
+      // 3. Refrescar la lista de mensajes desde la fuente de verdad (el backend).
+      //    Esto trae tanto tu mensaje (ya guardado) como la respuesta del bot.
+      final mensajesActualizados = await dbService.getMensajesDeConversacion(conversation.idConversacion);
+
+      // 4. Actualizar la UI si el widget todavía está en pantalla.
+      if (mounted) {
+        setState(() {
+          conversation.mensajes
+            ..clear()
+            ..addAll(mensajesActualizados);
+        });
+        // Asegurarse de que la vista se desplace hacia el último mensaje.
+        WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+      }
     } catch (e) {
       messenger.showSnackBar(
         SnackBar(
@@ -66,22 +75,22 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           backgroundColor: Colors.red,
         ),
       );
-      setState(() => conversation.mensajes.removeWhere((m) => m.idMensaje < 0));
     } finally {
       if (mounted) setState(() => _isSending = false);
     }
   }
-  late final TabController _tabController;
+
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
   final Color _brandColor = const Color(0xFFF97316);
   final Color _brandLightColor = const Color(0xFFFFEFE5);
   GeminiService? _geminiService;
-  bool _isBotTyping = false;
+  final bool _isBotTyping = false;
 
   Map<ChatSection, List<ChatConversation>> _conversations = {
     ChatSection.cliente: [],
+    ChatSection.ciaBot: [],
     ChatSection.soporte: [],
     ChatSection.historial: [],
   };
@@ -93,8 +102,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    final initialIndex = ChatSection.values.indexOf(widget.initialSection);
-    _tabController = TabController(length: 3, vsync: this, initialIndex: initialIndex)..addListener(_onTabChanged);
     _initializeChat();
   }
 
@@ -102,24 +109,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _geminiService ??= context.read<GeminiService>();
-  }
-
-  @override
-
-
-// ...existing code...
-
-  void _onTabChanged() {
-    if (!_tabController.indexIsChanging) {
-      setState(() {
-        _selectedConversation = null;
-        final currentSection = ChatSection.values[_tabController.index];
-        final conversationsForSection = _conversations[currentSection] ?? [];
-        if (conversationsForSection.isNotEmpty) {
-          _selectedConversation = conversationsForSection.first;
-        }
-      });
-    }
   }
 
   Future<void> _initializeChat() async {
@@ -145,46 +134,62 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       _loadError = null;
     });
 
-
     try {
       final dbService = context.read<DatabaseService>();
       final allConversations = await dbService.getConversaciones(_currentUser!.idUsuario);
 
       if (!mounted) return;
 
-      final newConversations = <ChatSection, List<ChatConversation>>{
-        ChatSection.cliente: [],
-        ChatSection.soporte: [],
-        ChatSection.historial: [],
-      };
+      final clienteConvs = <ChatConversation>[];
+      final ciaBotConvs = <ChatConversation>[];
+      final soporteConvs = <ChatConversation>[];
+      final historialConvs = <ChatConversation>[];
 
-      for (final convo in allConversations) {
-        if (!convo.activa) {
-          newConversations[ChatSection.historial]!.add(convo);
-        } else if (convo.idAdminSoporte != null) {
-          newConversations[ChatSection.soporte]!.add(convo);
+      for (final conv in allConversations) {
+        if (!conv.activa) {
+          historialConvs.add(conv);
+        } else if (conv.idAdminSoporte != null) {
+          ciaBotConvs.add(conv);
+        } else if (_currentUser?.rol == 'delivery') {
+          soporteConvs.add(conv);
         } else {
-          newConversations[ChatSection.cliente]!.add(convo);
+          clienteConvs.add(conv);
         }
       }
 
       setState(() {
-        _conversations = newConversations;
+        _conversations = {
+          ChatSection.cliente: clienteConvs,
+          ChatSection.ciaBot: ciaBotConvs,
+          ChatSection.soporte: soporteConvs,
+          ChatSection.historial: historialConvs,
+        };
         _isLoading = false;
-        final currentSection = ChatSection.values[_tabController.index];
-        final conversationsForSection = _conversations[currentSection] ?? [];
-        if (conversationsForSection.isEmpty) {
-          _selectedConversation = null;
-          return;
+
+        // Lógica mejorada para seleccionar la conversación inicial
+        List<ChatConversation> initialList;
+        switch (widget.initialSection) {
+          case ChatSection.soporte:
+            initialList = soporteConvs;
+            break;
+          case ChatSection.ciaBot:
+            initialList = ciaBotConvs;
+            break;
+          case ChatSection.historial:
+            initialList = historialConvs;
+            break;
+          case ChatSection.cliente:
+          default:
+            initialList = clienteConvs;
+            break;
         }
-        final currentId = _selectedConversation?.idConversacion;
-        if (currentId == null) {
-          _selectedConversation = conversationsForSection.first;
+
+        if (initialList.isNotEmpty) {
+          _selectedConversation = initialList.first;
+        } else if (allConversations.any((c) => c.activa)) {
+          _selectedConversation = allConversations.firstWhere((c) => c.activa);
         } else {
-          _selectedConversation = conversationsForSection.firstWhere(
-            (c) => c.idConversacion == currentId,
-            orElse: () => conversationsForSection.first,
-          );
+          _selectedConversation = null;
         }
       });
       WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom(animated: false));
@@ -198,114 +203,37 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     }
   }
 
-
-
   @override
   Widget build(BuildContext context) {
-    final bool isCompact = MediaQuery.of(context).size.width < 900;
-
-    return Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: const Color(0xFFF5F6FA),
-      drawer: isCompact ? _buildConversationDrawer() : null,
-      appBar: AppBar(
-        elevation: 0.6,
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF1F2937),
-        titleSpacing: 16,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Soporte en linea',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              'Estamos disponibles para ayudarte',
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Actualizar conversaciones',
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: _isLoading ? null : _loadConversations,
-          ),
-          if (isCompact)
-            IconButton(
-              tooltip: 'Ver conversaciones',
-              icon: const Icon(Icons.menu_rounded),
-              onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-            ),
-        ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(48),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: TabBar(
-                controller: _tabController,
-                isScrollable: true,
-                labelColor: _brandColor,
-                unselectedLabelColor: Colors.grey.shade600,
-                labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                indicator: BoxDecoration(
-                  color: _brandColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                tabs: const [
-                  Tab(text: 'Cliente'),
-                  Tab(text: 'Asistente'),
-                  Tab(text: 'Historial'),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-      body: _buildBody(),
-    );
-  }
-
-  Widget _buildBody() {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     if (_loadError != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Text(_loadError!, textAlign: TextAlign.center),
-        ),
-      );
+      return Scaffold(body: Center(child: Padding(padding: const EdgeInsets.all(16), child: Text(_loadError!, textAlign: TextAlign.center))));
     }
 
-    final currentSection = ChatSection.values[_tabController.index];
-    final conversations = _conversations[currentSection] ?? [];
+    final isWide = MediaQuery.of(context).size.width >= 900;
+    final conversations = _getConversationsForCurrentRole();
+    final section = _getSectionForCurrentRole();
 
-    if (_selectedConversation == null && conversations.isNotEmpty) {
-      _selectedConversation = conversations.first;
+    if (conversations.isEmpty) {
+      return Scaffold(body: _buildEmptyChatView(isWide: isWide));
     }
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final bool isWide = constraints.maxWidth >= 900;
+    return isWide
+        ? Scaffold(body: _buildDesktopLayout(conversations, section))
+        : Scaffold(body: _buildMobileLayout(conversations, section));
+  }
 
-        if (conversations.isEmpty) {
-          return _buildEmptyChatView(isWide: isWide);
-        }
+  ChatSection _getSectionForCurrentRole() {
+    final role = _currentUser?.rol;
+    if (role == 'delivery') return ChatSection.soporte;
+    if (widget.initialSection == ChatSection.ciaBot) return ChatSection.ciaBot;
+    return ChatSection.cliente;
+  }
 
-        return AnimatedSwitcher(
-          duration: const Duration(milliseconds: 250),
-          child: isWide
-              ? _buildDesktopLayout(conversations, currentSection)
-              : _buildMobileLayout(conversations, currentSection),
-        );
-      },
-    );
+  List<ChatConversation> _getConversationsForCurrentRole() {
+    return _conversations[_getSectionForCurrentRole()] ?? [];
   }
 
   Widget _buildDesktopLayout(List<ChatConversation> conversations, ChatSection section) {
@@ -338,17 +266,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           showPicker: true,
           onShowPicker: () => _openConversationPicker(conversations, section),
         ),
-        Expanded(
-          child: Container(
-            color: Colors.white,
-            child: Column(
-              children: [
-                Expanded(child: _buildMessageArea()),
-                _buildComposer(),
-              ],
-            ),
-          ),
-        ),
+        const Divider(height: 1),
+        Expanded(child: _buildMessageArea()),
+        _buildComposer(),
       ],
     );
   }
@@ -362,7 +282,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         alignment: Alignment.centerLeft,
         child: Text(
-          'Selecciona una conversacion',
+          'Selecciona una conversación',
           style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
         ),
       );
@@ -409,7 +329,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           ),
           if (showPicker)
             IconButton(
-              tooltip: 'Cambiar de conversacion',
+              tooltip: 'Cambiar de conversación',
               icon: const Icon(Icons.chat_bubble_outline),
               onPressed: onShowPicker,
             ),
@@ -419,19 +339,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildMessageArea() {
-    return Stack(
-      children: [
-        Positioned.fill(child: _buildMessageList()),
-        if (_isBotTyping && (_selectedConversation?.idAdminSoporte != null))
-          Align(
-            alignment: Alignment.bottomLeft,
-            child: _buildTypingIndicator(),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildMessageList() {
     final conversation = _selectedConversation;
     if (conversation == null || conversation.mensajes.isEmpty) {
       return _buildEmptyMessagesState();
@@ -455,23 +362,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildTypingIndicator() {
-    return Align(
-      alignment: Alignment.bottomLeft,
-      child: _buildMessageBubble( // Se crea el objeto directamente aquí
-        ChatMessage(
-          idMensaje: -1, // ID especial para identificarlo
-          idConversacion: 0,
-          idRemitente: 0,
-          mensaje: '...',
-          fechaEnvio: DateTime.now(),
-          remitenteNombre: 'Asistente virtual',
-        ),
-        isUser: false, // Se mantiene el parámetro
-      ),
-    );
-  }
-
   Widget _buildEmptyMessagesState() {
     return Center(
       child: Padding(
@@ -482,12 +372,12 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             Icon(Icons.mark_chat_unread_outlined, size: 72, color: Colors.grey.shade300),
             const SizedBox(height: 18),
             Text(
-              'Aun no hay mensajes',
+              'Aún no hay mensajes',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
             Text(
-              'Escribe tu primera pregunta y nuestro asistente te respondera de inmediato.',
+              'Escribe tu primera pregunta y CIA Bot te responderá de inmediato.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey.shade600),
             ),
@@ -504,7 +394,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withOpacity(0.04),
             blurRadius: 12,
             offset: const Offset(0, -2),
           ),
@@ -580,7 +470,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       );
     }
 
-    final bool isBot = !isUser;
+    final bool isBot = !isUser && message.idRemitente == 0; // Asumiendo que el bot tiene ID 0
     final alignment = isUser ? Alignment.centerRight : Alignment.centerLeft;
     final BorderRadius borderRadius = isUser
         ? const BorderRadius.only(
@@ -670,13 +560,13 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             Icon(Icons.support_agent, size: isWide ? 128 : 96, color: Colors.grey.shade300),
             const SizedBox(height: 24),
             Text(
-              'Aun no hay conversaciones',
+              'Aún no hay conversaciones',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700) ??
                   const TextStyle(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
             Text(
-              'Cuando inicies una conversacion veras el historial en esta seccion.',
+              'Cuando inicies una conversación verás el historial en esta sección.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey.shade600),
             ),
@@ -758,12 +648,12 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: isSelected ? _brandColor.withValues(alpha: 0.12) : Colors.white,
+          color: isSelected ? _brandColor.withOpacity(0.12) : Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected
-                ? _brandColor.withValues(alpha: 0.35)
-                : Colors.grey.withValues(alpha: 0.15),
+                ? _brandColor.withOpacity(0.35)
+                : Colors.grey.withOpacity(0.15),
           ),
         ),
         child: Row(
@@ -771,7 +661,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             CircleAvatar(
               radius: 20,
               backgroundColor: _brandLightColor,
-              child: Icon(section == ChatSection.soporte ? Icons.smart_toy : Icons.person_outline,
+              child: Icon(
+                  section == ChatSection.ciaBot 
+                    ? Icons.smart_toy 
+                    : (section == ChatSection.soporte ? Icons.support_agent : Icons.person_outline),
                   color: _brandColor, size: 20),
             ),
             const SizedBox(width: 12),
@@ -861,41 +754,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     );
   }
 
-  Drawer _buildConversationDrawer() {
-    final currentSection = ChatSection.values[_tabController.index];
-    final conversations = _conversations[currentSection] ?? [];
-
-    return Drawer(
-      child: SafeArea(
-        child: conversations.isEmpty
-            ? _buildEmptyChatView(isWide: false)
-            : Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-                    child: Row(
-                      children: [
-                        Icon(Icons.chat_bubble_outline, color: _brandColor, size: 20),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'Conversaciones',
-                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: _conversationListView(
-                      conversations,
-                      currentSection,
-                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-                    ),
-                  ),
-                ],
-              ),
-      ),
-    );
-  }
 
   void _selectConversation(ChatConversation conversation) {
     if (_selectedConversation?.idConversacion == conversation.idConversacion) {
@@ -930,14 +788,14 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   String _conversationLabel(ChatConversation conversation) {
     if (conversation.idAdminSoporte != null) {
-      return 'Asistente virtual';
+      return 'CIA Bot';
     }
     if (conversation.idPedido != null) {
       final suffix = conversation.activa ? '' : ' (cerrado)';
       return 'Pedido #${conversation.idPedido}$suffix';
     }
     if (!conversation.activa) {
-      return 'Conversacion archivada';
+      return 'Conversación archivada';
     }
     final rawId = conversation.idConversacion.toString();
     final shortId = rawId.length > 4 ? rawId.substring(rawId.length - 4) : rawId;
@@ -961,11 +819,11 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         baseLabel = '$baseLabel cerrado';
       }
     } else if (isBot) {
-      baseLabel = 'Asistente disponible';
+  baseLabel = 'CIA Bot disponible';
     } else if (!conversation.activa) {
-      baseLabel = 'Conversacion archivada';
+      baseLabel = 'Conversación archivada';
     } else {
-      baseLabel = 'Conversacion activa';
+      baseLabel = 'Conversación activa';
     }
 
     if (!includePreview || lastMessage == null) {

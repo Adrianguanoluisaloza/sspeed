@@ -2,32 +2,28 @@ package com.mycompany.delivery.api;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
-import com.google.gson.annotations.SerializedName;
 import com.mycompany.delivery.api.config.Database;
 import com.mycompany.delivery.api.controller.*;
 import com.mycompany.delivery.api.model.*;
-import com.mycompany.delivery.api.payloads.Payloads.PedidoDetallePayload;
+import com.mycompany.delivery.api.payloads.Payloads;
 import com.mycompany.delivery.api.payloads.Payloads.PedidoPayload;
 import com.mycompany.delivery.api.repository.ChatRepository;
-import com.mycompany.delivery.api.repository.UbicacionRepository;
 import com.mycompany.delivery.api.util.ApiException;
-import com.mycompany.delivery.api.util.ApiResponse;
-import com.mycompany.delivery.api.util.ChatBotResponder;
 
-// Ã”Â£Ã  Usa tus Payloads externos (sin clases duplicadas)
+// Usa tus Payloads externos (sin clases duplicadas)
 import static com.mycompany.delivery.api.payloads.Payloads.*;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.*;
+import com.mycompany.delivery.api.services.GeminiService; // Importar el nuevo servicio
+import com.mycompany.delivery.api.util.ApiResponse;
+
 
 import static com.mycompany.delivery.api.util.UbicacionValidator.*;
 import static spark.Spark.*;
 
 /**
- * API principal unificada y lista para compilar.
+ * API principal unificada.
  */
 public final class DeliveryApi {
  
@@ -38,136 +34,15 @@ final Gson GSON = new Gson();
     private static final ProductoController PRODUCTO_CONTROLLER = new ProductoController();
     private static final PedidoController PEDIDO_CONTROLLER = new PedidoController();
     private static final UbicacionController UBICACION_CONTROLLER = new UbicacionController();
-    private static final MensajeController MENSAJE_CONTROLLER = new MensajeController();
     private static final RecomendacionController RECOMENDACION_CONTROLLER = new RecomendacionController();
 
     private static final DashboardDAO DASHBOARD_DAO = new DashboardDAO();
-    private static final UbicacionRepository UBICACION_REPOSITORY = new UbicacionRepository();
     private static final ChatRepository CHAT_REPOSITORY = new ChatRepository();
+    private static final GeminiService GEMINI_SERVICE = new GeminiService();
 
   
 
     private DeliveryApi() {
-    }
-
-    // ====== Payloads locales (para evitar dependencias rotas) ======
-    static final class LoginRequest {
-
-        @SerializedName("correo")
-        String correo;
-        @SerializedName("email")
-        String email;
-        @SerializedName("contrasena")
-        String contrasena;
-        @SerializedName("password")
-        String password;
-
-        String getCorreo() {
-            return correo != null ? correo : email;
-        }
-
-        String getContrasena() {
-            return contrasena != null ? contrasena : password;
-        }
-    }
-
-    static final class RegistroRequest {
-
-        String nombre;
-        String correo;
-        String contrasena;
-        String telefono;
-    }
-
-    static final class UbicacionRequest {
-
-        Integer idUsuario;
-        Double latitud;
-        Double longitud;
-        String direccion;
-        String descripcion;
-        Boolean activa;
-
-        public Integer getIdUsuario() {
-            return idUsuario;
-        }
-
-        public Double getLatitud() {
-            return latitud;
-        }
-
-        public Double getLongitud() {
-            return longitud;
-        }
-
-        public String getDireccion() {
-            return direccion;
-        }
-
-        public String getDescripcion() {
-            return descripcion;
-        }
-
-        public Boolean getActiva() {
-            return activa;
-        }
-    }
-
-    static final class TrackingPayload {
-
-        Double latitud;
-        Double longitud;
-    }
-
-    static final class EstadoUpdateRequest {
-
-        String estado;
-    }
-
-    static final class AsignarPedidoRequest {
-
-        @SerializedName("id_delivery")
-        Integer idDelivery;
-    }
-
-    static final class MensajePayload {
-
-        @SerializedName("id_remitente")
-        Integer idRemitente;
-        String mensaje;
-    }
-
-    static final class ChatMensajePayload {
-
-        @SerializedName("idConversacion")
-        Long idConversacion;
-        @SerializedName("idRemitente")
-        Integer idRemitente;
-        @SerializedName("idDestinatario")
-        Integer idDestinatario;
-        @SerializedName("idPedido")
-        Integer idPedido;
-        @SerializedName("idCliente")
-        Integer idCliente;
-        @SerializedName("idDelivery")
-        Integer idDelivery;
-        String mensaje;
-    }
-    // Reemplaza tu clase interna RecomendacionPayload por esta
-
-    static final class RecomendacionPayload {
-
-        @SerializedName("id_usuario")
-        Integer idUsuario;
-        @SerializedName("puntuacion")
-        Integer puntuacion;
-        @SerializedName("rating")
-        Integer rating;
-        String comentario;
-
-        Integer getPuntuacion() {
-            return (puntuacion != null) ? puntuacion : rating;
-        }
     }
 
     public static void main(String[] args) {
@@ -198,32 +73,13 @@ final Gson GSON = new Gson();
         setupRoutes();
         setupExceptionHandlers();
         
-       System.out.println("[INFO] Servidor Delivery API iniciado en http://localhost:4567");
-
-       
+       System.out.println("[INFO] Servidor Delivery API iniciado en http://localhost:4567");       
     }
 
     private static void setupRoutes() {
         registerAuthRoutes();
         registerProductoRoutes();
-        registerPedidoRoutes();
-        registerUbicacionRoutes();
-        registerMensajeRoutes();
-        registerRecomendacionRoutes();
-        registerDashboardRoutes();
-        registerDeliveryRoutes();
-        registerTrackingRoutes();
-
-        // alias /api/*
-        path("/api", DeliveryApi::setupRoutesWithoutApiWrapper);
-    }
-
-    // ===================== CONFIGURAR TODAS LAS RUTAS =====================
-// ===================== CONFIGURAR TODAS LAS RUTAS =====================
-    private static void setupRoutesWithoutApiWrapper() {
-        registerAuthRoutes();
-        registerProductoRoutes();
-        registerPedidoRoutes();
+        registerPedidoRoutes(); // Contiene la ruta de pedidos disponibles
         registerUbicacionRoutes();
         registerMensajeRoutes();
         registerRecomendacionRoutes();
@@ -235,36 +91,11 @@ final Gson GSON = new Gson();
     private static void registerDashboardRoutes() {
         // ===================== DASHBOARD =====================
         get("/admin/stats", (req, res) -> {
-            res.type("application/json");
-            var out = new HashMap<String, Object>();
-            try (Connection c = Database.getConnection(); PreparedStatement ps = c.prepareStatement("SELECT * FROM fn_admin_dashboard()"); ResultSet rs = ps.executeQuery()) {
-
-                if (rs.next()) {
-                    out.put("ventas_hoy", rs.getBigDecimal("ventas_hoy"));
-                    out.put("ventas_totales", rs.getBigDecimal("ventas_totales"));
-                    out.put("pedidos_pendientes", rs.getInt("pedidos_pendientes"));
-                    out.put("pedidos_entregados", rs.getInt("pedidos_entregados"));
-                    out.put("nuevos_clientes", rs.getInt("nuevos_clientes"));
-                    out.put("producto_mas_vendido", rs.getString("producto_mas_vendido"));
-                    out.put("producto_mas_vendido_cantidad", rs.getInt("producto_mas_vendido_cantidad"));
-                    return respond(res, ApiResponse.success(200, "Estadâ”œÂ¡sticas admin", out));
-                }
-            } catch (Exception ignore) {
-                // caemos al fallback
-            }
-            // Fallback a prueba de todo
-            out.put("ventas_hoy", java.math.BigDecimal.ZERO);
-            out.put("ventas_totales", java.math.BigDecimal.ZERO);
-            out.put("pedidos_pendientes", 0);
-            out.put("pedidos_entregados", 0);
-            out.put("nuevos_clientes", 0);
-            out.put("producto_mas_vendido", "Sin datos");
-            out.put("producto_mas_vendido_cantidad", 0);
-            return respond(res, ApiResponse.success(200, "Estadâ”œÂ¡sticas admin (fallback)", out));
+            return respond(res, ApiResponse.success(200, "Estadísticas admin", DASHBOARD_DAO.obtenerEstadisticasAdmin()));
         }, GSON::toJson);
 
         get("/delivery/stats/:id", (req, res)
-                -> respond(res, ApiResponse.success(200, "Estadâ”œÂ¡sticas delivery",
+                -> respond(res, ApiResponse.success(200, "Estadísticas delivery",
                         DASHBOARD_DAO.obtenerEstadisticasDelivery(parseId(req.params(":id"))))),
                 GSON::toJson);
     }
@@ -274,36 +105,36 @@ final Gson GSON = new Gson();
 // ===================== AUTH =====================
     private static void registerAuthRoutes() {
         post("/login", (req, res) -> {
-            LoginRequest body = parseBody(req, LoginRequest.class);
+            var body = parseBody(req, LoginRequest.class);
             return respond(res, USUARIO_CONTROLLER.login(body.getCorreo(), body.getContrasena()));
         }, GSON::toJson);
 
         post("/registro", (req, res) -> {
-            RegistroRequest b = parseBody(req, RegistroRequest.class);
-            Usuario u = new Usuario();
+            var b = parseBody(req, Payloads.RegistroRequest.class);
+            var u = new Usuario();
             u.setNombre(b.nombre);
             u.setCorreo(b.correo);
             u.setContrasena(b.contrasena);
             u.setTelefono(b.telefono);
             return respond(res, USUARIO_CONTROLLER.registrar(u));
         }, GSON::toJson);
-    
-    // Â­Æ’Ã¶â•£ ACTUALIZAR USUARIO EXISTENTE (nuevo endpoint)
-   // Â­Æ’Ã¶â•£ ACTUALIZAR USUARIO EXISTENTE
+
+    // ACTUALIZAR USUARIO EXISTENTE (nuevo endpoint)
+   // ACTUALIZAR USUARIO EXISTENTE
 put("/usuarios/:id", (req, res) -> {
-    int id = parseId(req.params(":id"));
-    Usuario body = parseBody(req, Usuario.class);
+    var id = parseId(req.params(":id"));
+    var body = parseBody(req, Usuario.class);
     body.setIdUsuario(id);
 
-    // Ã”Â£Ã  Usa directamente el ApiResponse del controlador
+    // Usa directamente el ApiResponse del controlador
     return respond(res, USUARIO_CONTROLLER.actualizarUsuario(body));
 }, GSON::toJson);
 
-// Â­Æ’Ã¶â•£ ELIMINAR USUARIO (nuevo endpoint)
+// ELIMINAR USUARIO (nuevo endpoint)
 delete("/usuarios/:id", (req, res) -> {
     int id = parseId(req.params(":id"));
 
-    // Ã”Â£Ã  Devuelve la respuesta ApiResponse del controlador
+    // Devuelve la respuesta ApiResponse del controlador
     return respond(res, USUARIO_CONTROLLER.eliminarUsuario(id));
 }, GSON::toJson);
     
@@ -314,9 +145,9 @@ delete("/usuarios/:id", (req, res) -> {
 // ===================== PRODUCTOS =====================
     private static void registerProductoRoutes() {
         get("/productos", (req, res) -> {
-            String q = req.queryParams("query");
-            String cat = req.queryParams("categoria");
-            ApiResponse<?> resp = (q != null || cat != null)
+            var q = req.queryParams("query");
+            var cat = req.queryParams("categoria");
+            var resp = (q != null || cat != null)
                     ? PRODUCTO_CONTROLLER.buscarProductos(q, cat)
                     : PRODUCTO_CONTROLLER.getAllProductos();
             return respond(res, resp);
@@ -327,6 +158,22 @@ delete("/usuarios/:id", (req, res) -> {
         get("/admin/productos", (req, res)
                 -> respond(res, PRODUCTO_CONTROLLER.getAllProductos()),
                 GSON::toJson);
+
+        post("/admin/productos", (req, res) -> {
+            var producto = parseBody(req, Producto.class);
+            return respond(res, PRODUCTO_CONTROLLER.createProducto(producto));
+        }, GSON::toJson);
+
+        put("/admin/productos/:id", (req, res) -> {
+            var id = parseId(req.params(":id"));
+            var producto = parseBody(req, Producto.class);
+            return respond(res, PRODUCTO_CONTROLLER.updateProducto(id, producto));
+        }, GSON::toJson);
+
+        delete("/admin/productos/:id", (req, res) -> {
+            var id = parseId(req.params(":id"));
+            return respond(res, PRODUCTO_CONTROLLER.deleteProducto(id));
+        }, GSON::toJson);
     }
 
 // ===================== PEDIDOS =====================
@@ -335,13 +182,13 @@ private static void registerPedidoRoutes() {
 
     // Crear pedido
     post("/pedidos", (req, res) -> {
-       PedidoPayload body = parseBody(req, PedidoPayload.class);
+       var body = parseBody(req, PedidoPayload.class);
 
         if (body == null) {
-            throw new ApiException(400, "El cuerpo de la solicitud estâ”œÃ­ vacâ”œÂ¡o o malformado");
+            throw new ApiException(400, "El cuerpo de la solicitud está vacío o malformado");
         }
 
-        Pedido pedido = new Pedido();
+        var pedido = new Pedido();
         pedido.setIdCliente(body.idCliente);
         pedido.setIdDelivery(body.idDelivery);
      pedido.setIdUbicacion(body.getIdUbicacion());
@@ -349,13 +196,13 @@ private static void registerPedidoRoutes() {
         pedido.setMetodoPago(body.metodoPago);
         pedido.setEstado(body.estado != null ? body.estado : "pendiente");
 
-        // Ã”Â£Ã  Evita NullPointer si body.total viene nulo
+        // Evita NullPointer si body.total viene nulo
         pedido.setTotal(body.total != null ? body.total : 0.0);
 
-        List<DetallePedido> detalles = new ArrayList<>();
+        var detalles = new ArrayList<DetallePedido>();
         if (body.productos != null && !body.productos.isEmpty()) {
-            for (PedidoDetallePayload it : body.productos) {
-                DetallePedido d = new DetallePedido();
+            for (var it : body.productos) {
+                var d = new DetallePedido();
                 d.setIdProducto(it.idProducto);
                 d.setCantidad(it.cantidad);
                 d.setPrecioUnitario(it.precioUnitario);
@@ -404,21 +251,21 @@ private static void registerPedidoRoutes() {
             GSON::toJson);
 
     // Obtener estadâ”œÂ¡sticas del repartidor
-    get("/delivery/stats/:id", (req, res)
-            -> respond(res, PEDIDO_CONTROLLER.obtenerEstadisticasDelivery(parseId(req.params(":id")))),
-            GSON::toJson);
+    // get("/delivery/stats/:id", (req, res)
+    //         -> respond(res, PEDIDO_CONTROLLER.obtenerEstadisticasDelivery(parseId(req.params(":id")))),
+    //         GSON::toJson);
 
     // Actualizar estado del pedido
     put("/pedidos/:id/estado", (req, res) -> {
-        int id = parseId(req.params(":id"));
-        EstadoUpdateRequest body = parseBody(req, EstadoUpdateRequest.class);
+        var id = parseId(req.params(":id"));
+        var body = parseBody(req, EstadoUpdateRequest.class);
         return respond(res, PEDIDO_CONTROLLER.updateEstadoPedido(id, body.estado));
     }, GSON::toJson);
 
     // Asignar pedido a un repartidor
     put("/pedidos/:id/asignar", (req, res) -> {
         int id = parseId(req.params(":id"));
-        AsignarPedidoRequest body = parseBody(req, AsignarPedidoRequest.class);
+        var body = parseBody(req, AsignarPedidoRequest.class);
         if (body.idDelivery == null) {
             throw new ApiException(400, "Debe especificar el repartidor");
         }
@@ -430,14 +277,14 @@ private static void registerPedidoRoutes() {
    // ===================== UBICACIONES =====================
 private static void registerUbicacionRoutes() {
     post("/ubicaciones", (req, res) -> {
-        UbicacionRequest b = parseBody(req, UbicacionRequest.class);
-        Ubicacion u = toUbicacion(b);
+        var b = parseBody(req, Payloads.UbicacionRequest.class);
+        var u = toUbicacion(b);
         return respond(res, UBICACION_CONTROLLER.guardarUbicacion(u));
     }, GSON::toJson);
 
     put("/ubicaciones/:idUbicacion", (req, res) -> {
-        int id = parseId(req.params(":idUbicacion"));
-        UbicacionRequest b = parseBody(req, UbicacionRequest.class);
+        var id = parseId(req.params(":idUbicacion"));
+        var b = parseBody(req, Payloads.UbicacionRequest.class);
         UBICACION_CONTROLLER.actualizarCoordenadas(id, b.getLatitud(), b.getLongitud());
         return respond(res, ApiResponse.success("Ubicacionn actualizada correctamente"));
     }, GSON::toJson);
@@ -458,46 +305,31 @@ private static void registerUbicacionRoutes() {
 
 // ===================== MENSAJES =====================
         private static void registerMensajeRoutes() {
-        // Crear mensaje asociado a un pedido y almacenarlo
-        post("/pedidos/:id/mensajes", (req, res) -> {
-            int idPedido = parseId(req.params(":id"));
-            MensajePayload b = parseBody(req, MensajePayload.class);
-            if (b.idRemitente == null || b.mensaje == null || b.mensaje.isBlank()) {
-                throw new ApiException(400, "id_remitente y mensaje son obligatorios");
-            }
-            Mensaje m = new Mensaje();
-            m.setIdPedido(idPedido);
-            m.setIdRemitente(b.idRemitente);
-            m.setMensaje(b.mensaje);
-            return respond(res, MENSAJE_CONTROLLER.enviarMensaje(m));
-        }, GSON::toJson);
-
-        // Listar mensajes de un pedido especï¿½fico
-        get("/pedidos/:id/mensajes", (req, res)
-                -> respond(res, MENSAJE_CONTROLLER.getMensajesPorPedido(parseId(req.params(":id")))),
-                GSON::toJson);
-
-        // ===================== CHAT BOT =====================
-        post("/chat/mensajes", (req, res) -> {
-            ChatMensajePayload body = parseBody(req, ChatMensajePayload.class);
+        // ===================== CHAT (BOT Y NORMAL) =====================
+        post("/chat/bot/mensajes", (req, res) -> {
+            var body = parseBody(req, ChatMensajePayload.class);
             if (body == null || body.idRemitente == null || body.idRemitente <= 0 || body.mensaje == null || body.mensaje.isBlank()) {
                 throw new ApiException(400, "idRemitente y mensaje son obligatorios");
             }
             long idConversacion = (body.idConversacion != null && body.idConversacion > 0)
                     ? body.idConversacion
                     : System.currentTimeMillis();
-            int idCliente = (body.idCliente != null && body.idCliente > 0) ? body.idCliente : body.idRemitente;
-            String mensaje = body.mensaje.trim();
+            var idCliente = (body.idCliente != null && body.idCliente > 0) ? body.idCliente : body.idRemitente;
+            var mensaje = body.mensaje.trim();
             try {
                 CHAT_REPOSITORY.ensureConversation(idConversacion, idCliente, body.idDelivery, null, body.idPedido);
-                Map<String, Object> usuarioMsg = CHAT_REPOSITORY.insertMensaje(idConversacion, body.idRemitente, body.idDestinatario, mensaje);
-                int botId = CHAT_REPOSITORY.ensureBotUser();
-                String respuestaBot = ChatBotResponder.replyTo(mensaje);
-                Map<String, Object> botMsg = CHAT_REPOSITORY.insertMensaje(idConversacion, botId, body.idRemitente, respuestaBot);
+                CHAT_REPOSITORY.insertMensaje(idConversacion, body.idRemitente, body.idDestinatario, mensaje);
 
-                Map<String, Object> data = new HashMap<>();
+                var botId = CHAT_REPOSITORY.ensureBotUser();
+                var historial = CHAT_REPOSITORY.listarMensajes(idConversacion);
+
+                // Llamada al nuevo servicio de Gemini
+                var respuestaBot = GEMINI_SERVICE.generateReply(mensaje, historial, body.idRemitente);
+
+                CHAT_REPOSITORY.insertMensaje(idConversacion, botId, body.idRemitente, respuestaBot);
+
+                var data = new HashMap<String, Object>();
                 data.put("id_conversacion", idConversacion);
-                data.put("mensajes", List.of(usuarioMsg, botMsg));
                 return respond(res, ApiResponse.success(201, "Conversacion actualizada", data));
             } catch (org.postgresql.util.PSQLException ex) {
                 if ("42P01".equals(ex.getSQLState())) {
@@ -507,9 +339,31 @@ private static void registerUbicacionRoutes() {
                     return respond(res, ApiResponse.success(200, "Chat no configurado en la base de datos", fallback));
                 }
                 if ("23503".equals(ex.getSQLState())) {
-                    throw new ApiException(404, "Referencia no vï¿½lida para el mensaje de chat", ex);
+                    throw new ApiException(404, "Referencia no válida para el mensaje de chat", ex);
                 }
                 throw new ApiException(500, "Error guardando mensaje de chat", ex);
+            } catch (SQLException e) {
+                throw new ApiException(500, "Error guardando mensaje de chat", e);
+            }
+        }, GSON::toJson);
+
+        // Para mensajes normales (sin respuesta de bot)
+        post("/chat/mensajes", (req, res) -> {
+            var body = parseBody(req, ChatMensajePayload.class);
+            if (body == null || body.idRemitente == null || body.idRemitente <= 0 || body.mensaje == null || body.mensaje.isBlank()) {
+                throw new ApiException(400, "idRemitente y mensaje son obligatorios");
+            }
+            long idConversacion = (body.idConversacion != null && body.idConversacion > 0)
+                    ? body.idConversacion
+                    : System.currentTimeMillis();
+
+            try {
+                CHAT_REPOSITORY.ensureConversation(idConversacion, body.idCliente, body.idDelivery, null, body.idPedido);
+                CHAT_REPOSITORY.insertMensaje(idConversacion, body.idRemitente, body.idDestinatario, body.mensaje.trim());
+
+                var data = new HashMap<String, Object>();
+                data.put("id_conversacion", idConversacion);
+                return respond(res, ApiResponse.success(201, "Mensaje enviado", data));
             } catch (SQLException e) {
                 throw new ApiException(500, "Error guardando mensaje de chat", e);
             }
@@ -519,13 +373,13 @@ private static void registerUbicacionRoutes() {
             res.type("application/json");
             long idConversacion = parseLong(req.params(":id"));
             try {
-                if (!CHAT_REPOSITORY.conversationExists(idConversacion)) {
+                if (!CHAT_REPOSITORY.conversationExists(idConversacion)) { // TODO: check if this is correct
                     return respond(res, ApiResponse.success(200, "Mensajes recuperados", new ArrayList<>()));
                 }
                 List<Map<String, Object>> mensajes = CHAT_REPOSITORY.listarMensajes(idConversacion);
                 return respond(res, ApiResponse.success(200, "Mensajes recuperados", mensajes));
             } catch (SQLException e) {
-                throw new ApiException(500, "Error obteniendo mensajes de la conversaciï¿½n", e);
+                throw new ApiException(500, "Error obteniendo mensajes de la conversación", e);
             }
         }, GSON::toJson);
 
@@ -546,72 +400,26 @@ private static void registerUbicacionRoutes() {
         // Reemplaza el handler POST dentro de registerRecomendacionRoutes()
         post("/productos/:id/recomendaciones", (req, res) -> {
             int idProducto = parseId(req.params(":id"));
-            RecomendacionPayload b = parseBody(req, RecomendacionPayload.class);
-            Integer punt = (b == null) ? null : b.getPuntuacion();
-            if (b == null || b.idUsuario == null || b.idUsuario <= 0 || punt == null || punt < 1 || punt > 5) {
-                throw new ApiException(400, "id_usuario y puntuaciâ”œâ”‚n/rating (1-5) son obligatorios");
+            var b = parseBody(req, RecomendacionPayload.class);
+            var punt = (b == null) ? null : b.getPuntuacion();
+            if (b == null || b.getIdUsuario() == null || b.getIdUsuario() <= 0 || punt == null || punt < 1 || punt > 5) {
+                throw new ApiException(400, "id_usuario y puntuación/rating (1-5) son obligatorios");
             }
             return respond(res, RECOMENDACION_CONTROLLER.guardarRecomendacion(
-                    idProducto, b.idUsuario, punt, b.comentario));
+                    idProducto, b.getIdUsuario(), punt, b.comentario));
         }, GSON::toJson);
-
-// ===================== RECOMENDACIONES =====================
-        get("/recomendaciones", (req, res) -> {
-            res.type("application/json");
-            String sql
-                    = "SELECT r.id_recomendacion, r.id_producto, r.id_usuario, r.comentario, r.puntuacion AS rating, "
-                    + "       r.fecha AS fecha_creacion, p.nombre AS producto, u.nombre AS usuario "
-                    + "FROM recomendaciones r "
-                    + "JOIN productos p ON p.id_producto = r.id_producto "
-                    + "JOIN usuarios  u ON u.id_usuario  = r.id_usuario "
-                    + "ORDER BY r.puntuacion DESC, r.fecha DESC LIMIT 4";
-
-            try (Connection c = Database.getConnection(); PreparedStatement ps = c.prepareStatement(sql); ResultSet rs = ps.executeQuery()) {
-
-                List<Map<String, Object>> list = new ArrayList<>();
-                while (rs.next()) {
-                    Map<String, Object> m = new HashMap<>();
-                    m.put("id_recomendacion", rs.getInt("id_recomendacion"));
-                    m.put("id_producto", rs.getInt("id_producto"));
-                    m.put("id_usuario", rs.getInt("id_usuario"));
-                    m.put("comentario", rs.getString("comentario"));
-                    m.put("rating", rs.getInt("rating"));
-                    m.put("fecha_creacion", rs.getTimestamp("fecha_creacion"));
-                    m.put("producto", rs.getString("producto"));
-                    m.put("usuario", rs.getString("usuario"));
-                    list.add(m);
-                }
-
-                res.status(200);
-                return list; // Â­Æ’Ã¦Ãª AQUâ”œÃ¬ EL CAMBIO
-
-            } catch (org.postgresql.util.PSQLException ex) {
-                if ("42P01".equals(ex.getSQLState())) {
-                    res.status(200);
-                    return new ArrayList<>();
-                }
-                throw new ApiException(500, "Error listando recomendaciones", ex);
-            } catch (Exception e) {
-                throw new ApiException(500, "Error listando recomendaciones", e);
-            }
-        }, GSON::toJson);
-
     }
 
-// ===================== DELIVERY: LIVE TRACKING =====================
     private static void registerDeliveryRoutes() {
         path("/delivery", () -> {
             put("/:id/ubicacion", (req, res) -> {
-                int idRepartidor = parseId(req.params(":id"));
-                TrackingPayload b = parseBody(req, TrackingPayload.class);
-                if (b.latitud == null || b.longitud == null) {
-                    throw new ApiException(400, "Coordenadas obligatorias");
-                }
-                boolean ok = UBICACION_REPOSITORY.actualizarUbicacionLive(idRepartidor, b.latitud, b.longitud);
+                var idRepartidor = parseId(req.params(":id"));
+                var b = parseBody(req, Payloads.TrackingPayload.class);
+                boolean ok = UBICACION_CONTROLLER.actualizarUbicacionRepartidor(idRepartidor, b.latitud, b.longitud);
                 if (!ok) {
-                    throw new ApiException(500, "No se pudo actualizar la ubicaciâ”œâ”‚n en vivo");
+                    throw new ApiException(500, "No se pudo actualizar la ubicación en vivo");
                 }
-                return respond(res, ApiResponse.success("Ubicaciâ”œâ”‚n en vivo actualizada"));
+                return respond(res, ApiResponse.success("Ubicación en vivo actualizada"));
             }, GSON::toJson);
         });
     }
@@ -620,41 +428,24 @@ private static void registerUbicacionRoutes() {
     private static void registerTrackingRoutes() {
         get("/pedidos/:idPedido/tracking", (req, res) -> {
             int idPedido = parseId(req.params(":idPedido"));
-            Map<String, Double> ubicacion = new HashMap<>();
-            try (Connection conn = Database.getConnection(); PreparedStatement st = conn.prepareStatement(
-                    "SELECT u.latitud, u.longitud "
-                    + "FROM ubicaciones u JOIN pedidos p ON p.id_delivery = u.id_usuario "
-                    + "WHERE p.id_pedido = ? AND u.descripcion = 'LIVE_TRACKING' "
-                    + "ORDER BY u.id_ubicacion DESC LIMIT 1")) {
-                st.setInt(1, idPedido);
-                try (ResultSet rs = st.executeQuery()) {
-                    if (rs.next()) {
-                        ubicacion.put("latitud", rs.getDouble("latitud"));
-                        ubicacion.put("longitud", rs.getDouble("longitud"));
-                    }
-                }
-            }
-            if (ubicacion.isEmpty()) {
-                throw new ApiException(404, "No hay tracking activo para el pedido");
-            }
-            return respond(res, ApiResponse.success(200, "Ubicaciâ”œâ”‚n en vivo", ubicacion));
+            return respond(res, UBICACION_CONTROLLER.obtenerUbicacionTracking(idPedido));
         }, GSON::toJson);
     }
 
     // ===================== HELPERS =====================
-    private static Ubicacion toUbicacion(UbicacionRequest r) {
+    private static Ubicacion toUbicacion(Payloads.UbicacionRequest r) {
         if (r == null) {
             throw new ApiException(400, "El cuerpo de la solicitud es obligatorio");
         }
         if (r.getIdUsuario() == null || r.getIdUsuario() <= 0) {
             throw new ApiException(400, "idUsuario es obligatorio");
         }
-        requireValidCoordinates(r.getLatitud(), r.getLongitud(), "Coordenadas invâ”œÃ­lidas");
-        Ubicacion u = new Ubicacion();
+        requireValidCoordinates(r.getLatitud(), r.getLongitud(), "Coordenadas inválidas");
+        var u = new Ubicacion();
         u.setIdUsuario(r.getIdUsuario());
         u.setLatitud(r.getLatitud());
         u.setLongitud(r.getLongitud());
-        u.setDireccion(requireNonBlank(r.getDireccion(), "La direcciâ”œâ”‚n es obligatoria"));
+        u.setDireccion(requireNonBlank(r.getDireccion(), "La dirección es obligatoria"));
         u.setDescripcion(normalizeDescripcion(r.getDescripcion()));
         u.setActiva(r.getActiva() == null || r.getActiva());
         return u;
@@ -664,7 +455,7 @@ private static void registerUbicacionRoutes() {
         try {
             return Integer.parseInt(raw);
         } catch (NumberFormatException e) {
-            throw new ApiException(400, "Identificador invâ”œÃ­lido");
+            throw new ApiException(400, "Identificador inválido");
         }
     }
 
@@ -672,7 +463,7 @@ private static void registerUbicacionRoutes() {
         try {
             return Long.parseLong(raw);
         } catch (NumberFormatException e) {
-            throw new ApiException(400, "Identificador invÃ¡lido");
+            throw new ApiException(400, "Identificador inválido");
         }
     }
 
@@ -681,7 +472,7 @@ private static void registerUbicacionRoutes() {
             if (req.body() == null || req.body().isBlank()) {
                 throw new ApiException(400, "El cuerpo de la solicitud es obligatorio");
             }
-            T body = GSON.fromJson(req.body(), clazz);
+            var body = GSON.fromJson(req.body(), clazz);
             if (body == null) {
                 throw new ApiException(400, "El cuerpo de la solicitud es obligatorio");
             }
@@ -698,11 +489,11 @@ private static void registerUbicacionRoutes() {
 
     private static void enableCORS() {
         options("/*", (request, response) -> {
-            String headers = request.headers("Access-Control-Request-Headers");
+            var headers = request.headers("Access-Control-Request-Headers");
             if (headers != null) {
                 response.header("Access-Control-Allow-Headers", headers);
             }
-            String methods = request.headers("Access-Control-Request-Method");
+            var methods = request.headers("Access-Control-Request-Method");
             if (methods != null) {
                 response.header("Access-Control-Allow-Methods", methods);
             }
@@ -724,7 +515,7 @@ private static void registerUbicacionRoutes() {
             res.type("application/json");
             res.status(500);
             ex.printStackTrace();
-            res.body(GSON.toJson(ApiResponse.error(500, "Ocurriâ”œâ”‚ un error inesperado")));
+            res.body(GSON.toJson(ApiResponse.error(500, "Ocurrió un error inesperado")));
         });
         notFound((req, res) -> {
             res.type("application/json");

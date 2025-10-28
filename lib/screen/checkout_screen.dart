@@ -41,6 +41,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> with SingleTickerProvid
   }
 
   Future<void> _confirmOrder() async {
+    // Usamos read() fuera del async gap para evitar problemas con el context.
     final cart = context.read<CartModel>();
     final dbService = context.read<DatabaseService>();
     final navigator = Navigator.of(context);
@@ -51,6 +52,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> with SingleTickerProvid
       return;
     }
 
+    // Verificamos si el widget sigue montado antes de cambiar el estado.
+    if (!mounted) return;
     setState(() => _isLoading = true);
 
     try {
@@ -61,20 +64,25 @@ class _CheckoutScreenState extends State<CheckoutScreen> with SingleTickerProvid
         paymentMethod: _paymentMethod,
       );
 
-      if (!mounted) return;
-
       if (success) {
         cart.clearCart();
-        navigator.pushNamedAndRemoveUntil(AppRoutes.orderSuccess, (route) => false);
+        // Navegamos solo si el widget sigue montado.
+        if (navigator.mounted) {
+          navigator.pushNamedAndRemoveUntil(AppRoutes.orderSuccess, (route) => false);
+        }
       } else {
-        messenger.showSnackBar(const SnackBar(content: Text('No se pudo procesar el pedido.'), backgroundColor: Colors.red));
+        if (messenger.mounted) {
+          messenger.showSnackBar(const SnackBar(content: Text('No se pudo procesar el pedido.'), backgroundColor: Colors.red));
+        }
       }
     } on ApiException catch (e) {
-      if (!mounted) return;
-      messenger.showSnackBar(SnackBar(content: Text('Error: ${e.message}'), backgroundColor: Colors.red));
+      if (messenger.mounted) {
+        messenger.showSnackBar(SnackBar(content: Text('Error: ${e.message}'), backgroundColor: Colors.red));
+      }
     } catch (e) {
-      if (!mounted) return;
-      messenger.showSnackBar(const SnackBar(content: Text('Ocurrió un error inesperado.'), backgroundColor: Colors.red));
+      if (messenger.mounted) {
+        messenger.showSnackBar(const SnackBar(content: Text('Ocurrió un error inesperado.'), backgroundColor: Colors.red));
+      }
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);

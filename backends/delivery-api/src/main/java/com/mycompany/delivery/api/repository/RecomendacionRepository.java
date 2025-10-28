@@ -1,9 +1,15 @@
 package com.mycompany.delivery.api.repository;
 
-import com.mycompany.delivery.api.config.Database;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
-import java.sql.*;
-import java.util.*;
+import com.mycompany.delivery.api.config.Database;
 
 public class RecomendacionRepository {
 
@@ -103,6 +109,38 @@ public class RecomendacionRepository {
                 }
                 return out;
             }
+        }
+    }
+
+    public List<Map<String, Object>> listarPrincipales() throws SQLException {
+        String sql = """
+            SELECT r.id_recomendacion, r.id_producto, r.id_usuario, r.comentario, r.puntuacion,
+                   r.fecha AS fecha_creacion, p.nombre AS producto, u.nombre AS usuario
+            FROM recomendaciones r
+            JOIN productos p ON p.id_producto = r.id_producto
+            JOIN usuarios  u ON u.id_usuario  = r.id_usuario
+            ORDER BY r.puntuacion DESC, r.fecha DESC
+            LIMIT 4
+            """;
+
+        try (Connection c = Database.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            List<Map<String, Object>> list = new ArrayList<>();
+            while (rs.next()) {
+                Map<String, Object> m = new HashMap<>();
+                m.put("id_recomendacion", rs.getInt("id_recomendacion"));
+                m.put("id_producto", rs.getInt("id_producto"));
+                m.put("id_usuario", rs.getInt("id_usuario"));
+                m.put("comentario", rs.getString("comentario"));
+                m.put("puntuacion", rs.getInt("puntuacion"));
+                m.put("fecha_creacion", rs.getTimestamp("fecha_creacion"));
+                m.put("producto", rs.getString("producto"));
+                m.put("usuario", rs.getString("usuario"));
+                list.add(m);
+            }
+            return list;
         }
     }
 }

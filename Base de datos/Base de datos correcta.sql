@@ -345,18 +345,6 @@ BEGIN
 END;
 $$;
 
--- FUNCIÓN TRIGGER: public.update_ubicaciones_updated_at()
--- Propósito: Función específica para actualizar 'updated_at' en 'ubicaciones'.
---            (Nota: es redundante si ya existe 'set_updated_at()').
-CREATE FUNCTION public.update_ubicaciones_updated_at() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-    NEW.updated_at = NOW();
-    RETURN NEW;
-END;
-$$;
-
 -- FUNCIÓN TRIGGER: public.usuarios_hash_password_bcrypt()
 -- Propósito: Cifrar (hashear) la contraseña del usuario antes de guardarla.
 -- Disparador: Se ejecuta ANTES (BEFORE) de insertar o actualizar el campo 'contrasena'
@@ -586,7 +574,7 @@ CREATE TABLE public.pedidos (
     -- Restricciones:
     -- El estado debe ser uno de los predefinidos.
     CONSTRAINT pedidos_estado_check CHECK (((estado)::text = ANY ((ARRAY['pendiente'::character varying, 'en preparacion'::character varying, 'en camino'::character varying, 'entregado'::character varying, 'cancelado'::character varying])::text[]))),
-    -- El método de pago debe ser uno de los predefinidos.
+    -- El método de pago debe ser uno de los predefinidos (insensible a mayúsculas).
     CONSTRAINT pedidos_metodo_pago_check CHECK ((lower((metodo_pago)::text) = ANY (ARRAY['efectivo'::text, 'tarjeta'::text, 'transferencia'::text]))),
     CONSTRAINT pedidos_total_check CHECK ((total >= (0)::numeric))
 );
@@ -655,7 +643,6 @@ CREATE TABLE public.productos (
     fecha_creacion timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
-    categoria character varying(50),  -- (Campo quizás redundante si se usa id_categoria)
     proveedor character varying(100),
     codigo_barras character varying(50),
     descuento numeric(5,2) DEFAULT 0,
@@ -1101,8 +1088,9 @@ CREATE INDEX idx_ubicaciones_usuario ON public.ubicaciones USING btree (id_usuar
 
 -- ÍNDICE ÚNICO CONDICIONAL: idx_uq_delivery_1_activo
 -- Propósito: Asegura que un repartidor ('id_delivery') solo pueda tener
---            UN pedido activo ('en preparacion' o 'en camino') a la vez.
-CREATE UNIQUE INDEX idx_uq_delivery_1_activo ON public.pedidos USING btree (id_delivery) WHERE ((id_delivery IS NOT NULL) AND ((estado)::text = ANY ((ARRAY['en preparacion'::character varying, 'en camino'::character varying])::text[])));
+--            UN pedido activo ('en preparacion' o 'en camino') a la vez. Esto previene
+--            que un repartidor acepte múltiples pedidos simultáneamente.
+CREATE UNIQUE INDEX idx_uq_delivery_1_activo ON public.pedidos USING btree (id_delivery) WHERE ((id_delivery IS NOT NULL) AND ((estado)::text = ANY (ARRAY[('en preparacion'::character varying)::text, ('en camino'::character varying)::text])));
 
 CREATE INDEX idx_usuarios_correo ON public.usuarios USING btree (correo);
 
@@ -1157,12 +1145,6 @@ CREATE TRIGGER trigger_actualizar_total AFTER INSERT OR DELETE OR UPDATE ON publ
 -- Propósito: Ejecuta 'registrar_cambio_estado' DESPUÉS (AFTER) de actualizar
 --            el 'estado' en 'pedidos' para guardar el historial.
 CREATE TRIGGER trigger_historial_estado AFTER UPDATE OF estado ON public.pedidos FOR EACH ROW EXECUTE FUNCTION public.registrar_cambio_estado();
-
--- TRIGGER: trigger_update_ubicaciones_updated_at
--- Propósito: Ejecuta 'update_ubicaciones_updated_at' (función redundante)
---            ANTES (BEFORE) de actualizar 'ubicaciones'.
-CREATE TRIGGER trigger_update_ubicaciones_updated_at BEFORE UPDATE ON public.ubicaciones FOR EACH ROW EXECUTE FUNCTION public.update_ubicaciones_updated_at();
-
 
 -- =================================================================
 -- RESTRICCIONES DE LLAVE FORÁNEA (FOREIGN KEYS)

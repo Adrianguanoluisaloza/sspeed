@@ -1,46 +1,75 @@
-import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform, kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 
+// 1. Define los entornos de la aplicación
+enum Environment {
+  local,
+  production,
+}
+
+// 2. Define la configuración para cada entorno
+class _ApiSettings {
+  final String baseUrl;
+  // Aquí se podrían añadir otras configuraciones específicas del entorno,
+  // como API keys, etc.
+
+  const _ApiSettings({required this.baseUrl});
+
+  // Método factory para obtener la URL base correcta en el entorno local
+  // según la plataforma (Android, iOS, Web).
+  factory _ApiSettings.local() {
+    String localBaseUrl;
+    if (kIsWeb || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux || defaultTargetPlatform == TargetPlatform.macOS) {
+      localBaseUrl = 'http://localhost:4567';
+    } else if (defaultTargetPlatform == TargetPlatform.android) {
+      localBaseUrl = 'http://10.0.2.2:4567'; // IP especial para el emulador de Android
+    } else if (defaultTargetPlatform == TargetPlatform.iOS) {
+      localBaseUrl = 'http://localhost:4567'; // El simulador de iOS puede resolver localhost
+    } else {
+      localBaseUrl = 'http://localhost:4567'; // Fallback
+    }
+    return _ApiSettings(baseUrl: localBaseUrl);
+  }
+
+  // Configuración para el entorno de producción (AWS)
+  static const _ApiSettings production = _ApiSettings(
+    // TODO: Reemplazar con la URL real de AWS cuando la tengas
+    baseUrl: 'https://tu-api-de-aws.com', 
+  );
+}
+
+// 3. Clase principal para gestionar la configuración de la API
 class AppConfig {
-  AppConfig._();
+  AppConfig._(); // Constructor privado
 
-  // Bases por plataforma (local)
-  static const String _webAndDesktopBase = 'http://localhost:4567';
-  static const String _androidEmulatorBase = 'http://10.0.2.2:4567';
-  static const String _iosSimulatorBase = 'http://localhost:4567';
+  // --- CONFIGURACIÓN PRINCIPAL ---
+  // Cambia esta línea para apuntar a producción cuando despliegues la app.
+  static const _currentEnvironment = Environment.local;
+  // -----------------------------
 
-  // 👉 NEON PostgREST (tu endpoint)
-  static const String _neonRestBase =
-      'https://ep-quiet-thunder-ady30ys2-pooler.c-2.us-east-1.aws.neon.tech:5432/neondb?sslmode=require';
-
+  // Mapa que asocia cada entorno con su configuración
+  static final Map<Environment, _ApiSettings> _settings = {
+    Environment.local: _ApiSettings.local(),
+    Environment.production: _ApiSettings.production,
+  };
+  
   static String? _manualOverride;
 
-  /// Activa la base de Neon para todo el runtime
-  static void useNeonRest() {
-    _manualOverride = _neonRestBase;
+  /// Permite sobreescribir la URL base manualmente en tiempo de ejecución.
+  /// Útil para pruebas con herramientas como Ngrok o para apuntar a una IP en la LAN.
+  /// Pasa un string vacío o null para desactivar.
+  static void overrideBaseUrl(String? baseUrl) {
+    _manualOverride = (baseUrl != null && baseUrl.trim().isNotEmpty) ? baseUrl.trim() : null;
   }
 
-  /// Override manual (Ngrok / LAN / Prod)
-  static void overrideBaseUrl(String baseUrl) {
-    _manualOverride = baseUrl.trim().isEmpty ? null : baseUrl.trim();
-  }
-
-  /// Resuelve la URL base
+  /// Devuelve la URL base que la aplicación debe usar.
+  /// Da prioridad al override manual, si existe.
   static String get baseUrl {
-    if (_manualOverride != null) return _manualOverride!;
-    if (kIsWeb) return _webAndDesktopBase;
-
-    switch (defaultTargetPlatform) {
-      case TargetPlatform.android:
-        return _androidEmulatorBase;
-      case TargetPlatform.iOS:
-        return _iosSimulatorBase;
-      case TargetPlatform.macOS:
-      case TargetPlatform.windows:
-      case TargetPlatform.linux:
-      case TargetPlatform.fuchsia:
-        return _webAndDesktopBase;
+    if (_manualOverride != null) {
+      return _manualOverride!;
     }
+    return _settings[_currentEnvironment]!.baseUrl;
   }
 
+  /// Ejemplo de cómo podrías tener una URL para un override manual (ej. Ngrok o IP de LAN)
   static const String lanExample = 'http://192.168.1.100:4567';
 }

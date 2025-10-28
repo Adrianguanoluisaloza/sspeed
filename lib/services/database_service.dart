@@ -165,10 +165,12 @@ class DatabaseService implements DataSource {
     required int idConversacion,
     required int idRemitente,
     required String mensaje,
+    bool isBot = false,
   }) =>
       _dataSource.enviarMensaje(
         idConversacion: idConversacion,
         idRemitente: idRemitente,
         mensaje: mensaje,
+        isBot: isBot,
       );
 }

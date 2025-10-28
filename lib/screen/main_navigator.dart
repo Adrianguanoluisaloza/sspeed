@@ -23,7 +23,6 @@ class _MainNavigatorState extends State<MainNavigator> {
     _widgetOptions = <Widget>[
       HomeScreen(usuario: widget.usuario),
       const LiveMapScreen(),
-      ChatScreen(initialSection: ChatSection.soporte),
       ProfileScreen(usuario: widget.usuario),
     ];
   }
@@ -39,9 +38,34 @@ class _MainNavigatorState extends State<MainNavigator> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: _widgetOptions,
+      body: Stack(
+        children: [
+          IndexedStack(
+            index: _selectedIndex,
+            children: _widgetOptions,
+          ),
+          if (_selectedIndex == 0)
+            Positioned(
+              bottom: 32,
+              right: 24,
+              child: FloatingActionButton(
+                heroTag: 'ciaBotBubble',
+                backgroundColor: theme.colorScheme.primary,
+                child: const Icon(Icons.smart_toy, color: Colors.white),
+                onPressed: () {
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
+                    builder: (ctx) => FractionallySizedBox(
+                      heightFactor: 0.92,
+                      child: ChatScreen(initialSection: ChatSection.ciaBot),
+                    ),
+                  );
+                },
+              ),
+            ),
+        ],
       ),
       // SE APLICA EL REDISEÑO VISUAL A LA BARRA DE NAVEGACIÓN
       bottomNavigationBar: Container(
@@ -69,11 +93,6 @@ class _MainNavigatorState extends State<MainNavigator> {
               label: 'Mapa',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.support_agent_outlined),
-              activeIcon: Icon(Icons.support_agent),
-              label: 'Soporte',
-            ),
-            BottomNavigationBarItem(
               icon: Icon(Icons.person_outline),
               activeIcon: Icon(Icons.person),
               label: 'Perfil',
@@ -81,13 +100,11 @@ class _MainNavigatorState extends State<MainNavigator> {
           ],
           currentIndex: _selectedIndex,
           onTap: _onItemTapped,
-          
-          // --- Mejoras Visuales ---
-          backgroundColor: Colors.transparent, // Fondo transparente para ver el container
-          elevation: 0, // Eliminamos la sombra por defecto, usamos la nuestra
-          type: BottomNavigationBarType.fixed, // Mantiene el layout estable
-          selectedItemColor: theme.colorScheme.primary, // Color del tema para el ítem activo
-          unselectedItemColor: Colors.grey.shade600, // Color neutro para ítems inactivos
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          type: BottomNavigationBarType.fixed,
+          selectedItemColor: theme.colorScheme.primary,
+          unselectedItemColor: Colors.grey.shade600,
           selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold),
           showUnselectedLabels: true,
         ),

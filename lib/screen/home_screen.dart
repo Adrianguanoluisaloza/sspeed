@@ -6,13 +6,16 @@ import 'package:shimmer/shimmer.dart';
 import '../models/cart_model.dart';
 import '../models/producto.dart';
 import '../models/usuario.dart';
+// ...existing code...
 import '../widgets/recomendaciones_carousel.dart'; 
+// ...existing code...
 import 'live_map_screen.dart';
 import 'profile_screen.dart';
 import '../services/database_service.dart';
 import 'widgets/login_required_dialog.dart';
 import 'product_detail_screen.dart';
 import 'cart_screen.dart';
+import 'admin_productos_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final Usuario usuario;
@@ -110,12 +113,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _searchController.addListener(_onSearchChanged);
   }
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    _debounce?.cancel();
-    super.dispose();
-  }
+  // Eliminado método no referenciado
 
   void _loadData() => _loadProducts();
 
@@ -143,6 +141,21 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
   Widget _buildProductosTab() {
+    // Si es admin, mostrar botón de gestión de productos
+    if (widget.usuario.rol == 'admin') {
+      return Center(
+        child: ElevatedButton.icon(
+          icon: const Icon(Icons.settings),
+          label: const Text('Gestión de productos'),
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const AdminProductosScreen()),
+            );
+          },
+        ),
+      );
+    }
+    // Si no es admin, mostrar el menú normal
     return RefreshIndicator(
       onRefresh: () async => _loadData(),
       child: CustomScrollView(
@@ -170,15 +183,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildMapaTab() => const LiveMapScreen();
   Widget _buildPerfilTab() => ProfileScreen(usuario: widget.usuario);
 
-  void _onTabTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
+  // Eliminado método no referenciado
 
   @override
   Widget build(BuildContext context) {
-    // Solo cliente tiene BottomNavigationBar y burbuja de chat
     final isCliente = widget.usuario.rol == 'cliente';
     return Scaffold(
       appBar: AppBar(
@@ -194,105 +202,24 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       body: isCliente
-          ? Stack(
-              children: [
-                if (_selectedIndex == 0) _buildProductosTab(),
-                if (_selectedIndex == 1) _buildMapaTab(),
-                if (_selectedIndex == 2) _buildPerfilTab(),
-                Positioned(
-                  bottom: 24,
-                  right: 24,
-                  child: _ChatBubble(),
-                ),
-              ],
-            )
-          : _buildProductosTab(),
-      bottomNavigationBar: isCliente
-          ? BottomNavigationBar(
-              currentIndex: _selectedIndex,
-              onTap: _onTabTapped,
-              items: const [
-                BottomNavigationBarItem(icon: Icon(Icons.fastfood), label: 'Productos'),
-                BottomNavigationBarItem(icon: Icon(Icons.map), label: 'Mapa'),
-                BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Perfil'),
-              ],
-            )
-          : null,
-    );
-  }
-
-}
-
-class _ChatBubble extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      alignment: Alignment.bottomRight,
-      children: [
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-          margin: const EdgeInsets.only(right: 0, bottom: 0),
-          child: Material(
-            elevation: 8,
-            shape: const CircleBorder(),
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(32),
-              onTap: () {
-                // Aquí puedes abrir el chat real
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Abrir chat...')));
-              },
-              child: Container(
-                width: 62,
-                height: 62,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF4F8CFF), Color(0xFF3EDBF0)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.18),
-                      blurRadius: 12,
-                      offset: Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    const Icon(Icons.chat_bubble_rounded, color: Colors.white, size: 32),
-                    Positioned(
-                      top: 12,
-                      right: 12,
-                      child: Container(
-                        width: 16,
-                        height: 16,
-                        decoration: BoxDecoration(
-                          color: Colors.redAccent,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.redAccent.withOpacity(0.5),
-                              blurRadius: 6,
-                            ),
-                          ],
-                        ),
-                        child: const Center(
-                          child: Text('1', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+          ? (_selectedIndex == 0
+              ? _buildProductosTab()
+              : _selectedIndex == 1
+                  ? _buildMapaTab()
+                  : _selectedIndex == 2
+                      ? _buildPerfilTab()
+                      : Container())
+          : Center(
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.settings),
+                label: const Text('Gestión de productos'),
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const AdminProductosScreen()),
+                  );
+                },
               ),
             ),
-          ),
-        ),
-      ],
     );
   }
 

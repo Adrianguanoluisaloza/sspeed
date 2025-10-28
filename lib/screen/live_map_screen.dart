@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:location/location.dart';
@@ -152,7 +152,18 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
 
       final pedidosEnRuta = pedidos.where((p) => p.idDelivery != null).toList();
       if (pedidosEnRuta.isNotEmpty) {
-        final futures = pedidosEnRuta.map((p) => db.getRepartidorLocation(p.idPedido).then((loc) => (p, loc)));
+        final futures = pedidosEnRuta.map((p) async {
+          try {
+            final loc = await db.getRepartidorLocation(p.idPedido);
+            return (p, loc);
+          } catch (e) {
+            // Ignora errores de tracking para un solo pedido
+            if (kDebugMode) {
+              print('No se pudo obtener la ubicación para el pedido #${p.idPedido}: $e');
+            }
+            return (p, null);
+          }
+        });
         final results = await Future.wait(futures);
 
         for (final (pedido, ubicacion) in results) {
@@ -221,7 +232,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   Widget _buildTopInfoBar() {
     final bool hasError = _errorMessage != null;
     final String message = _errorMessage ?? _infoMessage ?? 'Cargando mapa...';
-    final Color bgColor = hasError ? Colors.red.shade400 : Colors.black.withOpacity(0.6);
+    final Color bgColor = hasError ? Colors.red.shade400 : Colors.black.withAlpha(153); // ~0.6 opacity
     final IconData icon = hasError ? Icons.warning_amber_rounded : Icons.info_outline_rounded;
 
     return Positioned(
@@ -229,8 +240,8 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
       child: Material(
         color: Colors.transparent,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8).copyWith(top: MediaQuery.of(context).padding.top + 8),
-          decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.black.withOpacity(0.5), Colors.transparent])),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8).copyWith(top: MediaQuery.of(context).viewPadding.top + 8),
+          decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.black.withAlpha(128), Colors.transparent])), // 0.5 opacity
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(10), boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 5, offset: Offset(0, 2))]),

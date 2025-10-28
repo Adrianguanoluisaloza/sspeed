@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 import '../routes/app_routes.dart';
 
@@ -13,16 +14,19 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    _checkLoginStatus();
+    // CORRECCIÓN: La navegación se ejecuta despuÃ©s de que el primer frame se haya dibujado.
+    // Esto evita el error "setState() or markNeedsBuild() called during build".
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      _checkLoginStatus();
+    });
   }
+
   Future<void> _checkLoginStatus() async {
-    // Siempre mostrar login al iniciar
+    // Lógica para comprobar si hay una sesiÃ³n activa (a implementar en el futuro)
+    // Por ahora, como en tu cÃ³digo, siempre navegamos al login.
     if (!mounted) return;
     Navigator.of(context).pushReplacementNamed(AppRoutes.login);
   }
-
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -43,15 +47,15 @@ class _SplashScreenState extends State<SplashScreen> {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.12), // Reemplazo recomendado para evitar deprecaciones.
+                  // CORRECCIÓN: Se usa withAlpha con un valor entero (0-255).
+                  color: Colors.white.withAlpha(31),
                   borderRadius: BorderRadius.circular(24),
                 ),
-                child: const Icon(Icons.delivery_dining,
-                    size: 120, color: Colors.white),
+                child: const Icon(Icons.delivery_dining, size: 120, color: Colors.white),
               ),
               const SizedBox(height: 24),
               Text(
-                'Unite7speed Delivery',
+                'Unite Speed Delivery', // CORRECCIÓN: Typo
                 style: theme.textTheme.headlineSmall?.copyWith(
                   color: Colors.white,
                   fontWeight: FontWeight.w700,
@@ -67,4 +71,3 @@ class _SplashScreenState extends State<SplashScreen> {
     );
   }
 }
-

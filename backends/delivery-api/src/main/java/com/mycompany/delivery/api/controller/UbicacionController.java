@@ -4,6 +4,7 @@ import com.mycompany.delivery.api.UbicacionService;
 import com.mycompany.delivery.api.model.Ubicacion;
 import com.mycompany.delivery.api.util.ApiException;
 import com.mycompany.delivery.api.util.ApiResponse;
+import java.util.Map;
 import java.sql.SQLException;
 import java.util.List;
 
@@ -14,22 +15,22 @@ public class UbicacionController {
     // ===============================
     // CREAR O ACTUALIZAR UBICACIÓN
     // ===============================
-    public ApiResponse<Ubicacion> guardarUbicacion(Ubicacion ubicacion) {
+    public ApiResponse<Map<String, Object>> guardarUbicacion(Ubicacion ubicacion) {
         var saved = service.guardarUbicacion(ubicacion)
                 .orElseThrow(() -> new ApiException(500, "No se pudo guardar la ubicación"));
-        return ApiResponse.success(201, "Ubicación guardada correctamente", saved);
+        return ApiResponse.success(201, "Ubicación guardada correctamente", saved.toMap());
     }
 
     // ===============================
     // ACTUALIZAR COORDENADAS (EN VIVO)
     // ===============================
-    public ApiResponse<Void> actualizarUbicacionRepartidor(int idRepartidor, double latitud, double longitud) {
+    public boolean actualizarUbicacionRepartidor(int idRepartidor, double latitud, double longitud) {
         try {
             var req = new com.mycompany.delivery.api.config.UbicacionUpdateRequest();
             req.setLatitud(latitud);
             req.setLongitud(longitud);
             service.actualizarUbicacionRepartidor(idRepartidor, req);
-            return ApiResponse.success("Ubicación actualizada correctamente");
+            return true;
         } catch (ApiException e) {
             throw e;
         } catch (Exception e) {
@@ -94,6 +95,15 @@ public class UbicacionController {
             return ApiResponse.success("Ubicación eliminada correctamente");
         } catch (SQLException e) {
             throw new ApiException(500, "Error al eliminar la ubicación", e);
+        }
+    }
+
+    public ApiResponse<Map<String, Object>> obtenerUbicacionTracking(int idPedido) {
+        try {
+            Map<String, Double> ubicacion = service.obtenerUbicacionTracking(idPedido);
+            return ApiResponse.success(200, "Ubicación en vivo", Map.of("data", ubicacion));
+        } catch (SQLException e) {
+            throw new ApiException(500, "Error al obtener tracking", e);
         }
     }
 }

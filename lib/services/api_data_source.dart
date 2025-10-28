@@ -28,11 +28,11 @@ class ApiDataSource implements DataSource {
   @override
   void setAuthToken(String? token) {
     _token = token;
+    debugPrint('[ApiDataSource] Token actualizado: \x1B[33m$_token\x1B[0m');
   }
 
   Map<String, String> get _jsonHeaders {
     final headers = {'Content-Type': 'application/json; charset=UTF-8'};
-    debugPrint('[ApiDataSource] Token actual: \033[33m$_token\033[0m');
     if (_token != null) {
       headers['Authorization'] = 'Bearer $_token';
     }
@@ -126,23 +126,7 @@ class ApiDataSource implements DataSource {
     debugPrint('API GET Map: $url');
     try {
       final response = await _httpClient.get(url, headers: _jsonHeaders).timeout(_timeout);
-      final raw = await _parseMapResponse(response);
-
-      if (raw.containsKey('data')) {
-        final data = raw['data'];
-        if (data is Map<String, dynamic>) return Map<String, dynamic>.from(data);
-        // Distinguimos cuando el backend envía listas dentro de data.
-        if (data is List) return {'data': data};
-        if (data != null) return {'value': data};
-      }
-
-      // Compatibilidad con respuestas que exponen objetos con nombres específicos.
-      for (final key in ['producto', 'pedido', 'estadisticas', 'ubicacion', 'resultado']) {
-        final value = raw[key];
-        if (value is Map<String, dynamic>) return Map<String, dynamic>.from(value);
-      }
-
-      return raw;
+      return await _parseMapResponse(response);
     } catch (e) {
       debugPrint('   <- Error: $e');
       throw _mapToApiException(e);
@@ -216,9 +200,9 @@ class ApiDataSource implements DataSource {
     return Producto.fromMap(data);
   }
 
-  // CORRECCIÓN: Se usa la ruta correcta que espera el backend.
   @override
   Future<List<Ubicacion>> getUbicaciones(int idUsuario) async {
+    // CORRECCIÓN: Se utiliza la ruta correcta definida en la API de Java.
     final data = await _get('/ubicaciones/usuario/$idUsuario');
     return data.cast<Map<String, dynamic>>().map(Ubicacion.fromMap).toList();
   }
@@ -331,7 +315,8 @@ class ApiDataSource implements DataSource {
   @override
   Future<PedidoDetalle?> getPedidoDetalle(int idPedido) async {
     final data = await _getMap('/pedidos/$idPedido');
-    return PedidoDetalle.fromMap(data);
+    final pedidoData = data['data'] as Map<String, dynamic>?;
+    return pedidoData != null ? PedidoDetalle.fromMap(pedidoData) : null;
   }
 
   @override
@@ -366,9 +351,23 @@ class ApiDataSource implements DataSource {
 
   @override
   Future<bool> deleteProducto(int idProducto) async {
-    final response = await _put('/admin/productos/$idProducto/delete', {});
+    final response = await _delete('/admin/productos/$idProducto');
     return response['success'] ?? false;
   }
+
+  Future<Map<String, dynamic>> _delete(String endpoint) async {
+    final url = Uri.parse('$_baseUrl$endpoint');
+    debugPrint('API DELETE: $url');
+    try {
+      final response = await _httpClient.delete(url, headers: _jsonHeaders).timeout(_timeout);
+      return await _parseMapResponse(response);
+    } catch (e) {
+      debugPrint('   <- Error: $e');
+      throw _mapToApiException(e);
+    }
+  }
+
+
 
   @override
   Future<Map<String, dynamic>> getAdminStats() async {
@@ -400,14 +399,19 @@ class ApiDataSource implements DataSource {
 
   @override
   Future<bool> updateRepartidorLocation(int idRepartidor, double lat, double lon) async {
-    final response = await _put('/repartidor/$idRepartidor/ubicacion', {'latitud': lat, 'longitud': lon});
+    final response = await _put('/delivery/$idRepartidor/ubicacion', {'latitud': lat, 'longitud': lon});
     return response['success'] ?? false;
   }
 
   @override
   Future<Map<String, dynamic>?> getRepartidorLocation(int idPedido) async {
-    final data = await _getMap('/pedidos/$idPedido/tracking');
-    return data['ubicacion'] as Map<String, dynamic>?;
+    try {
+      final data = await _getMap('/pedidos/$idPedido/tracking');
+      return data['data'] as Map<String, dynamic>?;
+    } on ApiException catch (e) {
+      if (e.statusCode == 404) return null; // Not found is not an error here.
+      rethrow;
+    }
   }
 
   @override
@@ -431,8 +435,10 @@ class ApiDataSource implements DataSource {
   }
 
   @override
-  Future<bool> enviarMensaje({required int idConversacion, required int idRemitente, required String mensaje}) async {
-    final response = await _post('/chat/mensajes', {
+  Future<bool> enviarMensaje({required int idConversacion, required int idRemitente, required String mensaje, bool isBot = false}) async {
+    // Si es un chat con el bot, la URL es diferente y maneja la respuesta del bot.
+    final endpoint = isBot ? '/chat/bot/mensajes' : '/chat/mensajes';
+    final response = await _post(endpoint, {
       'idConversacion': idConversacion,
       'idRemitente': idRemitente,
       'mensaje': mensaje,
