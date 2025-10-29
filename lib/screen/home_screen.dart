@@ -138,7 +138,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  int _selectedIndex = 0;
+  final int _selectedIndex = 0;
 
   Widget _buildProductosTab() {
     // Si es admin, mostrar botón de gestión de productos

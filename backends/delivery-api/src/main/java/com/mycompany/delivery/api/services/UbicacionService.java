@@ -1,4 +1,4 @@
-package com.mycompany.delivery.api;
+package com.mycompany.delivery.api.services;
 
 import com.mycompany.delivery.api.config.UbicacionUpdateRequest;
 import com.mycompany.delivery.api.model.Ubicacion;

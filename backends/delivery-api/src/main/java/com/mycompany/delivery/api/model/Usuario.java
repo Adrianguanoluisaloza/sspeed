@@ -1,5 +1,8 @@
 package com.mycompany.delivery.api.model;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * Modelo que representa a un usuario dentro del sistema Delivery.
  * Compatible con controladores y repositorios actualizados.
@@ -117,4 +120,18 @@ public class Usuario {
                 ", activo=" + activo +
                 '}';
     }
+
+        /**
+         * Devuelve los datos del usuario como un Map.
+         */
+        public Map<String, Object> toMap() {
+            Map<String, Object> map = new HashMap<>();
+            map.put("idUsuario", idUsuario);
+            map.put("nombre", nombre);
+            map.put("correo", correo);
+            map.put("telefono", telefono);
+            map.put("rol", rol);
+            map.put("activo", activo);
+            return map;
+        }
 }

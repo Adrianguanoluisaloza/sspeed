@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_speed_dial/flutter_speed_dial.dart';
-import 'package:badges/badges.dart' as badges;
+// Import eliminado: badges
 
 import 'package:flutter_application_2/models/ubicacion.dart';
 import 'package:flutter_application_2/models/usuario.dart';

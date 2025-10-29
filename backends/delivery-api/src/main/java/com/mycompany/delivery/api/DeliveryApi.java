@@ -8,6 +8,7 @@ import com.mycompany.delivery.api.model.*;
 import com.mycompany.delivery.api.payloads.Payloads;
 import com.mycompany.delivery.api.payloads.Payloads.PedidoPayload;
 import com.mycompany.delivery.api.repository.ChatRepository;
+import com.mycompany.delivery.api.repository.DashboardDAO;
 import com.mycompany.delivery.api.util.ApiException;
 
 // Usa tus Payloads externos (sin clases duplicadas)
@@ -46,6 +47,16 @@ final Gson GSON = new Gson();
     }
 
     public static void main(String[] args) {
+        // Cargar variables de entorno desde .env (dotenv-java)
+        try {
+            io.github.cdimascio.dotenv.Dotenv dotenv = io.github.cdimascio.dotenv.Dotenv.configure()
+                .directory("../delivery-api") // Ajusta el path si tu .env está en otro lugar
+                .ignoreIfMalformed()
+                .ignoreIfMissing()
+                .load();
+        } catch (Exception e) {
+            System.err.println("[WARN] No se pudo cargar .env: " + e.getMessage());
+        }
         port(4567);
         Database.ping();
         enableCORS();
@@ -216,7 +227,7 @@ private static void registerPedidoRoutes() {
         try {
             return respond(res, PEDIDO_CONTROLLER.crearPedido(pedido, detalles));
         } catch (Exception e) {
-            e.printStackTrace();
+            System.err.println("[ERROR] al crear el pedido: " + e.getMessage());
             throw new ApiException(500, "Error al crear el pedido: " + e.getMessage());
         }
 
@@ -301,6 +312,13 @@ private static void registerUbicacionRoutes() {
     get("/ubicaciones/activas", (req, res)
             -> respond(res, UBICACION_CONTROLLER.listarActivas()),
             GSON::toJson);
+
+        // Nueva ruta para geocodificar dirección
+        post("/ubicaciones/geocodificar", (req, res) -> {
+            var body = parseBody(req, Map.class);
+            String direccion = body != null ? (String) body.get("direccion") : null;
+            return respond(res, UBICACION_CONTROLLER.geocodificarDireccion(direccion));
+        }, GSON::toJson);
 }
 
 // ===================== MENSAJES =====================
@@ -514,7 +532,7 @@ private static void registerUbicacionRoutes() {
         exception(Exception.class, (ex, req, res) -> {
             res.type("application/json");
             res.status(500);
-            ex.printStackTrace();
+            System.err.println("[ERROR] Ocurrió un error inesperado: " + ex.getMessage());
             res.body(GSON.toJson(ApiResponse.error(500, "Ocurrió un error inesperado")));
         });
         notFound((req, res) -> {

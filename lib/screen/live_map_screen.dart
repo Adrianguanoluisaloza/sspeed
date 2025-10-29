@@ -1,16 +1,21 @@
+// Import condicional para web (ahora en utils/google_maps_iframe_web.dart)
 import 'dart:async';
 
-import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
+import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+// Import condicional para registrar iframe solo en web
+import 'package:flutter/foundation.dart' show kIsWeb;
+// ...existing imports...
+// Importa la función solo en web
+// ignore: uri_does_not_exist
+import '../utils/google_maps_iframe_web.dart' if (dart.library.html) '../utils/google_maps_iframe_web.dart';
 import 'package:location/location.dart';
 import 'package:provider/provider.dart';
 
-import '../config/secret_config.dart';
 import '../models/pedido.dart';
 import '../models/session_state.dart';
 import '../services/database_service.dart';
-import '../utils/maps_script_loader.dart';
 
 class LiveMapScreen extends StatefulWidget {
   const LiveMapScreen({super.key});
@@ -50,15 +55,6 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
 
   Future<void> _bootstrap() async {
     try {
-      if (kIsWeb) {
-        final key = SecretConfig.googleMapsApiKey;
-        if (key.isEmpty) {
-          setState(() => _errorMessage = 'Configura GOOGLE_MAPS_API_KEY.');
-          return;
-        }
-        await ensureGoogleMapsScriptLoaded(key);
-      }
-
       await _loadUserLocation();
       await _refreshMarkers();
       if (mounted) {
@@ -155,9 +151,14 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
         final futures = pedidosEnRuta.map((p) async {
           try {
             final loc = await db.getRepartidorLocation(p.idPedido);
-            return (p, loc);
+            // Si la respuesta es null, no tiene tracking
+            if (loc == null) return (p, null);
+            // Si no tiene lat/lon válidos, tampoco
+            final lat = _parseDouble(loc['latitud'] ?? loc['lat']);
+            final lon = _parseDouble(loc['longitud'] ?? loc['lng']);
+            if (lat == null || lon == null) return (p, null);
+            return (p, {'lat': lat, 'lon': lon});
           } catch (e) {
-            // Ignora errores de tracking para un solo pedido
             if (kDebugMode) {
               print('No se pudo obtener la ubicación para el pedido #${p.idPedido}: $e');
             }
@@ -168,11 +169,16 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
 
         for (final (pedido, ubicacion) in results) {
           if (ubicacion == null) continue;
-          final lat = _parseDouble(ubicacion['latitud'] ?? ubicacion['lat']);
-          final lon = _parseDouble(ubicacion['longitud'] ?? ubicacion['lng']);
-          if (lat == null || lon == null) continue;
-
-          markers.add(Marker(markerId: MarkerId('delivery_${pedido.idDelivery}_${pedido.idPedido}'), position: LatLng(lat, lon), icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange), infoWindow: InfoWindow(title: 'Repartidor #${pedido.idDelivery}', snippet: 'Pedido ${pedido.idPedido}')));
+          final lat = ubicacion['lat'];
+          final lon = ubicacion['lon'];
+          if (lat is double && lon is double) {
+            markers.add(Marker(
+              markerId: MarkerId('delivery_${pedido.idDelivery}_${pedido.idPedido}'),
+              position: LatLng(lat, lon),
+              icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
+              infoWindow: InfoWindow(title: 'Repartidor #${pedido.idDelivery}', snippet: 'Pedido ${pedido.idPedido}')
+            ));
+          }
         }
       }
 
@@ -208,17 +214,30 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
     if (!_isMapReady) {
       return const Center(child: CircularProgressIndicator());
     }
-    return Stack(children: [
-      GoogleMap(
-        initialCameraPosition: CameraPosition(target: _userPosition ?? _esmeraldasCenter, zoom: _userPosition != null ? 14 : 12),
-        markers: _markers,
-        myLocationEnabled: false,
-        myLocationButtonEnabled: false,
-        zoomControlsEnabled: false,
-        onMapCreated: (controller) => _mapController = controller,
-      ),
-      _buildTopInfoBar(),
-    ]);
+    if (kIsWeb) {
+      final lat = _userPosition?.latitude ?? _esmeraldasCenter.latitude;
+      final lon = _userPosition?.longitude ?? _esmeraldasCenter.longitude;
+      final url = 'https://maps.google.com/maps?q=$lat,$lon&z=15&output=embed';
+      registerGoogleMapsIframe(url);
+      return Stack(children: [
+        SizedBox.expand(
+          child: HtmlElementView(viewType: 'google-maps-iframe'),
+        ),
+        _buildTopInfoBar(),
+      ]);
+    } else {
+      return Stack(children: [
+        GoogleMap(
+          initialCameraPosition: CameraPosition(target: _userPosition ?? _esmeraldasCenter, zoom: _userPosition != null ? 14 : 12),
+          markers: _markers,
+          myLocationEnabled: false,
+          myLocationButtonEnabled: false,
+          zoomControlsEnabled: false,
+          onMapCreated: (controller) => _mapController = controller,
+        ),
+        _buildTopInfoBar(),
+      ]);
+    }
   }
 
   Widget _buildMapControls() {

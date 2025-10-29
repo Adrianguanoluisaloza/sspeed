@@ -1,14 +1,16 @@
 package com.mycompany.delivery.api.repository;
 
-import com.mycompany.delivery.api.model.Ubicacion;
-import com.mycompany.delivery.api.config.Database;
-import com.mycompany.delivery.api.model.Ubicacion;
-
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.Map;
+import java.util.Optional;
+
+import com.mycompany.delivery.api.config.Database;
+import com.mycompany.delivery.api.model.Ubicacion;
 
 public class UbicacionRepository {
 
@@ -92,6 +94,7 @@ public class UbicacionRepository {
                 }
             }
         }
+        return Optional.empty();
     }
 
     // ===============================

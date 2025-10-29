@@ -1,6 +1,8 @@
 package com.mycompany.delivery.api.model;
 
 import java.sql.Timestamp;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Modelo que representa una ubicación de usuario o repartidor.
@@ -135,4 +137,21 @@ public class Ubicacion {
                 ", estado='" + estado + '\'' +
                 '}';
     }
+
+        /**
+         * Devuelve los datos de la ubicación como un Map.
+         */
+        public Map<String, Object> toMap() {
+            Map<String, Object> map = new HashMap<>();
+            map.put("idUbicacion", idUbicacion);
+            map.put("idUsuario", idUsuario);
+            map.put("latitud", latitud);
+            map.put("longitud", longitud);
+            map.put("descripcion", descripcion);
+            map.put("direccion", direccion);
+            map.put("activa", activa);
+            map.put("estado", estado);
+            map.put("fechaRegistro", fechaRegistro);
+            return map;
+        }
 }

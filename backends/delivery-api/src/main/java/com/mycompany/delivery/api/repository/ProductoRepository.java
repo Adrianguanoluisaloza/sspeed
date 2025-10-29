@@ -19,7 +19,7 @@ public class ProductoRepository {
     public List<Producto> listarTodosLosProductos() throws SQLException {
         String sql = "SELECT id_producto, nombre, descripcion, precio, imagen_url, disponible FROM productos ORDER BY nombre ASC";
         return ejecutarConsultaProductos(sql);
-    }
+}
 
     public List<Producto> buscarProductos(String termino, String categoria) throws SQLException {
         // Se mantiene la versión COALESCE. Es más robusta porque maneja valores NULL 

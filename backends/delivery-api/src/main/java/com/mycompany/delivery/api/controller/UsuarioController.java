@@ -40,8 +40,10 @@ public class UsuarioController {
                 return usuario;
             } catch (NumberFormatException e) {
                 throw new ApiException(401, "Token inválido");
-            } catch (Exception e) {
-                throw new ApiException(500, "Error validando token", e);
+            } catch (ApiException e) {
+                throw e;
+            } catch (SQLException e) {
+                throw new ApiException(500, "Error de base de datos al validar token", e);
             }
         }
     // ===========================

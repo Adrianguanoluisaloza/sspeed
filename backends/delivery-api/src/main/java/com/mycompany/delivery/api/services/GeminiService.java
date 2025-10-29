@@ -41,8 +41,8 @@ public class GeminiService {
         // History
         for (Map<String, Object> msg : history) {
             Object remitenteObj = msg.get("id_remitente");
-            if (remitenteObj instanceof Number) {
-                int idRemitente = ((Number) remitenteObj).intValue();
+            if (remitenteObj instanceof Number num) {
+                int idRemitente = num.intValue();
                 String role = (idRemitente == currentUserId) ? "user" : "model";
                 contents.add(Map.of("role", role, "parts", List.of(Map.of("text", msg.get("mensaje")))));
             }
@@ -78,18 +78,27 @@ public class GeminiService {
 
     private String parseResponse(String jsonBody) {
         try {
-            Map<String, Object> responseMap = gson.fromJson(jsonBody, Map.class);
-            List<Object> candidates = (List<Object>) responseMap.get("candidates");
-            if (candidates != null && !candidates.isEmpty()) {
-                Map<String, Object> firstCandidate = (Map<String, Object>) candidates.get(0);
-                Map<String, Object> content = (Map<String, Object>) firstCandidate.get("content");
-                List<Object> parts = (List<Object>) content.get("parts");
-                if (parts != null && !parts.isEmpty()) {
-                    Map<String, Object> firstPart = (Map<String, Object>) parts.get(0);
-                    return (String) firstPart.get("text");
+            Map<?, ?> responseMap = gson.fromJson(jsonBody, Map.class);
+            Object candidatesObj = responseMap.get("candidates");
+            if (candidatesObj instanceof List<?> candidates && !candidates.isEmpty()) {
+                Object firstCandidateObj = candidates.get(0);
+                if (firstCandidateObj instanceof Map<?, ?> firstCandidate) {
+                    Object contentObj = firstCandidate.get("content");
+                    if (contentObj instanceof Map<?, ?> content) {
+                        Object partsObj = content.get("parts");
+                        if (partsObj instanceof List<?> parts && !parts.isEmpty()) {
+                            Object firstPartObj = parts.get(0);
+                            if (firstPartObj instanceof Map<?, ?> firstPart) {
+                                Object textObj = firstPart.get("text");
+                                if (textObj instanceof String text) {
+                                    return text;
+                                }
+                            }
+                        }
+                    }
                 }
             }
-        } catch (Exception e) {
+        } catch (IllegalStateException e) {
             System.err.println("Error al parsear la respuesta de Gemini: " + e.getMessage());
         }
         return "No entendí la respuesta. ¿Podrías preguntar de otra forma?";

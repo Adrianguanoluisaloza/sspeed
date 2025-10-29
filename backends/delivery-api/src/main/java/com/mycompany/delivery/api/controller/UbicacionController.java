@@ -1,16 +1,19 @@
 package com.mycompany.delivery.api.controller;
 
-import com.mycompany.delivery.api.UbicacionService;
-import com.mycompany.delivery.api.model.Ubicacion;
-import com.mycompany.delivery.api.util.ApiException;
-import com.mycompany.delivery.api.util.ApiResponse;
-import java.util.Map;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Map;
+
+import com.mycompany.delivery.api.model.Ubicacion;
+import com.mycompany.delivery.api.services.UbicacionService;
+import com.mycompany.delivery.api.util.ApiException;
+import com.mycompany.delivery.api.util.ApiResponse;
 
 public class UbicacionController {
 
     private final UbicacionService service = new UbicacionService();
+
+        private final com.mycompany.delivery.api.services.GoogleMapsService mapsService = new com.mycompany.delivery.api.services.GoogleMapsService();
 
     // ===============================
     // CREAR O ACTUALIZAR UBICACIÓN
@@ -20,6 +23,20 @@ public class UbicacionController {
                 .orElseThrow(() -> new ApiException(500, "No se pudo guardar la ubicación"));
         return ApiResponse.success(201, "Ubicación guardada correctamente", saved.toMap());
     }
+
+        // ===============================
+        // GEOCODIFICAR DIRECCIÓN (Google Maps)
+        // ===============================
+        public ApiResponse<String> geocodificarDireccion(String direccion) {
+            if (direccion == null || direccion.isBlank()) {
+                throw new ApiException(400, "La dirección es obligatoria");
+            }
+            String resultado = mapsService.geocodeAddress(direccion);
+            if (resultado == null) {
+                throw new ApiException(500, "No se pudo obtener la geocodificación de Google Maps");
+            }
+            return ApiResponse.success(200, "Geocodificación exitosa", resultado);
+        }
 
     // ===============================
     // ACTUALIZAR COORDENADAS (EN VIVO)

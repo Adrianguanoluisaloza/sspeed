@@ -177,9 +177,4 @@ public class UsuarioRepository {
         return u;
     }
 
-    private Usuario mapRowWithPassword(ResultSet rs) throws SQLException {
-        Usuario u = mapRow(rs);
-        u.setContrasena(rs.getString("contrasena"));
-        return u;
-    }
 }

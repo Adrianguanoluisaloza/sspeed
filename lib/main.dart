@@ -8,7 +8,7 @@ import 'package:provider/provider.dart';
 import 'models/cart_model.dart';
 import 'models/session_state.dart';
 import 'services/database_service.dart';
-import 'services/gemini_service.dart';
+// import eliminado: 'services/gemini_service.dart';
 import 'routes/app_routes.dart';
 import 'routes/route_generator.dart';
 
@@ -25,7 +25,7 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => SessionController()),
         ChangeNotifierProvider(create: (_) => CartModel()),
         Provider<DatabaseService>(create: (_) => DatabaseService()),
-        Provider<GeminiService>(create: (_) => GeminiService()),
+  // Provider<GeminiService> eliminado, ahora se usará la API
       ],
       child: const MyApp(),
     ),

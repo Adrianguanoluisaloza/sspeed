@@ -18,7 +18,10 @@ class _ApiSettings {
   // según la plataforma (Android, iOS, Web).
   factory _ApiSettings.local() {
     String localBaseUrl;
-    if (kIsWeb || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux || defaultTargetPlatform == TargetPlatform.macOS) {
+    if (kIsWeb) {
+      // Usa la IP local para web, reemplaza por tu IP real si es necesario
+      localBaseUrl = 'http://192.168.1.100:4567';
+    } else if (defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux || defaultTargetPlatform == TargetPlatform.macOS) {
       localBaseUrl = 'http://localhost:4567';
     } else if (defaultTargetPlatform == TargetPlatform.android) {
       localBaseUrl = 'http://10.0.2.2:4567'; // IP especial para el emulador de Android

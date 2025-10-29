@@ -1,4 +1,4 @@
-package com.mycompany.delivery.api;
+package com.mycompany.delivery.api.repository;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
