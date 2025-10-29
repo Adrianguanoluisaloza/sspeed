@@ -16,6 +16,15 @@ import com.mycompany.delivery.api.config.Database;
  * con el chat. Incluye la gestión de conversaciones y mensajes.
  */
 public class ChatRepository {
+
+    public ChatRepository() {
+        try {
+            ensureSchema();
+        } catch (SQLException e) {
+            throw new IllegalStateException("No se pudo inicializar el esquema de chat", e);
+        }
+    }
+
     // Método público para guardar un mensaje desde el API
     public Map<String, Object> guardarMensaje(com.mycompany.delivery.api.model.Mensaje mensaje) {
         try {
@@ -316,5 +325,48 @@ public class ChatRepository {
             }
         }
         throw new SQLException("No se pudo crear el usuario del chatbot");
+    }    private void ensureSchema() throws SQLException {
+        final String createConversaciones = """
+                CREATE TABLE IF NOT EXISTS chat_conversaciones (
+                    id_conversacion BIGINT PRIMARY KEY,
+                    id_pedido INT,
+                    id_cliente INT,
+                    id_delivery INT,
+                    id_admin_soporte INT,
+                    fecha_creacion TIMESTAMP DEFAULT NOW(),
+                    activa BOOLEAN DEFAULT TRUE
+                )
+                """;
+
+        final String createMensajes = """
+                CREATE TABLE IF NOT EXISTS chat_mensajes (
+                    id_mensaje SERIAL PRIMARY KEY,
+                    id_conversacion BIGINT NOT NULL REFERENCES chat_conversaciones(id_conversacion) ON DELETE CASCADE,
+                    id_remitente INT,
+                    id_destinatario INT,
+                    mensaje TEXT NOT NULL,
+                    fecha_envio TIMESTAMP DEFAULT NOW()
+                )
+                """;
+
+        final String createIndexConversaciones = """
+                CREATE INDEX IF NOT EXISTS idx_chat_conversaciones_cliente
+                    ON chat_conversaciones(id_cliente, fecha_creacion DESC)
+                """;
+
+        final String createIndexMensajes = """
+                CREATE INDEX IF NOT EXISTS idx_chat_mensajes_conversacion
+                    ON chat_mensajes(id_conversacion, fecha_envio)
+                """;
+
+        try (Connection connection = Database.getConnection();
+             java.sql.Statement statement = connection.createStatement()) {
+            statement.executeUpdate(createConversaciones);
+            statement.executeUpdate(createMensajes);
+            statement.executeUpdate(createIndexConversaciones);
+            statement.executeUpdate(createIndexMensajes);
+        }
     }
 }
+
+

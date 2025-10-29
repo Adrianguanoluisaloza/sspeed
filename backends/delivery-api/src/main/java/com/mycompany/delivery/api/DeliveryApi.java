@@ -19,6 +19,7 @@ import io.javalin.json.JsonMapper;
 import org.jetbrains.annotations.NotNull;
 
 import java.lang.reflect.Type;
+import java.sql.SQLException;
 import java.util.*;
 
 import static com.mycompany.delivery.api.payloads.Payloads.*;
@@ -361,8 +362,13 @@ public class DeliveryApi {
             // 4. Generar la respuesta del bot
             String botReply = GEMINI_SERVICE.generateReply(req.mensaje, history, req.idRemitente);
 
-            // 5. Guardar la respuesta del bot (ID de remitente 0 para el bot)
-            CHAT_REPOSITORY.insertMensaje(idConversacion, 0, req.idRemitente, botReply);
+            // 5. Guardar la respuesta del bot usando el usuario del bot
+            try {
+                int botUserId = CHAT_REPOSITORY.ensureBotUser();
+                CHAT_REPOSITORY.insertMensaje(idConversacion, botUserId, req.idRemitente, botReply);
+            } catch (SQLException e) {
+                throw new ApiException(500, "No se pudo registrar la respuesta del bot", e);
+            }
 
             // 6. Devolver el ID de la conversación para que el frontend pueda recargar el historial
             Map<String, Object> result = Map.of("id_conversacion", idConversacion);

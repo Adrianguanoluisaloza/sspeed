@@ -1,10 +1,11 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-// Importa la función para registrar el iframe de Google Maps solo en la plataforma web.
+// Importa la funcion para registrar el iframe de Google Maps solo en la plataforma web.
 // El `ignore` es necesario porque el analizador no reconoce los imports condicionales.
 // ignore: uri_does_not_exist
 import '../utils/google_maps_iframe_web.dart'
@@ -30,6 +31,8 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   GoogleMapController? _mapController;
   StreamSubscription<LocationData>? _locationSubscription;
   Timer? _refreshTimer;
+  DateTime? _lastLocationUpload;
+  bool _isRefreshingMarkers = false;
 
   LatLng? _userPosition;
   bool _isMapReady = false;
@@ -74,14 +77,26 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
 
   Future<void> _checkAndRequestLocationPermission() async {
     try {
-      bool serviceEnabled = await _location.serviceEnabled();
-      if (!serviceEnabled) {
-        serviceEnabled = await _location.requestService();
+      if (kIsWeb) {
+        if (mounted) {
+          setState(() => _permissionStatus = PermissionStatus.granted);
+          _userPosition ??= _esmeraldasCenter;
+        }
+        await _refreshMarkers();
+        return;
+      }
+
+      bool serviceEnabled = true;
+      if (!kIsWeb) {
+        serviceEnabled = await _location.serviceEnabled();
         if (!serviceEnabled) {
-          if (mounted) {
-            setState(() => _permissionStatus = PermissionStatus.denied);
+          serviceEnabled = await _location.requestService();
+          if (!serviceEnabled) {
+            if (mounted) {
+              setState(() => _permissionStatus = PermissionStatus.denied);
+            }
+            return;
           }
-          return;
         }
       }
 
@@ -97,11 +112,12 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
         return;
       }
 
-      // Si llegamos aquí, los permisos están concedidos.
+      // Si llegamos aqui, los permisos están concedidos.
       if (mounted) {
         setState(() => _permissionStatus = PermissionStatus.granted);
       }
       await _fetchCurrentUserLocation();
+      _startLocationUpdates();
     } catch (e) {
       if (mounted) {
         setState(
@@ -120,20 +136,21 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
         if (mounted) {
           setState(() {
             _userPosition = latLng;
-            _infoMessage = 'Ubicación actualizada.';
+            _infoMessage = 'Ubicacion actualizada.';
           });
           _moveCamera(latLng, zoom: 15);
+          _maybeUploadDeliveryLocation(latLng);
         }
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _errorMessage = 'No se pudo obtener tu ubicación.');
+        setState(() => _errorMessage = 'No se pudo obtener tu ubicacion.');
       }
     }
   }
 
   Future<void> _refreshMarkers() async {
-    if (!mounted) return;
+    if (!mounted || _isRefreshingMarkers) return;
     final db = context.read<DatabaseService>();
     final session = context.read<SessionController>();
     final usuario = session.usuario;
@@ -141,7 +158,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
     if (usuario == null || !usuario.isAuthenticated) {
       if (mounted) {
         setState(() {
-          _infoMessage = 'Inicia sesión para ver tus pedidos en el mapa.';
+          _infoMessage = 'Inicia sesion para ver tus pedidos en el mapa.';
           _markers.clear();
         });
       }
@@ -154,6 +171,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
     });
 
     try {
+      _isRefreshingMarkers = true;
       // CORRECCION: Se normaliza el rol antes de decidir los pedidos a consultar.
       final role = usuario.rol.trim().toLowerCase();
       final List<Pedido> pedidos;
@@ -181,7 +199,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
             position: _userPosition!,
             icon: BitmapDescriptor.defaultMarkerWithHue(
                 BitmapDescriptor.hueAzure),
-            infoWindow: const InfoWindow(title: 'Estás aquí')));
+            infoWindow: const InfoWindow(title: 'Estas aqui')));
       }
 
       final pedidosEnRuta = pedidos.where((p) => p.idDelivery != null).toList();
@@ -199,7 +217,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
             final lon =
                 _parseDouble(loc['longitud'] ?? loc['lng'] ?? loc['longitude']);
 
-            // Si después de intentar con todas las claves, alguna es nula, no hay ubicación válida.
+            // Si después de intentar con todas las claves, alguna es nula, no hay ubicacion válida.
             if (lat == null || lon == null) return (p, null);
 
             // Se devuelve un registro (record) para mayor claridad en lugar de un mapa.
@@ -207,7 +225,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
           } catch (e) {
             if (kDebugMode) {
               print(
-                  'No se pudo obtener la ubicación para el pedido #${p.idPedido}: $e');
+                  'No se pudo obtener la ubicacion para el pedido #${p.idPedido}: $e');
             }
             return (p, null);
           }
@@ -246,6 +264,8 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
       if (mounted) {
         setState(() => _errorMessage = 'Error al actualizar: ${e.toString()}');
       }
+    } finally {
+      _isRefreshingMarkers = false;
     }
   }
 
@@ -255,6 +275,97 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   double? _parseDouble(dynamic value) => (value is num)
       ? value.toDouble()
       : (value is String ? double.tryParse(value) : null);
+
+  void _startLocationUpdates() {
+    if (kIsWeb) return;
+    _locationSubscription?.cancel();
+    _locationSubscription = _location.onLocationChanged.listen((data) {
+      if (!mounted) return;
+      final lat = data.latitude;
+      final lon = data.longitude;
+      if (lat == null || lon == null) return;
+      final nextPosition = LatLng(lat, lon);
+      final movedEnough = _userPosition == null ||
+          _distanceBetween(_userPosition!, nextPosition) > 5;
+      if (!movedEnough) return;
+
+      setState(() {
+        _userPosition = nextPosition;
+        _infoMessage = 'Ubicacion actualizada.';
+      });
+      _maybeUploadDeliveryLocation(nextPosition);
+      if (!_isRefreshingMarkers) {
+        _refreshMarkers();
+      }
+    });
+  }
+
+  Future<void> _maybeUploadDeliveryLocation(LatLng position) async {
+    if (kIsWeb) return;
+    final session = context.read<SessionController>();
+    final usuario = session.usuario;
+    if (usuario == null || !usuario.isAuthenticated) return;
+    final role = usuario.rol.trim().toLowerCase();
+    if (role != 'delivery' && role != 'repartidor') return;
+
+    final now = DateTime.now();
+    if (_lastLocationUpload != null &&
+        now.difference(_lastLocationUpload!) < const Duration(seconds: 15)) {
+      return;
+    }
+    _lastLocationUpload = now;
+
+    try {
+      await context.read<DatabaseService>().updateRepartidorLocation(
+          usuario.idUsuario, position.latitude, position.longitude);
+    } catch (e) {
+      if (kDebugMode) {
+        print('No se pudo enviar la ubicacion del repartidor: $e');
+      }
+    }
+  }
+
+  double _distanceBetween(LatLng a, LatLng b) {
+    const earthRadius = 6371000.0; // meters
+    final dLat = _degToRad(b.latitude - a.latitude);
+    final dLon = _degToRad(b.longitude - a.longitude);
+    final lat1 = _degToRad(a.latitude);
+    final lat2 = _degToRad(b.latitude);
+
+    final hav =
+        _haversin(dLat) + math.cos(lat1) * math.cos(lat2) * _haversin(dLon);
+    final c = 2 * math.atan2(math.sqrt(hav), math.sqrt(1 - hav));
+    return earthRadius * c;
+  }
+
+  double _degToRad(double deg) => deg * (math.pi / 180.0);
+  double _haversin(double value) => math.pow(math.sin(value / 2), 2).toDouble();
+
+  String _buildWebMapUrl() {
+    final positions = <LatLng>[];
+    if (_userPosition != null) {
+      positions.add(_userPosition!);
+    }
+    positions.addAll(_markers
+        .where((m) => m.markerId.value != 'user')
+        .map((m) => m.position));
+
+    if (positions.isEmpty) {
+      positions.add(_esmeraldasCenter);
+    }
+
+    final queries = <String>{};
+    for (final position in positions) {
+      queries.add('${position.latitude},${position.longitude}');
+    }
+
+    final buffer =
+        StringBuffer('https://maps.google.com/maps?output=embed&z=14');
+    for (final coordinate in queries) {
+      buffer.write('&q=$coordinate');
+    }
+    return buffer.toString();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -272,15 +383,13 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    // Si los permisos no están concedidos, mostramos una vista de acción.
+    // Si los permisos no están concedidos, mostramos una vista de accion.
     if (_permissionStatus != PermissionStatus.granted) {
       return _buildPermissionDeniedView();
     }
 
     if (kIsWeb) {
-      final lat = _userPosition?.latitude ?? _esmeraldasCenter.latitude;
-      final lon = _userPosition?.longitude ?? _esmeraldasCenter.longitude;
-      final url = 'https://maps.google.com/maps?q=$lat,$lon&z=15&output=embed';
+      final url = _buildWebMapUrl();
       registerGoogleMapsIframe(url);
       return Stack(children: [
         SizedBox.expand(
@@ -344,7 +453,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                 color: Theme.of(context).colorScheme.primary.withAlpha(179)),
             const SizedBox(height: 24),
             Text(
-              'Permiso de Ubicación Requerido',
+              'Permiso de ubicacion Requerido',
               style: Theme.of(context)
                   .textTheme
                   .headlineSmall
@@ -354,8 +463,8 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
             const SizedBox(height: 12),
             Text(
               isPermanentlyDenied
-                  ? 'Para usar el mapa, debes habilitar los permisos de ubicación manualmente desde la configuración de tu dispositivo.'
-                  : 'Necesitamos tu permiso para mostrar tu ubicación y los repartidores cercanos en el mapa.',
+                  ? 'Para usar el mapa, debes habilitar los permisos de ubicacion manualmente desde la configuracion de tu dispositivo.'
+                  : 'Necesitamos tu permiso para mostrar tu ubicacion y los repartidores cercanos en el mapa.',
               textAlign: TextAlign.center,
               style: Theme.of(context)
                   .textTheme
@@ -365,17 +474,15 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
             const SizedBox(height: 32),
             ElevatedButton.icon(
               icon: Icon(
-                  isPermanentlyDenied ? Icons.settings : Icons.location_on),
+                  isPermanentlyDenied && !kIsWeb ? Icons.settings : Icons.location_on),
               onPressed: () async {
-                if (isPermanentlyDenied) {
-                  await _location
-                      .requestService(); // Intenta abrir la configuración
-                } else {
-                  _checkAndRequestLocationPermission();
+                if (isPermanentlyDenied && !kIsWeb) {
+                  await _location.requestService();
                 }
+                await _checkAndRequestLocationPermission();
               },
               label: Text(isPermanentlyDenied
-                  ? 'Abrir Configuración'
+                  ? 'Abrir configuracion'
                   : 'Conceder Permiso'),
             ),
           ],

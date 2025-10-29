@@ -425,7 +425,7 @@ class ApiDataSource implements DataSource {
   @override
   Future<Map<String, dynamic>?> getRepartidorLocation(int idPedido) async {
     try {
-      final data = await _getMap('/pedidos/$idPedido/tracking');
+      final data = await _getMap('/tracking/pedido/$idPedido');
       return data['data'] as Map<String, dynamic>?;
     } on ApiException catch (e) {
       if (e.statusCode == 404) return null; // Not found is not an error here.
