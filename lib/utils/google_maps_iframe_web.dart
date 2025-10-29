@@ -1,16 +1,18 @@
-// Archivo solo para web: registro de iframe para Google Maps
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:ui' as ui;
-import 'dart:html' as html;
+// ✅ Import correcto para Flutter Web
+import 'dart:html';
+import 'dart:ui_web' as ui; // Se importa con el alias 'ui' para acceder a platformViewRegistry
 
+/// Registra una vista de plataforma para un IFrame de Google Maps.
+///
+/// Esta función es llamada por `live_map_screen.dart` para mostrar el mapa en la web.
 void registerGoogleMapsIframe(String url) {
-  // ignore: undefined_prefixed_name
+  // Se usa ui.platformViewRegistry, que es la forma correcta en Flutter Web moderno.
   ui.platformViewRegistry.registerViewFactory(
     'google-maps-iframe',
-    (int viewId) => html.IFrameElement()
+    (int viewId) => IFrameElement()
       ..src = url
-      ..style.border = '0'
-      ..width = '100%'
-      ..height = '100%'
+      ..style.border = 'none'
+      ..style.width = '100%'
+      ..style.height = '100%',
   );
 }

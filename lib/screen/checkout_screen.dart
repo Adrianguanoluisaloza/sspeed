@@ -119,17 +119,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> with SingleTickerProvid
                 ),
                 _buildPaymentOption(
                   title: 'Tarjeta de Crédito/Débito',
-                  subtitle: 'No disponible por el momento',
+                  subtitle: 'Paga con tu tarjeta',
                   value: 'tarjeta',
                   icon: Icons.credit_card_outlined,
-                  isEnabled: false,
+                  isEnabled: true,
                 ),
                 _buildPaymentOption(
                   title: 'Transferencia Bancaria',
-                  subtitle: 'No disponible por el momento',
+                  subtitle: 'Paga por transferencia',
                   value: 'transferencia',
                   icon: Icons.account_balance_outlined,
-                  isEnabled: false,
+                  isEnabled: true,
                 ),
                 const SizedBox(height: 24),
 
@@ -147,15 +147,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> with SingleTickerProvid
   Widget _buildSectionTitle(BuildContext context, String title) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0, left: 4.0),
-      child: Text(title, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+      child: Text(title, style: Theme.of(context).textTheme.titleLarge),
     );
   }
 
   Widget _buildAddressCard(BuildContext context) {
     return Card(
       child: ListTile(
-        leading: const Icon(Icons.location_on_outlined, color: Colors.green, size: 32),
-        title: Text(widget.ubicacion.direccion ?? 'Dirección no especificada', style: const TextStyle(fontWeight: FontWeight.bold)),
+        leading: Icon(Icons.location_on_outlined, color: Theme.of(context).primaryColor, size: 32),
+        title: Text(widget.ubicacion.direccion ?? 'Dirección no especificada', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
         subtitle: Text('Lat: ${widget.ubicacion.latitud?.toStringAsFixed(4) ?? 'N/A'}, Lon: ${widget.ubicacion.longitud?.toStringAsFixed(4) ?? 'N/A'}'),
       ),
     );
@@ -182,9 +182,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> with SingleTickerProvid
               Icon(icon, color: isSelected ? theme.primaryColor : Colors.grey.shade600, size: 32),
               const SizedBox(width: 16),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(title, style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, fontSize: 16)),
+                Text(title, style: theme.textTheme.bodyLarge?.copyWith(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
                 const SizedBox(height: 2),
-                Text(subtitle, style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+                Text(subtitle, style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey.shade600)),
               ])),
               if (isSelected) Icon(Icons.check_circle, color: theme.primaryColor),
               if (!isEnabled) const Chip(label: Text('Próximamente'), visualDensity: VisualDensity.compact),
@@ -213,32 +213,28 @@ class _CheckoutScreenState extends State<CheckoutScreen> with SingleTickerProvid
               padding: EdgeInsets.symmetric(vertical: 12.0),
               child: DottedLine(),
             ),
-            _buildCostRow('Total a Pagar', '\$${total.toStringAsFixed(2)}', isTotal: true, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+            _buildCostRow('Total a Pagar', '\$${total.toStringAsFixed(2)}', isTotal: true),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildCostRow(String label, String amount, {bool isTotal = false, TextStyle? style}) {
-    final defaultStyle = TextStyle(
-      fontSize: isTotal ? 18 : 16,
-      fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
-      color: isTotal ? Theme.of(context).colorScheme.primary : null,
-    );
+  Widget _buildCostRow(String label, String amount, {bool isTotal = false}) {
+    final theme = Theme.of(context);
+    final style = isTotal
+        ? theme.textTheme.titleLarge?.copyWith(color: theme.primaryColor)
+        : theme.textTheme.bodyLarge;
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [Text(label, style: style ?? defaultStyle), Text(amount, style: style ?? defaultStyle)],
+      children: [Text(label, style: style), Text(amount, style: style)],
     );
   }
 
   Widget _buildConfirmButton(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16.0),
-      decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        boxShadow: [BoxShadow(color: Colors.black.withAlpha(13), spreadRadius: 1, blurRadius: 10, offset: const Offset(0, -5))],
-      ),
       child: ElevatedButton(
         onPressed: _isLoading ? null : _confirmOrder,
         child: _isLoading

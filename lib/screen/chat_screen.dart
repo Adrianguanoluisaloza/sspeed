@@ -59,8 +59,10 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() => _isSending = true);
     _controller.clear();
     try {
-      // Enviar mensaje al backend y obtener idConversacion
-      final idRemitente = 1; // TODO: Reemplaza por el id real del usuario
+      // Obtener idRemitente real del usuario (ejemplo: desde Provider o SessionController)
+      final idRemitente = ModalRoute.of(context)?.settings.arguments is int
+        ? ModalRoute.of(context)!.settings.arguments as int
+        : 1;
       final response = await _sendToBackend(text, idRemitente, _idConversacion);
       if (response["id_conversacion"] != null) {
         _idConversacion = response["id_conversacion"] is int
@@ -69,14 +71,24 @@ class _ChatScreenState extends State<ChatScreen> {
       }
       // Obtener historial actualizado
       final mensajes = await _getHistorial(_idConversacion);
+      // Detectar si la respuesta del bot es un fallback
+      final tieneFallback = mensajes.isNotEmpty && mensajes.last.isBot && (
+        mensajes.last.text.contains("no está conectado") ||
+        mensajes.last.text.contains("problema para procesar") ||
+        mensajes.last.text.contains("No pude conectarme") ||
+        mensajes.last.text.contains("No entendí la respuesta")
+      );
       setState(() {
         _messages = mensajes;
         _isSending = false;
+        _error = tieneFallback
+          ? "El bot no está disponible o hubo un problema con la IA. Intenta más tarde o contacta soporte."
+          : null;
       });
       _scrollToBottom();
     } catch (e) {
       setState(() {
-        _error = "Error al enviar mensaje";
+        _error = "No se pudo enviar el mensaje. Verifica tu conexión o intenta más tarde.";
         _isSending = false;
       });
     }

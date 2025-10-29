@@ -19,6 +19,11 @@ import 'api_exception.dart';
 import 'data_source.dart';
 
 class ApiDataSource implements DataSource {
+  @override
+  Future<bool> deleteUbicacion(int id) async {
+    final response = await _delete('/ubicaciones/$id');
+    return response['success'] ?? false;
+  }
   final String _baseUrl = AppConfig.baseUrl;
   final http.Client _httpClient;
   String? _token;
@@ -160,12 +165,13 @@ class ApiDataSource implements DataSource {
   }
 
   @override
-  Future<bool> register(String name, String email, String password, String phone) async {
+  Future<bool> register(String name, String email, String password, String phone, String rol) async {
     final response = await _post('/registro', {
       'nombre': name,
       'correo': email,
       'contrasena': password,
       'telefono': phone,
+      'rol': rol,
     });
     return response['success'] ?? false;
   }
@@ -210,6 +216,12 @@ class ApiDataSource implements DataSource {
   @override
   Future<void> guardarUbicacion(Ubicacion ubicacion) async {
     await _post('/ubicaciones', ubicacion.toMap());
+  }
+
+  @override
+  Future<Map<String, dynamic>?> geocodificarDireccion(String direccion) async {
+    final response = await _post('/geocodificar', {'direccion': direccion});
+    return response['data'] as Map<String, dynamic>?;
   }
 
   @override

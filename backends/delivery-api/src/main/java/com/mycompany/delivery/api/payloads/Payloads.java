@@ -27,6 +27,7 @@ public class Payloads {
         public String correo;
         public String contrasena;
         public String telefono;
+        public String rol;
     }
 
     // =========================== PRODUCTOS ===========================
@@ -101,7 +102,7 @@ public static class PedidoPayload {
     }
 
     public Integer getIdUbicacion() {
-        return idUbicacion != null ? idUbicacion : 0;
+        return idUbicacion; // Devuelve null si no está presente
     }
 }
 

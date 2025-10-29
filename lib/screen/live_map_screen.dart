@@ -36,6 +36,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   bool _isMapReady = false;
   String? _infoMessage;
   String? _errorMessage;
+  PermissionStatus _permissionStatus = PermissionStatus.denied;
 
   Set<Marker> _markers = <Marker>{};
 
@@ -55,7 +56,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
 
   Future<void> _bootstrap() async {
     try {
-      await _loadUserLocation();
+      await _checkAndRequestLocationPermission();
       await _refreshMarkers();
       if (mounted) {
         setState(() => _isMapReady = true);
@@ -71,36 +72,51 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
     }
   }
 
-  Future<void> _loadUserLocation() async {
+  Future<void> _checkAndRequestLocationPermission() async {
     try {
       bool serviceEnabled = await _location.serviceEnabled();
       if (!serviceEnabled) {
         serviceEnabled = await _location.requestService();
         if (!serviceEnabled) {
-          setState(() => _infoMessage = 'Activa la ubicación para ver el mapa.');
+          if (mounted) setState(() => _permissionStatus = PermissionStatus.denied);
           return;
         }
       }
 
-      PermissionStatus permission = await _location.hasPermission();
-      if (permission == PermissionStatus.denied) {
-        permission = await _location.requestPermission();
-        if (permission != PermissionStatus.granted) {
-          setState(() => _infoMessage = 'Se requieren permisos de ubicación.');
-          return;
-        }
+      _permissionStatus = await _location.hasPermission();
+      if (_permissionStatus == PermissionStatus.denied) {
+        _permissionStatus = await _location.requestPermission();
       }
 
+      if (_permissionStatus != PermissionStatus.granted) {
+        if (mounted) setState(() {}); // Actualiza la UI para mostrar el estado del permiso
+        return;
+      }
+
+      // Si llegamos aquí, los permisos están concedidos.
+      if (mounted) setState(() => _permissionStatus = PermissionStatus.granted);
+      await _fetchCurrentUserLocation();
+
+    } catch (e) {
+      if (mounted) setState(() => _errorMessage = 'Error con los permisos: ${e.toString()}');
+    }
+  }
+
+  Future<void> _fetchCurrentUserLocation() async {
+    try {
       final currentLocation = await _location.getLocation();
       if (currentLocation.latitude != null && currentLocation.longitude != null) {
         final latLng = LatLng(currentLocation.latitude!, currentLocation.longitude!);
         if (mounted) {
-          setState(() => _userPosition = latLng);
+          setState(() {
+            _userPosition = latLng;
+            _infoMessage = 'Ubicación actualizada.';
+          });
           _moveCamera(latLng, zoom: 15);
         }
       }
     } catch (e) {
-      if (mounted) setState(() => _infoMessage = 'No se pudo obtener tu ubicación.');
+      if (mounted) setState(() => _errorMessage = 'No se pudo obtener tu ubicación.');
     }
   }
 
@@ -127,7 +143,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
       List<Pedido> pedidos = [];
       if (usuario.isAuthenticated) {
         switch (usuario.rol) {
-          case 'delivery':
+          case 'repartidor':
             pedidos = await db.getPedidosPorDelivery(usuario.idUsuario);
             break;
           case 'admin':
@@ -214,6 +230,12 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
     if (!_isMapReady) {
       return const Center(child: CircularProgressIndicator());
     }
+
+    // Si los permisos no están concedidos, mostramos una vista de acción.
+    if (_permissionStatus != PermissionStatus.granted) {
+      return _buildPermissionDeniedView();
+    }
+
     if (kIsWeb) {
       final lat = _userPosition?.latitude ?? _esmeraldasCenter.latitude;
       final lon = _userPosition?.longitude ?? _esmeraldasCenter.longitude;
@@ -242,10 +264,61 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
 
   Widget _buildMapControls() {
     return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.end, children: [
-      FloatingActionButton(heroTag: 'center-map', onPressed: () => _moveCamera(_userPosition ?? _esmeraldasCenter, zoom: _userPosition != null ? 15 : 12), child: const Icon(Icons.my_location)),
+      FloatingActionButton(
+        heroTag: 'center-map',
+        onPressed: _userPosition != null ? () => _moveCamera(_userPosition!, zoom: 15) : null,
+        backgroundColor: _userPosition != null ? Theme.of(context).primaryColor : Colors.grey,
+        child: const Icon(Icons.my_location, color: Colors.white),
+      ),
       const SizedBox(height: 12),
-      FloatingActionButton(heroTag: 'refresh-map', onPressed: _refreshMarkers, child: const Icon(Icons.refresh)),
+      FloatingActionButton(
+        heroTag: 'refresh-map',
+        onPressed: _refreshMarkers,
+        backgroundColor: Theme.of(context).colorScheme.secondary,
+        child: const Icon(Icons.refresh, color: Colors.white),
+      ),
     ]);
+  }
+
+  Widget _buildPermissionDeniedView() {
+    final isPermanentlyDenied = _permissionStatus == PermissionStatus.deniedForever;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.location_off_outlined, size: 96, color: Theme.of(context).colorScheme.primary.withOpacity(0.7)),
+            const SizedBox(height: 24),
+            Text(
+              'Permiso de Ubicación Requerido',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              isPermanentlyDenied
+                  ? 'Para usar el mapa, debes habilitar los permisos de ubicación manualmente desde la configuración de tu dispositivo.'
+                  : 'Necesitamos tu permiso para mostrar tu ubicación y los repartidores cercanos en el mapa.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 32),
+            ElevatedButton.icon(
+              icon: Icon(isPermanentlyDenied ? Icons.settings : Icons.location_on),
+              onPressed: () async {
+                if (isPermanentlyDenied) {
+                  await _location.requestService(); // Intenta abrir la configuración
+                } else {
+                  _checkAndRequestLocationPermission();
+                }
+              },
+              label: Text(isPermanentlyDenied ? 'Abrir Configuración' : 'Conceder Permiso'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildTopInfoBar() {

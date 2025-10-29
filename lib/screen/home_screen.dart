@@ -52,10 +52,7 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 4.0),
               child: ChoiceChip(
                 label: Text(category),
-                labelStyle: TextStyle(color: _selectedCategory == category ? Colors.white : Colors.black),
                 selected: category == _selectedCategory,
-                selectedColor: Theme.of(context).primaryColor,
-                backgroundColor: Colors.white,
                 onSelected: (selected) {
                   if (selected) {
                     setState(() => _selectedCategory = category);

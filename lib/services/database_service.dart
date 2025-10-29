@@ -11,6 +11,7 @@ import 'api_data_source.dart';
 import 'data_source.dart';
 
 class DatabaseService implements DataSource {
+    Future<bool> deleteUbicacion(int id) => _dataSource.deleteUbicacion(id);
   final DataSource _dataSource;
   DatabaseService() : _dataSource = ApiDataSource();
 
@@ -22,8 +23,8 @@ class DatabaseService implements DataSource {
   Future<Usuario?> login(String email, String password) => _dataSource.login(email, password);
 
   @override
-  Future<bool> register(String name, String email, String password, String phone) =>
-      _dataSource.register(name, email, password, phone);
+  Future<bool> register(String name, String email, String password, String phone, String rol) =>
+      _dataSource.register(name, email, password, phone, rol);
 
   @override
   Future<Usuario?> updateUsuario(Usuario usuario) => _dataSource.updateUsuario(usuario);
@@ -42,6 +43,10 @@ class DatabaseService implements DataSource {
 
   @override
   Future<void> guardarUbicacion(Ubicacion ubicacion) => _dataSource.guardarUbicacion(ubicacion);
+
+  @override
+  Future<Map<String, dynamic>?> geocodificarDireccion(String direccion) =>
+      _dataSource.geocodificarDireccion(direccion);
 
   @override
   Future<List<ProductoRankeado>> getRecomendaciones() => _dataSource.getRecomendaciones();

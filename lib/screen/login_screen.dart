@@ -76,19 +76,14 @@ class _LoginScreenState extends State<LoginScreen>
 
       if (user != null && user.isAuthenticated) {
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('userEmail', user.correo);
-        await prefs.setString('userPassword', _passwordController.text);
-        await prefs.remove('authToken');
-        if (user.token != null && user.token!.isNotEmpty) {
-          await prefs.setString('authToken', user.token!);
-        }
+        await prefs.setString('authToken', user.token ?? '');
         databaseService.setAuthToken(user.token);
         sessionController.setUser(user);
 
         // Navega según el rol
         if (user.rol == 'admin') {
           navigator.pushNamedAndRemoveUntil(AppRoutes.adminHome, (route) => false, arguments: user);
-        } else if (user.rol == 'delivery') {
+        } else if (user.rol == 'repartidor') {
           navigator.pushNamedAndRemoveUntil(AppRoutes.deliveryHome, (route) => false, arguments: user);
         } else {
           navigator.pushNamedAndRemoveUntil(AppRoutes.mainNavigator, (route) => false, arguments: user);
@@ -143,9 +138,9 @@ class _LoginScreenState extends State<LoginScreen>
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [
-                  theme.primaryColor.withValues(alpha: 0.8),
-                  theme.colorScheme.secondary.withValues(alpha: 0.6),
+                colors: [ // Usamos withOpacity para mayor claridad y corrección
+                  theme.primaryColor.withOpacity(0.8),
+                  theme.colorScheme.secondary.withOpacity(0.6),
                 ],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
@@ -168,11 +163,11 @@ class _LoginScreenState extends State<LoginScreen>
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.95),
+                            color: Colors.white.withOpacity(0.95),
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.2),
+                                color: Colors.black.withOpacity(0.2),
                                 blurRadius: 20,
                                 spreadRadius: 2,
                               ),
@@ -185,23 +180,18 @@ class _LoginScreenState extends State<LoginScreen>
                           ),
                         ),
                         const SizedBox(height: 20),
-                        const Text(
+                        Text(
                           'Unite7speed',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 36,
+                          style: theme.textTheme.displaySmall?.copyWith(
+                            color: theme.colorScheme.onPrimary,
                             fontWeight: FontWeight.w900,
-                            letterSpacing: 1.2,
                             shadows: [
                               Shadow(color: Colors.black26, blurRadius: 10)
                             ],
                           ),
                         ),
                         const SizedBox(height: 8),
-                        const Text(
-                          'Tu comida favorita a un clic',
-                          style: TextStyle(color: Colors.white70, fontSize: 16),
-                        ),
+                        Text('Tu comida favorita a un clic', style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.onPrimary.withOpacity(0.7))),
                       ],
                     ),
                   ),
@@ -256,7 +246,7 @@ class _LoginScreenState extends State<LoginScreen>
   }) {
     return TextFormField(
       controller: controller,
-      style: const TextStyle(color: Colors.white),
+      style: TextStyle(color: Theme.of(context).colorScheme.onPrimary), // Texto blanco
       decoration: _buildInputDecoration(hintText: hintText, icon: icon),
       keyboardType: TextInputType.emailAddress,
       validator: validator,
@@ -266,8 +256,8 @@ class _LoginScreenState extends State<LoginScreen>
   Widget _buildPasswordField() {
     return TextFormField(
       controller: _passwordController,
-      obscureText: _obscurePassword,
-      style: const TextStyle(color: Colors.white),
+      obscureText: _obscurePassword, // Usamos el color del tema para el texto
+      style: TextStyle(color: Theme.of(context).colorScheme.onPrimary), // Texto blanco
       decoration: _buildInputDecoration(
         hintText: 'Contraseña',
         icon: Icons.lock_outline,
@@ -277,7 +267,7 @@ class _LoginScreenState extends State<LoginScreen>
             _obscurePassword
                 ? Icons.visibility_off_outlined
                 : Icons.visibility_outlined,
-            color: Colors.white70,
+            color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.7),
           ),
           onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
         ),
@@ -301,7 +291,7 @@ class _LoginScreenState extends State<LoginScreen>
           borderRadius: BorderRadius.circular(30),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.3),
+              color: Colors.black.withOpacity(0.3),
               spreadRadius: 1,
               blurRadius: 10,
               offset: const Offset(0, 5),
@@ -316,6 +306,7 @@ class _LoginScreenState extends State<LoginScreen>
             shadowColor: Colors.transparent,
             shape:
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+            foregroundColor: theme.colorScheme.onPrimary,
           ),
           child: _isLoading
               ? const SizedBox(
@@ -326,12 +317,12 @@ class _LoginScreenState extends State<LoginScreen>
               color: Colors.white,
             ),
           )
-              : const Text(
+              : Text(
             'INGRESAR',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: Colors.white,
+              color: theme.colorScheme.onPrimary,
             ),
           ),
         ),
@@ -343,16 +334,17 @@ class _LoginScreenState extends State<LoginScreen>
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Text('¿No tienes cuenta? ',
-            style: TextStyle(color: Colors.white70)),
+        Text('¿No tienes cuenta? ',
+            style: TextStyle(color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.7))),
         GestureDetector(
           onTap: () => Navigator.of(context).pushNamed(AppRoutes.register),
           child: Text(
             'Regístrate',
             style: TextStyle(
-              color: Theme.of(context).primaryColor,
+              color: Colors.white, // CORRECCIÓN: Se cambia a blanco para mejor visibilidad.
               fontWeight: FontWeight.bold,
               decoration: TextDecoration.underline,
+              decorationColor: Colors.white,
             ),
           ),
         ),
@@ -366,10 +358,10 @@ class _LoginScreenState extends State<LoginScreen>
   }) {
     return InputDecoration(
       hintText: hintText,
-      hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
-      prefixIcon: Icon(icon, color: Colors.white70),
+      hintStyle: TextStyle(color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.7)),
+      prefixIcon: Icon(icon, color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.7)),
       filled: true,
-      fillColor: Colors.black.withValues(alpha: 0.3),
+      fillColor: Colors.black.withOpacity(0.3),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,

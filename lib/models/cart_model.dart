@@ -54,12 +54,12 @@ class CartModel extends ChangeNotifier {
 
   void decrementQuantity(int idProducto) {
     final item = _items.firstWhere((item) => item.producto.idProducto == idProducto);
+    // If quantity is greater than 1, decrement it. Otherwise, do nothing.
+    // The user must explicitly remove the item from the cart.
     if (item.quantity > 1) {
       item.quantity--;
-    } else {
-      removeItem(idProducto);
+      notifyListeners();
     }
-    notifyListeners();
   }
 }
 

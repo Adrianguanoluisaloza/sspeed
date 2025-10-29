@@ -58,6 +58,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _deleteLocation(int id) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirmar Eliminación'),
+        content: const Text('¿Estás seguro de que deseas eliminar esta ubicación?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        final dbService = Provider.of<DatabaseService>(context, listen: false);
+        final success = await dbService.deleteUbicacion(id);
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ubicación eliminada.'), backgroundColor: Colors.green));
+          _loadLocations(); // Recargar la lista
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No se pudo eliminar la ubicación.'), backgroundColor: Colors.red));
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -108,18 +140,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 }
                 final ubicaciones = snapshot.data!;
                 return Column(
-                  children: ubicaciones.map((ubicacion) => Card(
-                    elevation: 2,
-                    margin: const EdgeInsets.symmetric(vertical: 6.0),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    child: ListTile(
-                      leading: const Icon(Icons.place_outlined, color: Colors.green, size: 30),
-                      title: Text(ubicacion.direccion ?? 'Dirección sin especificar', style: const TextStyle(fontWeight: FontWeight.w500)),
-                      subtitle: Text(ubicacion.descripcion ?? 'Sin descripción'),
-                      trailing: const Icon(Icons.chevron_right, color: Colors.grey),
-                      onTap: () { /* Acción futura: editar o ver ubicación */ },
-                    ),
-                  )).toList(),
+                  children: ubicaciones.map((ubicacion) => _buildLocationCard(context, ubicacion)).toList(),
                 );
               },
             ),
@@ -127,6 +148,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       ),
       floatingActionButton: _buildSpeedDial(context),
+    );
+  }
+
+  Widget _buildLocationCard(BuildContext context, Ubicacion ubicacion) {
+    final theme = Theme.of(context);
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 6.0),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: theme.primaryColor.withOpacity(0.1),
+          child: Icon(Icons.place_outlined, color: theme.primaryColor, size: 24),
+        ),
+        title: Text(
+          ubicacion.descripcion ?? 'Ubicación Guardada',
+          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text(
+          ubicacion.direccion ?? 'Dirección no especificada',
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: PopupMenuButton<String>(
+          onSelected: (value) {
+            if (value == 'delete') {
+              _deleteLocation(ubicacion.id!);
+            }
+          },
+          itemBuilder: (context) => [
+            const PopupMenuItem(value: 'delete', child: Text('Eliminar')),
+          ],
+        ),
+      ),
     );
   }
 

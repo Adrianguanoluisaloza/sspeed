@@ -111,7 +111,10 @@ public class ProductoController {
             throw new ApiException(400, "El nombre es obligatorio");
         }
         if (producto.getPrecio() <= 0) {
-            throw new ApiException(400, "El precio debe ser mayor a cero");
+            throw new ApiException(400, "El precio debe ser un valor positivo.");
+        }
+        if (producto.getCategoria() == null || producto.getCategoria().isBlank()) {
+            throw new ApiException(400, "La categoría es obligatoria.");
         }
         if (producto.getDescripcion() == null) {
             producto.setDescripcion("");

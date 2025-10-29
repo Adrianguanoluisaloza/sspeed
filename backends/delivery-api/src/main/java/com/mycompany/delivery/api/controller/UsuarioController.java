@@ -32,6 +32,9 @@ public class UsuarioController {
                 }
                 Usuario usuario = usuarioOpt.get();
                 if (!usuario.isActivo()) {
+                    throw new ApiException(403, "El usuario asociado a este token ha sido desactivado.");
+                }
+                if (!usuario.isActivo()) {
                     throw new ApiException(403, "Usuario inactivo");
                 }
                 if (usuario.getRol() == null || usuario.getRol().isBlank()) {

@@ -10,11 +10,12 @@ import '../models/usuario.dart';
 
 /// Define el contrato que cualquier fuente de datos (API, base de datos local, etc.) debe cumplir.
 abstract class DataSource {
+  Future<bool> deleteUbicacion(int id);
   void setAuthToken(String? token);
 
   // --- Métodos de Usuario ---
   Future<Usuario?> login(String email, String password);
-  Future<bool> register(String name, String email, String password, String phone);
+  Future<bool> register(String name, String email, String password, String phone, String rol);
   Future<Usuario?> updateUsuario(Usuario usuario);
 
   // --- Métodos del Cliente ---
@@ -22,6 +23,7 @@ abstract class DataSource {
   Future<Producto?> getProductoById(int id); // MÉTODO AÑADIDO
   Future<List<Ubicacion>> getUbicaciones(int idUsuario);
   Future<void> guardarUbicacion(Ubicacion ubicacion);
+  Future<Map<String, dynamic>?> geocodificarDireccion(String direccion);
   Future<List<ProductoRankeado>> getRecomendaciones();
   Future<RecomendacionesProducto> getRecomendacionesPorProducto(int idProducto);
   Future<bool> addRecomendacion({

@@ -23,6 +23,7 @@ class _RegisterScreenState extends State<RegisterScreen>
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _isLoading = false;
+  String _selectedRole = 'cliente'; // Rol por defecto
 
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -74,6 +75,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         _emailController.text.trim(),
         _passwordController.text,
         _phoneController.text.trim(),
+        _selectedRole, // Pasamos el rol seleccionado
       );
 
       if (success) {
@@ -134,10 +136,10 @@ class _RegisterScreenState extends State<RegisterScreen>
           // Degradado con nueva sintaxis
           Container(
             decoration: BoxDecoration(
-              gradient: LinearGradient(
+              gradient: LinearGradient( // Usamos withOpacity para mayor claridad
                 colors: [
-                  theme.primaryColor.withValues(alpha: 0.8),
-                  theme.colorScheme.secondary.withValues(alpha: 0.6),
+                  theme.primaryColor.withOpacity(0.8),
+                  theme.colorScheme.secondary.withOpacity(0.6),
                 ],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
@@ -156,19 +158,17 @@ class _RegisterScreenState extends State<RegisterScreen>
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text(
+                      Text(
                         'Crea tu Cuenta',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 36,
+                        style: theme.textTheme.displaySmall?.copyWith(
+                          color: theme.colorScheme.onPrimary,
                           fontWeight: FontWeight.w900,
-                          letterSpacing: 1.2,
                         ),
                       ),
                       const SizedBox(height: 8),
-                      const Text(
+                      Text(
                         'Es rápido y fácil',
-                        style: TextStyle(color: Colors.white70, fontSize: 16),
+                        style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.onPrimary.withOpacity(0.7)),
                       ),
                       const SizedBox(height: 32),
                       Form(
@@ -176,7 +176,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                         child: Container(
                           padding: const EdgeInsets.all(24.0),
                           decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.3),
+                            color: Colors.black.withOpacity(0.3),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Column(
@@ -232,6 +232,8 @@ class _RegisterScreenState extends State<RegisterScreen>
                                     ? 'Las contraseñas no coinciden'
                                     : null,
                               ),
+                              const SizedBox(height: 24),
+                              _buildRoleSelector(theme),
                               const SizedBox(height: 32),
                               _buildRegisterButton(theme),
                             ],
@@ -259,7 +261,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
-      style: const TextStyle(color: Colors.white),
+      style: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
       decoration: _buildInputDecoration(hintText: hint, icon: icon),
       validator: validator,
     );
@@ -275,7 +277,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     return TextFormField(
       controller: controller,
       obscureText: obscure,
-      style: const TextStyle(color: Colors.white),
+      style: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
       decoration: _buildInputDecoration(hintText: hint, icon: Icons.lock_outline)
           .copyWith(
         suffixIcon: IconButton(
@@ -283,12 +285,52 @@ class _RegisterScreenState extends State<RegisterScreen>
             obscure
                 ? Icons.visibility_off_outlined
                 : Icons.visibility_outlined,
-            color: Colors.white70,
+            color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.7),
           ),
           onPressed: toggle,
         ),
       ),
       validator: validator,
+    );
+  }
+
+  Widget _buildRoleSelector(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Quiero registrarme como:',
+          style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.onPrimary.withOpacity(0.9)),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildRoleChip(theme, 'Cliente', 'cliente', Icons.person_outline),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildRoleChip(theme, 'Repartidor', 'repartidor', Icons.delivery_dining_outlined),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRoleChip(ThemeData theme, String label, String roleValue, IconData icon) {
+    final isSelected = _selectedRole == roleValue;
+    return ChoiceChip(
+      label: Row(mainAxisSize: MainAxisSize.min, children: [Icon(icon, size: 18, color: isSelected ? Colors.white : theme.primaryColor), const SizedBox(width: 8), Text(label)]),
+      selected: isSelected,
+      onSelected: (selected) {
+        if (selected) setState(() => _selectedRole = roleValue);
+      },
+      selectedColor: theme.primaryColor,
+      backgroundColor: theme.scaffoldBackgroundColor.withOpacity(0.8),
+      labelStyle: TextStyle(color: isSelected ? Colors.white : Colors.black87, fontWeight: FontWeight.bold),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      side: BorderSide(color: isSelected ? theme.primaryColor : Colors.transparent),
     );
   }
 
@@ -305,7 +347,7 @@ class _RegisterScreenState extends State<RegisterScreen>
           borderRadius: BorderRadius.circular(30),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.3),
+              color: Colors.black.withOpacity(0.3),
               spreadRadius: 1,
               blurRadius: 10,
               offset: const Offset(0, 5),
@@ -331,12 +373,12 @@ class _RegisterScreenState extends State<RegisterScreen>
               color: Colors.white,
             ),
           )
-              : const Text(
+              : Text(
             'REGISTRARME',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: Colors.white,
+              color: theme.colorScheme.onPrimary,
             ),
           ),
         ),
@@ -349,11 +391,11 @@ class _RegisterScreenState extends State<RegisterScreen>
     required IconData icon,
   }) {
     return InputDecoration(
-      hintText: hintText,
-      hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
-      prefixIcon: Icon(icon, color: Colors.white70),
+      hintText: hintText, // Usamos colores del tema
+      hintStyle: TextStyle(color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.7)),
+      prefixIcon: Icon(icon, color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.7)),
       filled: true,
-      fillColor: Colors.black.withValues(alpha: 0.3),
+      fillColor: Colors.black.withOpacity(0.3),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,
