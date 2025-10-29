@@ -23,8 +23,8 @@ class _AdminProductsViewState extends State<AdminProductsView> {
   }
 
   void _loadProducts() {
-    _productsFuture =
-        Provider.of<DatabaseService>(context, listen: false).getAllProductosAdmin();
+    _productsFuture = Provider.of<DatabaseService>(context, listen: false)
+        .getAllProductosAdmin();
   }
 
   void _refresh() {
@@ -58,7 +58,8 @@ class _AdminProductsViewState extends State<AdminProductsView> {
     if (!disponible) {
       return const Chip(
         avatar: Icon(Icons.cancel_outlined, color: Colors.white, size: 16),
-        label: Text('No Disponible', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
+        label: Text('No Disponible',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
         backgroundColor: Colors.grey,
       );
     }
@@ -71,7 +72,8 @@ class _AdminProductsViewState extends State<AdminProductsView> {
       chipColor = Colors.red.shade400;
       label = 'Agotado';
       iconData = Icons.error_outline;
-    } else if (stock <= 10) { // Límite para considerar stock bajo
+    } else if (stock <= 10) {
+      // Límite para considerar stock bajo
       chipColor = Colors.orange.shade400;
       label = 'Stock bajo ($stock)';
       iconData = Icons.warning_amber_outlined;
@@ -84,7 +86,8 @@ class _AdminProductsViewState extends State<AdminProductsView> {
     return Chip(
       avatar: Icon(iconData, color: Colors.white, size: 16),
       label: Text(label,
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
+          style: const TextStyle(
+              color: Colors.white, fontWeight: FontWeight.w500)),
       backgroundColor: chipColor,
       padding: const EdgeInsets.symmetric(horizontal: 4.0),
       labelPadding: const EdgeInsets.only(left: 2.0, right: 6.0),
@@ -159,8 +162,7 @@ class _AdminProductsViewState extends State<AdminProductsView> {
                           children: [
                             Text(product.nombre,
                                 style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16)),
+                                    fontWeight: FontWeight.bold, fontSize: 16)),
                             const SizedBox(height: 4),
                             Text(
                               'Precio: \$${product.precio.toStringAsFixed(2)}',
@@ -182,37 +184,54 @@ class _AdminProductsViewState extends State<AdminProductsView> {
                       IconButton(
                           icon: const Icon(Icons.delete, color: Colors.red),
                           onPressed: () async {
+                            // Se obtienen las dependencias del context ANTES del await.
+                            final dbService = Provider.of<DatabaseService>(
+                                context,
+                                listen: false);
+                            final messenger = ScaffoldMessenger.of(context);
+
                             final confirm = await showDialog<bool>(
                               context: context,
                               builder: (ctx) => AlertDialog(
                                 title: const Text('Confirmar'),
-                                content: Text('¿Seguro que quieres eliminar "${product.nombre}"?'),
+                                content: Text(
+                                    '¿Seguro que quieres eliminar "${product.nombre}"?'),
                                 actions: [
-                                  TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancelar')),
-                                  TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Eliminar', style: TextStyle(color: Colors.red))),
+                                  TextButton(
+                                      onPressed: () =>
+                                          Navigator.of(ctx).pop(false),
+                                      child: const Text('Cancelar')),
+                                  TextButton(
+                                      onPressed: () =>
+                                          Navigator.of(ctx).pop(true),
+                                      child: const Text('Eliminar',
+                                          style: TextStyle(color: Colors.red))),
                                 ],
                               ),
                             );
                             if (confirm != true) return;
 
-                            // Se obtiene el servicio ANTES del await, pero el contexto para el Messenger se usa DESPUÉS.
-                            final dbService = Provider.of<DatabaseService>(context, listen: false);
-
                             try {
-                              final success = await dbService.deleteProducto(product.idProducto);
+                              final success = await dbService
+                                  .deleteProducto(product.idProducto);
 
                               if (!mounted) return; // Comprobación de seguridad
-
-                              final messenger = ScaffoldMessenger.of(context);
                               if (success) {
-                                messenger.showSnackBar(const SnackBar(content: Text('Producto eliminado'), backgroundColor: Colors.green));
+                                messenger.showSnackBar(const SnackBar(
+                                    content: Text('Producto eliminado'),
+                                    backgroundColor: Colors.green));
                                 _refresh(); // Refresca la lista de productos
                               } else {
-                                messenger.showSnackBar(const SnackBar(content: Text('No se pudo eliminar el producto'), backgroundColor: Colors.red));
+                                messenger.showSnackBar(const SnackBar(
+                                    content:
+                                        Text('No se pudo eliminar el producto'),
+                                    backgroundColor: Colors.red));
                               }
                             } on ApiException catch (e) {
                               if (!mounted) return; // Comprobación de seguridad
-                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.message}'), backgroundColor: Colors.red));
+                              messenger.showSnackBar(SnackBar(
+                                  content: Text('Error: ${e.message}'),
+                                  backgroundColor: Colors.red));
                             }
                           }),
                     ],
@@ -222,13 +241,6 @@ class _AdminProductsViewState extends State<AdminProductsView> {
             },
           );
         },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          _navigateAndRefresh(context);
-        },
-        tooltip: 'Añadir Producto',
-        child: const Icon(Icons.add),
       ),
     );
   }

@@ -53,13 +53,23 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.receipt_long, size: 96, color: Theme.of(context).colorScheme.primary.withOpacity(0.7)),
+            Icon(Icons.receipt_long,
+                size: 96,
+                color: Theme.of(context).colorScheme.primary.withAlpha(179)),
             const SizedBox(height: 24),
-            const Text('Inicia sesión para ver tu historial', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+            const Text('Inicia sesión para ver tu historial',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center),
             const SizedBox(height: 8),
-            const Text('Aquí aparecerán todos tus pedidos completados y en curso.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+            const Text(
+                'Aquí aparecerán todos tus pedidos completados y en curso.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey)),
             const SizedBox(height: 32),
-            ElevatedButton(onPressed: () => Navigator.of(context).pushNamed(AppRoutes.login), child: const Text('Iniciar Sesión')),
+            ElevatedButton(
+                onPressed: () =>
+                    Navigator.of(context).pushNamed(AppRoutes.login),
+                child: const Text('Iniciar Sesión')),
           ],
         ),
       ),
@@ -100,9 +110,13 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
         const Icon(Icons.receipt_long_outlined, size: 80, color: Colors.grey),
         const SizedBox(height: 16),
-        const Text('Aún no has realizado ningún pedido.', style: TextStyle(fontSize: 18, color: Colors.grey)),
+        const Text('Aún no has realizado ningún pedido.',
+            style: TextStyle(fontSize: 18, color: Colors.grey)),
         const SizedBox(height: 16),
-        ElevatedButton.icon(icon: const Icon(Icons.refresh), onPressed: _loadOrders, label: const Text('Refrescar'))
+        ElevatedButton.icon(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadOrders,
+            label: const Text('Refrescar'))
       ]),
     );
   }
@@ -114,11 +128,17 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           const Icon(Icons.error_outline, color: Colors.red, size: 60),
           const SizedBox(height: 16),
-          const Text('Error al Cargar Pedidos', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+          const Text('Error al Cargar Pedidos',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          Text(error.toString(), textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey)),
+          Text(error.toString(),
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.grey)),
           const SizedBox(height: 16),
-          ElevatedButton.icon(icon: const Icon(Icons.refresh), onPressed: _loadOrders, label: const Text('Reintentar')),
+          ElevatedButton.icon(
+              icon: const Icon(Icons.refresh),
+              onPressed: _loadOrders,
+              label: const Text('Reintentar')),
         ]),
       ),
     );
@@ -131,7 +151,8 @@ class OrderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final formattedDate = DateFormat('dd MMM yyyy, hh:mm a').format(pedido.fechaPedido);
+    final formattedDate =
+        DateFormat('dd MMM yyyy, hh:mm a').format(pedido.fechaPedido);
 
     return Card(
       elevation: 2,
@@ -141,7 +162,9 @@ class OrderCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         onTap: () {
           Navigator.of(context).push(
-            MaterialPageRoute(builder: (context) => OrderDetailScreen(idPedido: pedido.idPedido)),
+            MaterialPageRoute(
+                builder: (context) =>
+                    OrderDetailScreen(idPedido: pedido.idPedido)),
           );
         },
         child: Padding(
@@ -149,12 +172,19 @@ class OrderCard extends StatelessWidget {
           child: Column(
             children: [
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                Text('Pedido #${pedido.idPedido}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                Text('\$${pedido.total.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.green)),
+                Text('Pedido #${pedido.idPedido}',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 16)),
+                Text('\$${pedido.total.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                        color: Colors.green)),
               ]),
               const SizedBox(height: 12),
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                Text(formattedDate, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                Text(formattedDate,
+                    style: const TextStyle(color: Colors.grey, fontSize: 12)),
                 _StatusChip(status: pedido.estado),
               ]),
             ],
@@ -198,7 +228,7 @@ class _StatusChip extends StatelessWidget {
     return Chip(
       avatar: Icon(icon, color: color, size: 18),
       label: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
-      backgroundColor: color.withOpacity(0.15),
+      backgroundColor: color.withAlpha(38),
       side: BorderSide.none,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
     );

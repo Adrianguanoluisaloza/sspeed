@@ -72,7 +72,8 @@ class _LoginScreenState extends State<LoginScreen>
     setState(() => _isLoading = true);
 
     try {
-      final user = await databaseService.login(_emailController.text.trim(), _passwordController.text);
+      final user = await databaseService.login(
+          _emailController.text.trim(), _passwordController.text);
 
       if (user != null && user.isAuthenticated) {
         final prefs = await SharedPreferences.getInstance();
@@ -82,11 +83,17 @@ class _LoginScreenState extends State<LoginScreen>
 
         // Navega según el rol
         if (user.rol == 'admin') {
-          navigator.pushNamedAndRemoveUntil(AppRoutes.adminHome, (route) => false, arguments: user);
+          navigator.pushNamedAndRemoveUntil(
+              AppRoutes.adminHome, (route) => false,
+              arguments: user);
         } else if (user.rol == 'repartidor') {
-          navigator.pushNamedAndRemoveUntil(AppRoutes.deliveryHome, (route) => false, arguments: user);
+          navigator.pushNamedAndRemoveUntil(
+              AppRoutes.deliveryHome, (route) => false,
+              arguments: user);
         } else {
-          navigator.pushNamedAndRemoveUntil(AppRoutes.mainNavigator, (route) => false, arguments: user);
+          navigator.pushNamedAndRemoveUntil(
+              AppRoutes.mainNavigator, (route) => false,
+              arguments: user);
         }
       } else {
         messenger.showSnackBar(
@@ -138,9 +145,10 @@ class _LoginScreenState extends State<LoginScreen>
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [ // Usamos withOpacity para mayor claridad y corrección
-                  theme.primaryColor.withAlpha(204),
-                  theme.colorScheme.secondary.withAlpha(153),
+                colors: [
+                  // Corregido: Usar withAlpha
+                  theme.primaryColor.withAlpha(204), // 0.8 * 255
+                  theme.colorScheme.secondary.withAlpha(153), // 0.6 * 255
                 ],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
@@ -163,11 +171,11 @@ class _LoginScreenState extends State<LoginScreen>
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: Colors.white.withAlpha(242),
+                            color: Colors.white.withAlpha(242), // Corregido
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withAlpha(51),
+                                color: Colors.black.withAlpha(51), // Corregido
                                 blurRadius: 20,
                                 spreadRadius: 2,
                               ),
@@ -191,7 +199,10 @@ class _LoginScreenState extends State<LoginScreen>
                           ),
                         ),
                         const SizedBox(height: 8),
-                        Text('Tu comida favorita a un clic', style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.onPrimary.withAlpha(179))),
+                        Text('Tu comida favorita a un clic',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                                color: theme.colorScheme.onPrimary
+                                    .withAlpha(179))), // Corregido
                       ],
                     ),
                   ),
@@ -210,8 +221,7 @@ class _LoginScreenState extends State<LoginScreen>
                               controller: _emailController,
                               hintText: 'Correo electrónico',
                               icon: Icons.mail_outline,
-                              validator: (v) =>
-                              (v == null || !v.contains('@'))
+                              validator: (v) => (v == null || !v.contains('@'))
                                   ? 'Ingresa un correo válido'
                                   : null,
                             ),
@@ -246,7 +256,8 @@ class _LoginScreenState extends State<LoginScreen>
   }) {
     return TextFormField(
       controller: controller,
-      style: TextStyle(color: Theme.of(context).colorScheme.onPrimary), // Texto blanco
+      style: TextStyle(
+          color: Theme.of(context).colorScheme.onPrimary), // Texto blanco
       decoration: _buildInputDecoration(hintText: hintText, icon: icon),
       keyboardType: TextInputType.emailAddress,
       validator: validator,
@@ -257,7 +268,8 @@ class _LoginScreenState extends State<LoginScreen>
     return TextFormField(
       controller: _passwordController,
       obscureText: _obscurePassword, // Usamos el color del tema para el texto
-      style: TextStyle(color: Theme.of(context).colorScheme.onPrimary), // Texto blanco
+      style: TextStyle(
+          color: Theme.of(context).colorScheme.onPrimary), // Texto blanco
       decoration: _buildInputDecoration(
         hintText: 'Contraseña',
         icon: Icons.lock_outline,
@@ -267,14 +279,16 @@ class _LoginScreenState extends State<LoginScreen>
             _obscurePassword
                 ? Icons.visibility_off_outlined
                 : Icons.visibility_outlined,
-            color: Theme.of(context).colorScheme.onPrimary.withAlpha(179),
+            color: Theme.of(context)
+                .colorScheme
+                .onPrimary
+                .withAlpha(179), // Corregido
           ),
           onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
         ),
       ),
-      validator: (v) => (v == null || v.isEmpty)
-          ? 'Ingresa tu contraseña'
-          : null,
+      validator: (v) =>
+          (v == null || v.isEmpty) ? 'Ingresa tu contraseña' : null,
     );
   }
 
@@ -291,7 +305,7 @@ class _LoginScreenState extends State<LoginScreen>
           borderRadius: BorderRadius.circular(30),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.3),
+              color: Colors.black.withAlpha(77), // Corregido
               spreadRadius: 1,
               blurRadius: 10,
               offset: const Offset(0, 5),
@@ -305,26 +319,26 @@ class _LoginScreenState extends State<LoginScreen>
             backgroundColor: Colors.transparent,
             shadowColor: Colors.transparent,
             shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
             foregroundColor: theme.colorScheme.onPrimary,
           ),
           child: _isLoading
               ? const SizedBox(
-            height: 24,
-            width: 24,
-            child: CircularProgressIndicator(
-              strokeWidth: 3,
-              color: Colors.white,
-            ),
-          )
+                  height: 24,
+                  width: 24,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3,
+                    color: Colors.white,
+                  ),
+                )
               : Text(
-            'INGRESAR',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: theme.colorScheme.onPrimary,
-            ),
-          ),
+                  'INGRESAR',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.onPrimary,
+                  ),
+                ),
         ),
       ),
     );
@@ -334,14 +348,17 @@ class _LoginScreenState extends State<LoginScreen>
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Text('¿No tienes cuenta? ',
-            style: TextStyle(color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.7))),
+        Text(
+            '¿No tienes cuenta? ', // Corregido: 'theme' no estaba definido aquí
+            style: TextStyle(
+                color: Theme.of(context).colorScheme.onPrimary.withAlpha(179))),
         GestureDetector(
           onTap: () => Navigator.of(context).pushNamed(AppRoutes.register),
           child: Text(
             'Regístrate',
             style: TextStyle(
-              color: Colors.white, // CORRECCIÓN: Se cambia a blanco para mejor visibilidad.
+              color: Colors
+                  .white, // CORRECCIÓN: Se cambia a blanco para mejor visibilidad.
               fontWeight: FontWeight.bold,
               decoration: TextDecoration.underline,
               decorationColor: Colors.white,
@@ -358,10 +375,18 @@ class _LoginScreenState extends State<LoginScreen>
   }) {
     return InputDecoration(
       hintText: hintText,
-      hintStyle: TextStyle(color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.7)),
-      prefixIcon: Icon(icon, color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.7)),
+      hintStyle: TextStyle(
+          color: Theme.of(context)
+              .colorScheme
+              .onPrimary
+              .withAlpha(179)), // Corregido
+      prefixIcon: Icon(icon,
+          color: Theme.of(context)
+              .colorScheme
+              .onPrimary
+              .withAlpha(179)), // Corregido
       filled: true,
-      fillColor: Colors.black.withOpacity(0.3),
+      fillColor: Colors.black.withAlpha(77), // Corregido
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,
@@ -369,7 +394,7 @@ class _LoginScreenState extends State<LoginScreen>
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide:
-        BorderSide(color: Theme.of(context).primaryColor, width: 1.5),
+            BorderSide(color: Theme.of(context).primaryColor, width: 1.5),
       ),
     );
   }

@@ -8,7 +8,7 @@ class Producto {
   final String? imagenUrl;
   final String? categoria;
   final int? idCategoria;
-  final bool disponible;
+  final bool disponible; // CORRECCIÓN: Se añade el campo stock
   final int? stock;
   final DateTime? fechaCreacion;
 
@@ -58,7 +58,8 @@ class Producto {
     return Producto(
       idProducto: parseInt(readValue(['id_producto', 'idProducto', 'id'])),
       idNegocio: parseInt(readValue(['id_negocio', 'idNegocio'])),
-      nombre: readValue(['nombre', 'name', 'producto'])?.toString() ?? 'Sin nombre',
+      nombre:
+          readValue(['nombre', 'name', 'producto'])?.toString() ?? 'Sin nombre',
       descripcion: readValue(['descripcion', 'description'])?.toString(),
       precio: parseDouble(readValue(['precio', 'price'])),
       imagenUrl: readValue(['imagen_url', 'imagenUrl', 'imageUrl'])?.toString(),
@@ -71,8 +72,10 @@ class Producto {
         if (raw is String) return raw.toLowerCase() == 'true' || raw == '1';
         return true;
       })(),
-      stock: parseInt(readValue(['stock'])),
-      fechaCreacion: parseDate(readValue(['fecha_creacion', 'fechaCreacion', 'createdAt'])),
+      stock: parseInt(
+          readValue(['stock'])), // CORRECCIÓN: Se lee el stock desde el mapa
+      fechaCreacion: parseDate(
+          readValue(['fecha_creacion', 'fechaCreacion', 'createdAt'])),
     );
   }
 
@@ -123,9 +126,26 @@ class ProductoRankeado {
 
     return ProductoRankeado(
       idProducto: (readNumeric(['id_producto', 'idProducto']) ?? 0).toInt(),
-      nombre: (map['nombre'] ?? map['producto'])?.toString() ?? 'Producto Desconocido',
-      ratingPromedio: (readNumeric(['rating_promedio', 'ratingPromedio', 'rating', 'promedio', 'average_rating']) ?? 0.0).toDouble(),
-      totalReviews: (readNumeric(['total_reviews', 'totalReviews', 'total', 'cantidad', 'reviews']) ?? 0).toInt(),
+      nombre: (map['nombre'] ?? map['producto'])?.toString() ??
+          'Producto Desconocido',
+      ratingPromedio: (readNumeric([
+                'rating_promedio',
+                'ratingPromedio',
+                'rating',
+                'promedio',
+                'average_rating'
+              ]) ??
+              0.0)
+          .toDouble(),
+      totalReviews: (readNumeric([
+                'total_reviews',
+                'totalReviews',
+                'total',
+                'cantidad',
+                'reviews'
+              ]) ??
+              0)
+          .toInt(),
     );
   }
 }

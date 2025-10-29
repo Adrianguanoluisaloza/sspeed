@@ -338,7 +338,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
           children: [
             Icon(Icons.location_off_outlined,
                 size: 96,
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.7)),
+                color: Theme.of(context).colorScheme.primary.withAlpha(179)),
             const SizedBox(height: 24),
             Text(
               'Permiso de Ubicación Requerido',

@@ -11,7 +11,8 @@ import 'api_data_source.dart';
 import 'data_source.dart';
 
 class DatabaseService implements DataSource {
-    Future<bool> deleteUbicacion(int id) => _dataSource.deleteUbicacion(id);
+  @override
+  Future<bool> deleteUbicacion(int id) => _dataSource.deleteUbicacion(id);
   final DataSource _dataSource;
   DatabaseService() : _dataSource = ApiDataSource();
 
@@ -20,14 +21,17 @@ class DatabaseService implements DataSource {
 
   // --- Métodos de Usuario ---
   @override
-  Future<Usuario?> login(String email, String password) => _dataSource.login(email, password);
+  Future<Usuario?> login(String email, String password) =>
+      _dataSource.login(email, password);
 
   @override
-  Future<bool> register(String name, String email, String password, String phone, String rol) =>
+  Future<bool> register(String name, String email, String password,
+          String phone, String rol) =>
       _dataSource.register(name, email, password, phone, rol);
 
   @override
-  Future<Usuario?> updateUsuario(Usuario usuario) => _dataSource.updateUsuario(usuario);
+  Future<Usuario?> updateUsuario(Usuario usuario) =>
+      _dataSource.updateUsuario(usuario);
 
   // --- Métodos del Cliente ---
   @override
@@ -39,20 +43,24 @@ class DatabaseService implements DataSource {
   Future<Producto?> getProductoById(int id) => _dataSource.getProductoById(id);
 
   @override
-  Future<List<Ubicacion>> getUbicaciones(int idUsuario) => _dataSource.getUbicaciones(idUsuario);
+  Future<List<Ubicacion>> getUbicaciones(int idUsuario) =>
+      _dataSource.getUbicaciones(idUsuario);
 
   @override
-  Future<void> guardarUbicacion(Ubicacion ubicacion) => _dataSource.guardarUbicacion(ubicacion);
+  Future<void> guardarUbicacion(Ubicacion ubicacion) =>
+      _dataSource.guardarUbicacion(ubicacion);
 
   @override
   Future<Map<String, dynamic>?> geocodificarDireccion(String direccion) =>
       _dataSource.geocodificarDireccion(direccion);
 
   @override
-  Future<List<ProductoRankeado>> getRecomendaciones() => _dataSource.getRecomendaciones();
+  Future<List<ProductoRankeado>> getRecomendaciones() =>
+      _dataSource.getRecomendaciones();
 
   @override
-  Future<RecomendacionesProducto> getRecomendacionesPorProducto(int idProducto) =>
+  Future<RecomendacionesProducto> getRecomendacionesPorProducto(
+          int idProducto) =>
       _dataSource.getRecomendacionesPorProducto(idProducto);
 
   @override
@@ -77,14 +85,15 @@ class DatabaseService implements DataSource {
     required String paymentMethod,
   }) =>
       _dataSource.placeOrder(
-        user: user, 
-        cart: cart, 
-        location: location, 
+        user: user,
+        cart: cart,
+        location: location,
         paymentMethod: paymentMethod,
       );
 
   @override
-  Future<List<Pedido>> getPedidos(int idUsuario) => _dataSource.getPedidos(idUsuario);
+  Future<List<Pedido>> getPedidos(int idUsuario) =>
+      _dataSource.getPedidos(idUsuario);
 
   @override
   Future<PedidoDetalle?> getPedidoDetalle(int idPedido) =>
@@ -100,7 +109,8 @@ class DatabaseService implements DataSource {
       _dataSource.updatePedidoEstado(idPedido, nuevoEstado);
 
   @override
-  Future<List<Producto>> getAllProductosAdmin() => _dataSource.getAllProductosAdmin();
+  Future<List<Producto>> getAllProductosAdmin() =>
+      _dataSource.getAllProductosAdmin();
 
   @override
   Future<Producto?> createProducto(Producto producto) =>
@@ -111,7 +121,8 @@ class DatabaseService implements DataSource {
       _dataSource.updateProducto(producto);
 
   @override
-  Future<bool> deleteProducto(int idProducto) => _dataSource.deleteProducto(idProducto);
+  Future<bool> deleteProducto(int idProducto) =>
+      _dataSource.deleteProducto(idProducto);
 
   @override
   Future<Map<String, dynamic>> getAdminStats() => _dataSource.getAdminStats();
@@ -135,13 +146,14 @@ class DatabaseService implements DataSource {
 
   // --- Métodos de Tracking ---
   @override
-  Future<bool> updateRepartidorLocation(int idRepartidor, double lat, double lon) =>
+  Future<bool> updateRepartidorLocation(
+          int idRepartidor, double lat, double lon) =>
       _dataSource.updateRepartidorLocation(idRepartidor, lat, lon);
 
   @override
   Future<Map<String, dynamic>?> getRepartidorLocation(int idPedido) =>
       _dataSource.getRepartidorLocation(idPedido);
-      
+
   // --- Módulo de Chat ---
   @override
   Future<int?> iniciarConversacion({

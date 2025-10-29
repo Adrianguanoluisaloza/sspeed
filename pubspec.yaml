@@ -30,6 +30,7 @@ dependencies:
   badges: ^3.1.2
   # CORRECCIÓN: Se usa la versión correcta del paquete.
   flutter_speed_dial: ^7.0.0
+  web: ^1.1.1
 
 dev_dependencies:
   flutter_test:

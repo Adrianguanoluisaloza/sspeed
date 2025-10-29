@@ -15,7 +15,9 @@ import 'chat_screen.dart';
 class AddLocationScreen extends StatelessWidget {
   const AddLocationScreen({super.key});
   @override
-  Widget build(BuildContext context) => Scaffold(appBar: AppBar(title: const Text('Añadir Ubicación')), body: const Center(child: Text('Pantalla para añadir ubicación (WIP)')));
+  Widget build(BuildContext context) => Scaffold(
+      appBar: AppBar(title: const Text('Añadir Ubicación')),
+      body: const Center(child: Text('Pantalla para añadir ubicación (WIP)')));
 }
 
 class ProfileScreen extends StatefulWidget {
@@ -43,29 +45,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _handleLogout() async {
-    final navigator = Navigator.of(context);
     final sessionController = context.read<SessionController>();
 
+    // La comprobación de 'mounted' debe hacerse después de todos los 'await'.
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
 
-    if (mounted) {
-      sessionController.clearUser();
-      navigator.pushNamedAndRemoveUntil(
-        AppRoutes.login, // Lleva al login
-        (route) => false,
-      );
-    }
+    if (!mounted) return;
+
+    sessionController.clearUser();
+    Navigator.of(context).pushNamedAndRemoveUntil(
+      AppRoutes.login, // Lleva al login
+      (route) => false,
+    );
   }
 
   Future<void> _deleteLocation(int id) async {
+    // Capturamos el BuildContext antes del 'await'
+    final dbService = Provider.of<DatabaseService>(context, listen: false);
+    final messenger = ScaffoldMessenger.of(context);
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Confirmar Eliminación'),
-        content: const Text('¿Estás seguro de que deseas eliminar esta ubicación?'),
+        content:
+            const Text('¿Estás seguro de que deseas eliminar esta ubicación?'),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
+          TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancelar')),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
             child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
@@ -76,16 +85,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (confirmed == true) {
       try {
-        final dbService = Provider.of<DatabaseService>(context, listen: false);
         final success = await dbService.deleteUbicacion(id);
+
+        if (!mounted) return; // Comprobamos si el widget sigue montado
         if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ubicación eliminada.'), backgroundColor: Colors.green));
+          messenger.showSnackBar(const SnackBar(
+              content: Text('Ubicación eliminada.'),
+              backgroundColor: Colors.green));
           _loadLocations(); // Recargar la lista
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No se pudo eliminar la ubicación.'), backgroundColor: Colors.red));
+          messenger.showSnackBar(const SnackBar(
+              content: Text('No se pudo eliminar la ubicación.'),
+              backgroundColor: Colors.red));
         }
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red));
+        if (mounted) {
+          messenger.showSnackBar(SnackBar(
+              content: Text('Error: ${e.toString()}'),
+              backgroundColor: Colors.red));
+        }
       }
     }
   }
@@ -112,35 +130,62 @@ class _ProfileScreenState extends State<ProfileScreen> {
           children: <Widget>[
             _buildProfileHeader(theme, widget.usuario),
             const SizedBox(height: 24),
-            Text('Gestión de la cuenta', style: theme.textTheme.titleMedium?.copyWith(color: Colors.grey[600])),
+            Text('Gestión de la cuenta',
+                style: theme.textTheme.titleMedium
+                    ?.copyWith(color: Colors.grey[600])),
             const SizedBox(height: 8),
             Card(
               child: Column(
                 children: [
-                  _buildMenuOption(context, icon: Icons.edit_outlined, color: Colors.blueAccent, title: 'Editar Perfil', subtitle: 'Actualiza tu nombre y correo', onTap: () => Navigator.of(context).pushNamed(AppRoutes.editProfile, arguments: widget.usuario)),
+                  _buildMenuOption(context,
+                      icon: Icons.edit_outlined,
+                      color: Colors.blueAccent,
+                      title: 'Editar Perfil',
+                      subtitle: 'Actualiza tu nombre y correo',
+                      onTap: () => Navigator.of(context).pushNamed(
+                          AppRoutes.editProfile,
+                          arguments: widget.usuario)),
                   const Divider(height: 1, indent: 16, endIndent: 16),
-                  _buildMenuOption(context, icon: Icons.receipt_long_outlined, color: Colors.orangeAccent, title: 'Historial de Pedidos', subtitle: 'Consulta tus compras anteriores', onTap: () => Navigator.of(context).pushNamed(AppRoutes.orderHistory, arguments: widget.usuario)),
+                  _buildMenuOption(context,
+                      icon: Icons.receipt_long_outlined,
+                      color: Colors.orangeAccent,
+                      title: 'Historial de Pedidos',
+                      subtitle: 'Consulta tus compras anteriores',
+                      onTap: () => Navigator.of(context).pushNamed(
+                          AppRoutes.orderHistory,
+                          arguments: widget.usuario)),
                 ],
               ),
             ),
             const SizedBox(height: 24),
-            Text('Mis Ubicaciones', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+            Text('Mis Ubicaciones',
+                style: theme.textTheme.titleLarge
+                    ?.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             FutureBuilder<List<Ubicacion>>(
               future: _ubicacionesFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: Padding(padding: EdgeInsets.all(32.0), child: CircularProgressIndicator()));
+                  return const Center(
+                      child: Padding(
+                          padding: EdgeInsets.all(32.0),
+                          child: CircularProgressIndicator()));
                 }
                 if (snapshot.hasError) {
-                  return _buildErrorState('Error al cargar', 'No pudimos obtener tus ubicaciones.');
+                  return _buildErrorState(
+                      'Error al cargar', 'No pudimos obtener tus ubicaciones.');
                 }
                 if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return _buildEmptyState('Sin ubicaciones', 'Aún no has guardado ninguna dirección.', onRetry: _loadLocations);
+                  return _buildEmptyState('Sin ubicaciones',
+                      'Aún no has guardado ninguna dirección.',
+                      onRetry: _loadLocations);
                 }
                 final ubicaciones = snapshot.data!;
                 return Column(
-                  children: ubicaciones.map((ubicacion) => _buildLocationCard(context, ubicacion)).toList(),
+                  children: ubicaciones
+                      .map(
+                          (ubicacion) => _buildLocationCard(context, ubicacion))
+                      .toList(),
                 );
               },
             ),
@@ -156,13 +201,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 6.0),
       child: ListTile(
+        // Corregido: Usar withAlpha
         leading: CircleAvatar(
-          backgroundColor: theme.primaryColor.withOpacity(0.1),
-          child: Icon(Icons.place_outlined, color: theme.primaryColor, size: 24),
+          backgroundColor: theme.primaryColor.withAlpha(26), // 0.1 * 255
+          child:
+              Icon(Icons.place_outlined, color: theme.primaryColor, size: 24),
         ),
         title: Text(
           ubicacion.descripcion ?? 'Ubicación Guardada',
-          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          style: theme.textTheme.titleMedium
+              ?.copyWith(fontWeight: FontWeight.bold),
         ),
         subtitle: Text(
           ubicacion.direccion ?? 'Dirección no especificada',
@@ -185,7 +233,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildSpeedDial(BuildContext context) {
     return SpeedDial(
-      icon: Icons.menu,      
+      icon: Icons.menu,
       activeIcon: Icons.close,
       backgroundColor: Theme.of(context).primaryColor,
       foregroundColor: Colors.white,
@@ -195,7 +243,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         SpeedDialChild(
           child: const Icon(Icons.add_location_alt_outlined),
           label: 'Añadir Ubicación',
-          onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AddLocationScreen())),
+          onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const AddLocationScreen())),
         ),
         SpeedDialChild(
           child: const Icon(Icons.smart_toy),
@@ -215,7 +264,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-
   // Eliminado método duplicado _buildLoggedInScreen. Toda la lógica está en build().
 
   Widget _buildProfileHeader(ThemeData theme, Usuario usuario) {
@@ -227,22 +275,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
           CircleAvatar(
             radius: 30,
             backgroundColor: theme.colorScheme.primaryContainer,
-            child: Text(usuario.nombre.isNotEmpty ? usuario.nombre[0].toUpperCase() : '?', style: TextStyle(fontSize: 24, color: theme.colorScheme.onPrimaryContainer, fontWeight: FontWeight.bold)),
+            child: Text(
+                usuario.nombre.isNotEmpty
+                    ? usuario.nombre[0].toUpperCase()
+                    : '?',
+                style: TextStyle(
+                    fontSize: 24,
+                    color: theme.colorScheme.onPrimaryContainer,
+                    fontWeight: FontWeight.bold)),
           ),
           const SizedBox(width: 16),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(usuario.nombre, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
-            const SizedBox(height: 4),
-            Text(usuario.correo, style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey[600]), overflow: TextOverflow.ellipsis),
-          ])),
+          Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                Text(usuario.nombre,
+                    style: theme.textTheme.titleLarge
+                        ?.copyWith(fontWeight: FontWeight.bold),
+                    overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 4),
+                Text(usuario.correo,
+                    style: theme.textTheme.bodyMedium
+                        ?.copyWith(color: Colors.grey[600]),
+                    overflow: TextOverflow.ellipsis),
+              ])),
         ]),
       ),
     );
   }
 
-  Widget _buildMenuOption(BuildContext context, {required IconData icon, required Color color, required String title, required String subtitle, required VoidCallback onTap}) {
+  Widget _buildMenuOption(BuildContext context,
+      {required IconData icon,
+      required Color color,
+      required String title,
+      required String subtitle,
+      required VoidCallback onTap}) {
     return ListTile(
-      leading: CircleAvatar(backgroundColor: color.withAlpha(30), child: Icon(icon, color: color)),
+      leading: CircleAvatar(
+          backgroundColor: color.withAlpha(30), // Corregido
+          child: Icon(icon, color: color)),
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
       subtitle: Text(subtitle, style: TextStyle(color: Colors.grey[600])),
       trailing: const Icon(Icons.chevron_right, color: Colors.grey),
@@ -251,24 +322,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildErrorState(String title, String message) {
-    return Center(child: Padding(padding: const EdgeInsets.symmetric(vertical: 32.0, horizontal: 16.0), child: Column(children: [
-      const Icon(Icons.cloud_off, size: 48, color: Colors.redAccent),
-      const SizedBox(height: 16),
-      Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-      const SizedBox(height: 8),
-      Text(message, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[600])),
-    ])));
+    return Center(
+        child: Padding(
+            padding:
+                const EdgeInsets.symmetric(vertical: 32.0, horizontal: 16.0),
+            child: Column(children: [
+              const Icon(Icons.cloud_off, size: 48, color: Colors.redAccent),
+              const SizedBox(height: 16),
+              Text(title,
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Text(message,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey[600])),
+            ])));
   }
 
-  Widget _buildEmptyState(String title, String message, {required VoidCallback onRetry}) {
-    return Center(child: Padding(padding: const EdgeInsets.symmetric(vertical: 32.0, horizontal: 16.0), child: Column(children: [
-      const Icon(Icons.map_outlined, size: 48, color: Colors.grey),
-      const SizedBox(height: 16),
-      Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-      const SizedBox(height: 8),
-      Text(message, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[600])),
-      const SizedBox(height: 16),
-      TextButton.icon(icon: const Icon(Icons.add), label: const Text('Añadir mi primera ubicación'), onPressed: onRetry)
-    ])));
+  Widget _buildEmptyState(String title, String message,
+      {required VoidCallback onRetry}) {
+    return Center(
+        child: Padding(
+            padding:
+                const EdgeInsets.symmetric(vertical: 32.0, horizontal: 16.0),
+            child: Column(children: [
+              const Icon(Icons.map_outlined, size: 48, color: Colors.grey),
+              const SizedBox(height: 16),
+              Text(title,
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Text(message,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey[600])),
+              const SizedBox(height: 16),
+              TextButton.icon(
+                  icon: const Icon(Icons.add),
+                  label: const Text('Añadir mi primera ubicación'),
+                  onPressed: onRetry)
+            ])));
   }
 }
