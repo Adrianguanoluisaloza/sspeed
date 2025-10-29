@@ -15,6 +15,7 @@ import '../screen/splash_screen.dart';
 import '../screen/tracking_simulation_screen.dart';
 import '../screen/checkout_screen.dart';
 import '../screen/order_success_screen.dart';
+import '../support/support_home_screen.dart';
 import 'app_routes.dart';
 
 class RouteGenerator {
@@ -29,7 +30,19 @@ class RouteGenerator {
       case AppRoutes.mainNavigator:
         final usuario = settings.arguments as Usuario? ??
             const Usuario(idUsuario: 0, nombre: '', correo: '', rol: 'cliente');
-        return _fade(settings, MainNavigator(usuario: usuario));
+        final role = usuario.rol.trim().toLowerCase();
+        switch (role) {
+          case 'admin':
+          case 'negocio':
+            return _fade(settings, AdminHomeScreen(adminUser: usuario));
+          case 'delivery':
+          case 'repartidor':
+            return _fade(settings, DeliveryHomeScreen(deliveryUser: usuario));
+          case 'soporte':
+            return _fade(settings, SupportHomeScreen(supportUser: usuario));
+          default:
+            return _fade(settings, MainNavigator(usuario: usuario));
+        }
       case AppRoutes.editProfile:
         final usuario = settings.arguments;
         if (usuario is Usuario) {
@@ -73,6 +86,12 @@ class RouteGenerator {
         final usuario = settings.arguments;
         if (usuario is Usuario) {
           return _fade(settings, DeliveryHomeScreen(deliveryUser: usuario));
+        }
+        return _redirectToLogin(settings);
+      case AppRoutes.supportHome:
+        final usuario = settings.arguments;
+        if (usuario is Usuario) {
+          return _fade(settings, SupportHomeScreen(supportUser: usuario));
         }
         return _redirectToLogin(settings);
       case AppRoutes.orderDetail:

@@ -62,10 +62,8 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
     if (mounted) {
       sessionController.clearUser();
       navigator.pushNamedAndRemoveUntil(
-        AppRoutes.mainNavigator,
+        AppRoutes.login,
         (route) => false,
-        arguments:
-            const Usuario(idUsuario: 0, nombre: '', correo: '', rol: 'cliente'),
       );
     }
   }
@@ -329,3 +327,4 @@ class _StatTile extends StatelessWidget {
     );
   }
 }
+

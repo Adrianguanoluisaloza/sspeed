@@ -81,20 +81,51 @@ class _LoginScreenState extends State<LoginScreen>
         databaseService.setAuthToken(user.token);
         sessionController.setUser(user);
 
-        // Navega según el rol
-        if (user.rol.trim().toLowerCase() == 'admin') {
-          navigator.pushNamedAndRemoveUntil(
-              AppRoutes.adminHome, (route) => false,
-              arguments: user);
-        } else if (user.rol.trim().toLowerCase() == 'repartidor') {
-          navigator.pushNamedAndRemoveUntil(
-              AppRoutes.deliveryHome, (route) => false,
-              arguments: user);
-        } else {
-          navigator.pushNamedAndRemoveUntil(
-              AppRoutes.mainNavigator, (route) => false,
-              arguments: user);
+        // Navega segun el rol normalizado
+        final normalizedRole = () {
+          final raw = user.rol.trim().toLowerCase();
+          const roleMap = {
+            'cliente': 'cliente',
+            'delivery': 'delivery',
+            'repartidor': 'delivery',
+            'negocio': 'negocio',
+            'admin': 'admin',
+            'soporte': 'soporte',
+          };
+          return roleMap[raw] ?? 'cliente';
+        }();
+
+        switch (normalizedRole) {
+          case 'admin':
+          case 'negocio':
+            navigator.pushNamedAndRemoveUntil(
+              AppRoutes.adminHome,
+              (route) => false,
+              arguments: user,
+            );
+            break;
+          case 'delivery':
+            navigator.pushNamedAndRemoveUntil(
+              AppRoutes.deliveryHome,
+              (route) => false,
+              arguments: user,
+            );
+            break;
+          case 'soporte':
+            navigator.pushNamedAndRemoveUntil(
+              AppRoutes.supportHome,
+              (route) => false,
+              arguments: user,
+            );
+            break;
+          default:
+            navigator.pushNamedAndRemoveUntil(
+              AppRoutes.mainNavigator,
+              (route) => false,
+              arguments: user,
+            );
         }
+
       } else {
         messenger.showSnackBar(
           const SnackBar(
@@ -113,7 +144,7 @@ class _LoginScreenState extends State<LoginScreen>
     } catch (e) {
       messenger.showSnackBar(
         const SnackBar(
-          content: Text('Ocurrió un error inesperado.'),
+          content: Text('Ocurrio un error inesperado.'),
           backgroundColor: Colors.redAccent,
         ),
       );
@@ -399,3 +430,4 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 }
+

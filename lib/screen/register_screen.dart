@@ -23,7 +23,7 @@ class _RegisterScreenState extends State<RegisterScreen>
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _isLoading = false;
-  String _selectedRole = 'CLIENTE'; // Rol por defecto
+  String _selectedRole = 'cliente'; // Rol por defecto alineado con la API
 
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -66,6 +66,15 @@ class _RegisterScreenState extends State<RegisterScreen>
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
     final dbService = Provider.of<DatabaseService>(context, listen: false);
+    final normalizedRole = _selectedRole.trim().toLowerCase();
+    const roleMap = {
+      'cliente': 'cliente',
+      'delivery': 'delivery',
+      'repartidor': 'delivery',
+      'soporte': 'soporte',
+      'admin': 'admin',
+    };
+    final apiRole = roleMap[normalizedRole] ?? 'cliente';
 
     setState(() => _isLoading = true);
 
@@ -75,13 +84,13 @@ class _RegisterScreenState extends State<RegisterScreen>
         _emailController.text.trim(),
         _passwordController.text,
         _phoneController.text.trim(),
-        _selectedRole, // Pasamos el rol seleccionado
+        apiRole, // Rol normalizado compatible con el backend
       );
 
       if (success) {
         messenger.showSnackBar(
           const SnackBar(
-            content: Text('Registro exitoso. ¡Ahora inicia sesión!'),
+            content: Text('Registro exitoso. Ahora inicia sesion!'),
             backgroundColor: Colors.green,
           ),
         );
@@ -89,7 +98,7 @@ class _RegisterScreenState extends State<RegisterScreen>
       } else {
         messenger.showSnackBar(
           const SnackBar(
-            content: Text('El correo ya está registrado.'),
+            content: Text('El correo ya esta registrado.'),
             backgroundColor: Colors.orange,
           ),
         );
@@ -101,7 +110,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     } catch (e) {
       messenger.showSnackBar(
         const SnackBar(
-          content: Text('Ocurrió un error inesperado.'),
+          content: Text('Ocurrio un error inesperado.'),
           backgroundColor: Colors.red,
         ),
       );
@@ -312,11 +321,11 @@ class _RegisterScreenState extends State<RegisterScreen>
           children: [
             Expanded(
               child: _buildRoleChip(
-                  theme, 'Cliente', 'CLIENTE', Icons.person_outline),
+                  theme, 'Cliente', 'cliente', Icons.person_outline),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _buildRoleChip(theme, 'Repartidor', 'REPARTIDOR',
+              child: _buildRoleChip(theme, 'Repartidor', 'delivery',
                   Icons.delivery_dining_outlined),
             ),
           ],

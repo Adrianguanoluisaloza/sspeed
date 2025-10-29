@@ -166,12 +166,19 @@ class ApiDataSource implements DataSource {
 
   @override
   Future<bool> register(String name, String email, String password, String phone, String rol) async {
+    final normalizedRole = {
+      'cliente': 'cliente',
+      'delivery': 'delivery',
+      'repartidor': 'delivery',
+      'admin': 'admin',
+      'soporte': 'soporte',
+    }[rol.trim().toLowerCase()] ?? 'cliente';
     final response = await _post('/registro', {
       'nombre': name,
       'correo': email,
       'contrasena': password,
       'telefono': phone,
-      'rol': rol,
+      'rol': normalizedRole,
     });
     return response['success'] ?? false;
   }

@@ -154,14 +154,17 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
     });
 
     try {
-      // CORRECCIÓN: Lógica de obtención de pedidos simplificada.
+      // CORRECCION: Se normaliza el rol antes de decidir los pedidos a consultar.
+      final role = usuario.rol.trim().toLowerCase();
       final List<Pedido> pedidos;
-      switch (usuario.rol) {
+      switch (role) {
+        case 'delivery':
         case 'repartidor':
           pedidos = await db.getPedidosPorDelivery(usuario.idUsuario);
           break;
         case 'admin':
         case 'soporte':
+        case 'negocio':
           pedidos = await db.getPedidosPorEstado('en camino');
           break;
         default: // 'cliente'

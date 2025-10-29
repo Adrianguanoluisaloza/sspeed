@@ -6,6 +6,7 @@ class AppRoutes {
   static const mainNavigator = '/main_navigator';
   static const adminHome = '/admin/home';
   static const deliveryHome = '/delivery/home';
+  static const supportHome = '/support/home';
   static const orderDetail = '/orders/detail';
   static const orderHistory = '/orders/history';
   static const editProfile = '/profile/edit';
