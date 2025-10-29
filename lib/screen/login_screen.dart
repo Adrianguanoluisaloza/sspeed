@@ -139,8 +139,8 @@ class _LoginScreenState extends State<LoginScreen>
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [ // Usamos withOpacity para mayor claridad y corrección
-                  theme.primaryColor.withOpacity(0.8),
-                  theme.colorScheme.secondary.withOpacity(0.6),
+                  theme.primaryColor.withAlpha(204),
+                  theme.colorScheme.secondary.withAlpha(153),
                 ],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
@@ -163,11 +163,11 @@ class _LoginScreenState extends State<LoginScreen>
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.95),
+                            color: Colors.white.withAlpha(242),
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.2),
+                                color: Colors.black.withAlpha(51),
                                 blurRadius: 20,
                                 spreadRadius: 2,
                               ),
@@ -191,7 +191,7 @@ class _LoginScreenState extends State<LoginScreen>
                           ),
                         ),
                         const SizedBox(height: 8),
-                        Text('Tu comida favorita a un clic', style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.onPrimary.withOpacity(0.7))),
+                        Text('Tu comida favorita a un clic', style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.onPrimary.withAlpha(179))),
                       ],
                     ),
                   ),
@@ -267,7 +267,7 @@ class _LoginScreenState extends State<LoginScreen>
             _obscurePassword
                 ? Icons.visibility_off_outlined
                 : Icons.visibility_outlined,
-            color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.7),
+            color: Theme.of(context).colorScheme.onPrimary.withAlpha(179),
           ),
           onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
         ),

@@ -1,4 +1,5 @@
-import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart'
+    show kIsWeb, defaultTargetPlatform, TargetPlatform;
 
 // 1. Define los entornos de la aplicación
 enum Environment {
@@ -20,13 +21,17 @@ class _ApiSettings {
     String localBaseUrl;
     if (kIsWeb) {
       // Usa la IP local para web, reemplaza por tu IP real si es necesario
-      localBaseUrl = 'http://192.168.1.100:4567';
-    } else if (defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux || defaultTargetPlatform == TargetPlatform.macOS) {
+      localBaseUrl = 'http://192.168.1.103:4567';
+    } else if (defaultTargetPlatform == TargetPlatform.windows ||
+        defaultTargetPlatform == TargetPlatform.linux ||
+        defaultTargetPlatform == TargetPlatform.macOS) {
       localBaseUrl = 'http://localhost:4567';
     } else if (defaultTargetPlatform == TargetPlatform.android) {
-      localBaseUrl = 'http://10.0.2.2:4567'; // IP especial para el emulador de Android
+      localBaseUrl =
+          'http://10.0.2.2:4567'; // IP especial para el emulador de Android
     } else if (defaultTargetPlatform == TargetPlatform.iOS) {
-      localBaseUrl = 'http://localhost:4567'; // El simulador de iOS puede resolver localhost
+      localBaseUrl =
+          'http://localhost:4567'; // El simulador de iOS puede resolver localhost
     } else {
       localBaseUrl = 'http://localhost:4567'; // Fallback
     }
@@ -36,7 +41,7 @@ class _ApiSettings {
   // Configuración para el entorno de producción (AWS)
   static const _ApiSettings production = _ApiSettings(
     // TODO: Reemplazar con la URL real de AWS cuando la tengas
-    baseUrl: 'https://tu-api-de-aws.com', 
+    baseUrl: 'https://tu-api-de-aws.com',
   );
 }
 
@@ -54,14 +59,15 @@ class AppConfig {
     Environment.local: _ApiSettings.local(),
     Environment.production: _ApiSettings.production,
   };
-  
+
   static String? _manualOverride;
 
   /// Permite sobreescribir la URL base manualmente en tiempo de ejecución.
   /// Útil para pruebas con herramientas como Ngrok o para apuntar a una IP en la LAN.
   /// Pasa un string vacío o null para desactivar.
   static void overrideBaseUrl(String? baseUrl) {
-    _manualOverride = (baseUrl != null && baseUrl.trim().isNotEmpty) ? baseUrl.trim() : null;
+    _manualOverride =
+        (baseUrl != null && baseUrl.trim().isNotEmpty) ? baseUrl.trim() : null;
   }
 
   /// Devuelve la URL base que la aplicación debe usar.

@@ -12,42 +12,69 @@ import java.util.Map;
 import com.mycompany.delivery.api.config.Database;
 
 /**
- * Repositorio para gestionar las operaciones de la base de datos relacionadas con el chat.
- * Incluye la gestión de conversaciones y mensajes.
+ * Repositorio para gestionar las operaciones de la base de datos relacionadas
+ * con el chat. Incluye la gestión de conversaciones y mensajes.
  */
 public class ChatRepository {
+    // Método público para guardar un mensaje desde el API
+    public Map<String, Object> guardarMensaje(com.mycompany.delivery.api.model.Mensaje mensaje) {
+        try {
+            // Se asume que idConversacion = idPedido para simplificar
+            long idConversacion = mensaje.getIdPedido();
+            return insertMensaje(idConversacion, mensaje.getIdRemitente(), null, mensaje.getMensaje());
+        } catch (Exception e) {
+            return Map.of("error", e.getMessage());
+        }
+    }
+
+    // Método público para obtener el chat por pedido
+    public java.util.List<java.util.Map<String, Object>> obtenerChatPorPedido(int idPedido) {
+        try {
+            // Buscar la conversación por idPedido
+            String sql = "SELECT id_conversacion FROM chat_conversaciones WHERE id_pedido = ? LIMIT 1";
+            try (java.sql.Connection c = com.mycompany.delivery.api.config.Database.getConnection();
+                    java.sql.PreparedStatement ps = c.prepareStatement(sql)) {
+                ps.setInt(1, idPedido);
+                try (java.sql.ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        long idConversacion = rs.getLong("id_conversacion");
+                        return listarMensajes(idConversacion);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            return java.util.List.of();
+        }
+        return java.util.List.of();
+    }
 
     private static final String BOT_EMAIL = "chatbot@system.local";
     private static final String BOT_NAME = "Asistente Virtual";
 
     /**
-     * Asegura que una conversación exista en la base de datos.
-     * Si no existe, la crea. Si ya existe, actualiza sus participantes si son nulos.
+     * Asegura que una conversación exista en la base de datos. Si no existe, la
+     * crea. Si ya existe, actualiza sus participantes si son nulos.
      *
-     * @param idConversacion   El identificador único de la conversación.
-     * @param idCliente        El ID del cliente participante.
-     * @param idDelivery       El ID del repartidor participante.
-     * @param idAdminSoporte   El ID del administrador de soporte.
-     * @param idPedido         El ID del pedido asociado a la conversación.
+     * @param idConversacion El identificador único de la conversación.
+     * @param idCliente      El ID del cliente participante.
+     * @param idDelivery     El ID del repartidor participante.
+     * @param idAdminSoporte El ID del administrador de soporte.
+     * @param idPedido       El ID del pedido asociado a la conversación.
      * @throws SQLException Si ocurre un error en la base de datos.
      */
     public void ensureConversation(long idConversacion, //
-                                   Integer idCliente,
-                                   Integer idDelivery,
-                                   Integer idAdminSoporte,
-                                   Integer idPedido) throws SQLException {
+            Integer idCliente, Integer idDelivery, Integer idAdminSoporte, Integer idPedido) throws SQLException {
         String sql = """
-            INSERT INTO chat_conversaciones (id_conversacion, id_pedido, id_cliente, id_delivery, id_admin_soporte, fecha_creacion, activa)
-            VALUES (?, ?, ?, ?, ?, NOW(), TRUE)
-            ON CONFLICT (id_conversacion) DO UPDATE
-            SET id_pedido = COALESCE(chat_conversaciones.id_pedido, EXCLUDED.id_pedido),
-                id_cliente = COALESCE(chat_conversaciones.id_cliente, EXCLUDED.id_cliente),
-                id_delivery = COALESCE(chat_conversaciones.id_delivery, EXCLUDED.id_delivery),
-                id_admin_soporte = COALESCE(chat_conversaciones.id_admin_soporte, EXCLUDED.id_admin_soporte),
-                activa = COALESCE(EXCLUDED.activa, chat_conversaciones.activa)
-            """;
-        try (Connection c = Database.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql)) {
+                INSERT INTO chat_conversaciones (id_conversacion, id_pedido, id_cliente, id_delivery, id_admin_soporte, fecha_creacion, activa)
+                VALUES (?, ?, ?, ?, ?, NOW(), TRUE)
+                ON CONFLICT (id_conversacion) DO UPDATE
+                SET id_pedido = COALESCE(chat_conversaciones.id_pedido, EXCLUDED.id_pedido),
+                    id_cliente = COALESCE(chat_conversaciones.id_cliente, EXCLUDED.id_cliente),
+                    id_delivery = COALESCE(chat_conversaciones.id_delivery, EXCLUDED.id_delivery),
+                    id_admin_soporte = COALESCE(chat_conversaciones.id_admin_soporte, EXCLUDED.id_admin_soporte),
+                    activa = COALESCE(EXCLUDED.activa, chat_conversaciones.activa)
+                """;
+        try (Connection c = Database.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setLong(1, idConversacion);
             ps.setObject(2, idPedido);
             ps.setObject(3, idCliente);
@@ -60,24 +87,23 @@ public class ChatRepository {
     /**
      * Inserta un nuevo mensaje en una conversación.
      *
-     * @param idConversacion   El ID de la conversación.
-     * @param idRemitente      El ID del usuario que envía el mensaje.
-     * @param idDestinatario   El ID del usuario que recibe el mensaje (puede ser nulo).
-     * @param mensaje          El contenido del mensaje.
-     * @return Un mapa que representa el mensaje insertado, o un mapa vacío si falla.
+     * @param idConversacion El ID de la conversación.
+     * @param idRemitente    El ID del usuario que envía el mensaje.
+     * @param idDestinatario El ID del usuario que recibe el mensaje (puede ser
+     *                       nulo).
+     * @param mensaje        El contenido del mensaje.
+     * @return Un mapa que representa el mensaje insertado, o un mapa vacío si
+     *         falla.
      * @throws SQLException Si ocurre un error en la base de datos.
      */
     public Map<String, Object> insertMensaje(long idConversacion, //
-                                             int idRemitente,
-                                             Integer idDestinatario,
-                                             String mensaje) throws SQLException {
+            int idRemitente, Integer idDestinatario, String mensaje) throws SQLException {
         String sql = """
-            INSERT INTO chat_mensajes (id_conversacion, id_remitente, id_destinatario, mensaje, fecha_envio)
-            VALUES (?, ?, ?, ?, NOW())
-            RETURNING id_mensaje, fecha_envio
-            """;
-        try (Connection c = Database.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql)) {
+                INSERT INTO chat_mensajes (id_conversacion, id_remitente, id_destinatario, mensaje, fecha_envio)
+                VALUES (?, ?, ?, ?, NOW())
+                RETURNING id_mensaje, fecha_envio
+                """;
+        try (Connection c = Database.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setLong(1, idConversacion);
             ps.setInt(2, idRemitente);
             ps.setObject(3, idDestinatario);
@@ -107,13 +133,12 @@ public class ChatRepository {
      */
     public List<Map<String, Object>> listarMensajes(long idConversacion) throws SQLException {
         String sql = """
-            SELECT id_mensaje, id_conversacion, id_remitente, id_destinatario, mensaje, fecha_envio
-            FROM chat_mensajes
-            WHERE id_conversacion = ?
-            ORDER BY fecha_envio ASC, id_mensaje ASC
-            """;
-        try (Connection c = Database.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql)) {
+                SELECT id_mensaje, id_conversacion, id_remitente, id_destinatario, mensaje, fecha_envio
+                FROM chat_mensajes
+                WHERE id_conversacion = ?
+                ORDER BY fecha_envio ASC, id_mensaje ASC
+                """;
+        try (Connection c = Database.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setLong(1, idConversacion);
             try (ResultSet rs = ps.executeQuery()) {
                 List<Map<String, Object>> list = new ArrayList<>();
@@ -141,13 +166,12 @@ public class ChatRepository {
      */
     public List<Map<String, Object>> listarConversacionesPorUsuario(int idUsuario) throws SQLException {
         String sql = """
-            SELECT id_conversacion, id_pedido, id_cliente, id_delivery, id_admin_soporte, fecha_creacion, activa
-            FROM chat_conversaciones
-            WHERE id_cliente = ? OR id_delivery = ? OR id_admin_soporte = ?
-            ORDER BY fecha_creacion DESC
-            """;
-        try (Connection c = Database.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql)) {
+                SELECT id_conversacion, id_pedido, id_cliente, id_delivery, id_admin_soporte, fecha_creacion, activa
+                FROM chat_conversaciones
+                WHERE id_cliente = ? OR id_delivery = ? OR id_admin_soporte = ?
+                ORDER BY fecha_creacion DESC
+                """;
+        try (Connection c = Database.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idUsuario);
             ps.setInt(2, idUsuario);
             ps.setInt(3, idUsuario);
@@ -173,13 +197,13 @@ public class ChatRepository {
      * Verifica si una conversación existe.
      *
      * @param idConversacion El ID de la conversación a verificar.
-     * @return {@code true} si la conversación existe, {@code false} en caso contrario.
+     * @return {@code true} si la conversación existe, {@code false} en caso
+     *         contrario.
      * @throws SQLException Si ocurre un error en la base de datos.
      */
     public boolean conversationExists(long idConversacion) throws SQLException {
         String sql = "SELECT 1 FROM chat_conversaciones WHERE id_conversacion = ?";
-        try (Connection c = Database.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql)) {
+        try (Connection c = Database.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setLong(1, idConversacion);
             try (ResultSet rs = ps.executeQuery()) {
                 return rs.next();
@@ -188,8 +212,8 @@ public class ChatRepository {
     }
 
     /**
-     * Asegura que un usuario tenga al menos una conversación.
-     * Busca la conversación más reciente del usuario. Si no encuentra ninguna, crea una nueva.
+     * Asegura que un usuario tenga al menos una conversación. Busca la conversación
+     * más reciente del usuario. Si no encuentra ninguna, crea una nueva.
      *
      * @param idUsuario El ID del usuario.
      * @return El ID de la conversación existente o recién creada.
@@ -197,14 +221,13 @@ public class ChatRepository {
      */
     public long ensureConversationForUser(int idUsuario) throws SQLException {
         String sql = """
-            SELECT id_conversacion
-            FROM chat_conversaciones
-            WHERE id_cliente = ? OR id_delivery = ? OR id_admin_soporte = ?
-            ORDER BY fecha_creacion DESC
-            LIMIT 1
-            """;
-        try (Connection c = Database.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql)) {
+                SELECT id_conversacion
+                FROM chat_conversaciones
+                WHERE id_cliente = ? OR id_delivery = ? OR id_admin_soporte = ?
+                ORDER BY fecha_creacion DESC
+                LIMIT 1
+                """;
+        try (Connection c = Database.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idUsuario);
             ps.setInt(2, idUsuario);
             ps.setInt(3, idUsuario);
@@ -220,16 +243,15 @@ public class ChatRepository {
     }
 
     /**
-     * Asegura que el usuario del "Asistente Virtual" (chatbot) exista en la base de datos.
-     * Si no existe, lo crea con el rol de 'soporte'.
+     * Asegura que el usuario del "Asistente Virtual" (chatbot) exista en la base de
+     * datos. Si no existe, lo crea con el rol de 'soporte'.
      *
      * @return El ID del usuario del chatbot.
      * @throws SQLException Si no se puede crear o encontrar el usuario del bot.
      */
     public int ensureBotUser() throws SQLException {
         String select = "SELECT id_usuario FROM usuarios WHERE correo = ?";
-        try (Connection c = Database.getConnection();
-             PreparedStatement ps = c.prepareStatement(select)) {
+        try (Connection c = Database.getConnection(); PreparedStatement ps = c.prepareStatement(select)) {
             ps.setString(1, BOT_EMAIL);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
@@ -239,20 +261,18 @@ public class ChatRepository {
         }
 
         String insert = """
-            INSERT INTO usuarios (nombre, correo, contrasena, rol, telefono)
-            VALUES (?, ?, ?, 'soporte', '0000000000')
-            ON CONFLICT (correo) DO NOTHING
-            """;
-        try (Connection c = Database.getConnection();
-             PreparedStatement ps = c.prepareStatement(insert)) {
+                INSERT INTO usuarios (nombre, correo, contrasena, rol, telefono)
+                VALUES (?, ?, ?, 'soporte', '0000000000')
+                ON CONFLICT (correo) DO NOTHING
+                """;
+        try (Connection c = Database.getConnection(); PreparedStatement ps = c.prepareStatement(insert)) {
             ps.setString(1, BOT_NAME);
             ps.setString(2, BOT_EMAIL);
             ps.setString(3, "chatbot123");
             ps.executeUpdate();
         }
 
-        try (Connection c = Database.getConnection();
-             PreparedStatement ps = c.prepareStatement(select)) {
+        try (Connection c = Database.getConnection(); PreparedStatement ps = c.prepareStatement(select)) {
             ps.setString(1, BOT_EMAIL);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {

@@ -119,6 +119,8 @@ class _AdminEditProductScreenState extends State<AdminEditProductScreen> {
       final database = Provider.of<DatabaseService>(context, listen: false);
       final success = await database.deleteProducto(widget.producto!.idProducto);
 
+      if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(success ? 'Producto eliminado con éxito' : 'No se pudo eliminar el producto.'),
         backgroundColor: success ? Colors.green : Colors.red,

@@ -193,22 +193,26 @@ class _AdminProductsViewState extends State<AdminProductsView> {
                                 ],
                               ),
                             );
-                            if (confirm == true) {
-                              if (!mounted) return;
-                              final dbService = Provider.of<DatabaseService>(context, listen: false);
-                              final messenger = ScaffoldMessenger.of(context);
+                            if (confirm != true) return;
 
-                              try {
-                                final success = await dbService.deleteProducto(product.idProducto);
-                                if (success) {
-                                  messenger.showSnackBar(const SnackBar(content: Text('Producto eliminado'), backgroundColor: Colors.green));
-                                  _refresh();
-                                } else {
-                                  messenger.showSnackBar(const SnackBar(content: Text('No se pudo eliminar el producto'), backgroundColor: Colors.red));
-                                }
-                              } on ApiException catch (e) {
-                                messenger.showSnackBar(SnackBar(content: Text('Error: ${e.message}'), backgroundColor: Colors.red));
+                            // Se obtiene el servicio ANTES del await, pero el contexto para el Messenger se usa DESPUÉS.
+                            final dbService = Provider.of<DatabaseService>(context, listen: false);
+
+                            try {
+                              final success = await dbService.deleteProducto(product.idProducto);
+
+                              if (!mounted) return; // Comprobación de seguridad
+
+                              final messenger = ScaffoldMessenger.of(context);
+                              if (success) {
+                                messenger.showSnackBar(const SnackBar(content: Text('Producto eliminado'), backgroundColor: Colors.green));
+                                _refresh(); // Refresca la lista de productos
+                              } else {
+                                messenger.showSnackBar(const SnackBar(content: Text('No se pudo eliminar el producto'), backgroundColor: Colors.red));
                               }
+                            } on ApiException catch (e) {
+                              if (!mounted) return; // Comprobación de seguridad
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.message}'), backgroundColor: Colors.red));
                             }
                           }),
                     ],

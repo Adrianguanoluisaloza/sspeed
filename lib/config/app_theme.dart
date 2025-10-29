@@ -25,7 +25,6 @@ class AppTheme {
         primary: primaryColor,
         secondary: accentColor,
         surface: backgroundColor,
-        background: backgroundColor,
         onPrimary: Colors.white,
         onSecondary: Colors.white,
         onSurface: Colors.black87,

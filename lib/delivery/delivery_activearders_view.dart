@@ -8,13 +8,13 @@ import 'package:location/location.dart';
 
 import '../routes/app_routes.dart';
 
-
 class DeliveryActiveOrdersView extends StatefulWidget {
   final Usuario deliveryUser;
   const DeliveryActiveOrdersView({super.key, required this.deliveryUser});
 
   @override
-  State<DeliveryActiveOrdersView> createState() => _DeliveryActiveOrdersViewState();
+  State<DeliveryActiveOrdersView> createState() =>
+      _DeliveryActiveOrdersViewState();
 }
 
 class _DeliveryActiveOrdersViewState extends State<DeliveryActiveOrdersView> {
@@ -45,7 +45,7 @@ class _DeliveryActiveOrdersViewState extends State<DeliveryActiveOrdersView> {
 
   void _loadPedidos() {
     _pedidosFuture = _databaseService!
-    // 7. CORREGIDO: Usar el método correcto
+        // 7. CORREGIDO: Usar el método correcto
         .getPedidosPorDelivery(widget.deliveryUser.idUsuario)
         .then((pedidos) {
       // 8. Iniciar o detener el tracking basado en si hay pedidos
@@ -101,7 +101,8 @@ class _DeliveryActiveOrdersViewState extends State<DeliveryActiveOrdersView> {
     try {
       _currentLocation = await location.getLocation();
       if (_currentLocation != null && _databaseService != null) {
-        debugPrint('📍 Enviando ubicación: ${_currentLocation!.latitude}, ${_currentLocation!.longitude}');
+        debugPrint(
+            ' Enviando ubicación: ${_currentLocation!.latitude}, ${_currentLocation!.longitude}');
         // 10. CORREGIDO: Usar el método de servicio
         await _databaseService!.updateRepartidorLocation(
           widget.deliveryUser.idUsuario,
@@ -151,7 +152,8 @@ class _DeliveryActiveOrdersViewState extends State<DeliveryActiveOrdersView> {
               return Card(
                 margin: const EdgeInsets.all(8),
                 child: ListTile(
-                  title: Text('Pedido #${pedido.idPedido} - ${pedido.estado.toUpperCase()}'),
+                  title: Text(
+                      'Pedido #${pedido.idPedido} - ${pedido.estado.toUpperCase()}'),
                   subtitle: Text('Dirección: ${pedido.direccionEntrega}'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () async {
@@ -176,4 +178,3 @@ class _DeliveryActiveOrdersViewState extends State<DeliveryActiveOrdersView> {
     );
   }
 }
-

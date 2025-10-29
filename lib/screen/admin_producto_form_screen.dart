@@ -58,6 +58,8 @@ class _AdminProductoFormScreenState extends State<AdminProductoFormScreen> {
         // Editar producto existente
         ok = await dbService.updateProducto(producto);
       }
+      if (!mounted) return;
+
       if (ok) {
         Navigator.of(context).pop(true);
       } else {
@@ -66,6 +68,8 @@ class _AdminProductoFormScreenState extends State<AdminProductoFormScreen> {
         );
       }
     } catch (e) {
+      if (!mounted) return;
+      
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
       );

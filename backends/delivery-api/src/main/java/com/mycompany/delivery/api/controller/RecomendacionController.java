@@ -82,4 +82,39 @@ public class RecomendacionController {
         }
         return "Datos de referencia invalidos";
     }
+
+    // Método para crear una recomendación desde el API
+    public com.mycompany.delivery.api.util.ApiResponse<Void> crearRecomendacion(
+            com.mycompany.delivery.api.model.Recomendacion r) {
+        // Por defecto puntuación 5, puedes ajustar según tu lógica
+        return guardarRecomendacion(0, r.getIdUsuario(), 5, r.getTexto());
+    }
+
+    // Método para obtener recomendaciones por usuario
+    public com.mycompany.delivery.api.util.ApiResponse<java.util.List<java.util.Map<String, Object>>> obtenerRecomendacionesPorUsuario(
+            int idUsuario) {
+        try {
+            String sql = "SELECT * FROM recomendaciones WHERE id_usuario = ? ORDER BY fecha DESC";
+            try (java.sql.Connection c = com.mycompany.delivery.api.config.Database.getConnection();
+                    java.sql.PreparedStatement ps = c.prepareStatement(sql)) {
+                ps.setInt(1, idUsuario);
+                try (java.sql.ResultSet rs = ps.executeQuery()) {
+                    java.util.List<java.util.Map<String, Object>> out = new java.util.ArrayList<>();
+                    while (rs.next()) {
+                        java.util.Map<String, Object> r = new java.util.HashMap<>();
+                        r.put("id_recomendacion", rs.getInt("id_recomendacion"));
+                        r.put("id_producto", rs.getInt("id_producto"));
+                        r.put("id_usuario", rs.getInt("id_usuario"));
+                        r.put("puntuacion", rs.getInt("puntuacion"));
+                        r.put("comentario", rs.getString("comentario"));
+                        r.put("fecha", rs.getTimestamp("fecha"));
+                        out.add(r);
+                    }
+                    return com.mycompany.delivery.api.util.ApiResponse.success(200, "Recomendaciones del usuario", out);
+                }
+            }
+        } catch (Exception e) {
+            throw new com.mycompany.delivery.api.util.ApiException(500, "Error consultando recomendaciones", e);
+        }
+    }
 }

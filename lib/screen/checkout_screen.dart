@@ -199,7 +199,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> with SingleTickerProvid
     final cart = context.watch<CartModel>();
     const shippingCost = 2.00;
     final total = cart.total + shippingCost;
-    final theme = Theme.of(context);
 
     return Card(
       child: Padding(

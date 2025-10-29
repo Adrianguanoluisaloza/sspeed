@@ -31,7 +31,8 @@ public class UbicacionService {
             throw new ApiException(400, "El idUsuario es obligatorio y debe ser mayor a cero");
         }
 
-        requireValidCoordinates(ubicacion.getLatitud(), ubicacion.getLongitud(), "Las coordenadas proporcionadas son inválidas");
+        requireValidCoordinates(ubicacion.getLatitud(), ubicacion.getLongitud(),
+                "Las coordenadas proporcionadas son inválidas");
         ubicacion.setDireccion(requireNonBlank(ubicacion.getDireccion(), "La dirección es obligatoria"));
         ubicacion.setDescripcion(normalizeDescripcion(ubicacion.getDescripcion()));
 
@@ -99,9 +100,8 @@ public class UbicacionService {
         return repo.eliminar(idUbicacion);
     }
 
-    public Map<String, Double> obtenerUbicacionTracking(int idPedido) throws SQLException {
-        return repo.obtenerUbicacionTracking(idPedido)
-                .orElseThrow(() -> new ApiException(404, "No hay tracking activo para el pedido"));
+    public java.util.Optional<Map<String, Double>> obtenerUbicacionTracking(int idPedido) throws SQLException {
+        return repo.obtenerUbicacionTracking(idPedido);
     }
 
 }

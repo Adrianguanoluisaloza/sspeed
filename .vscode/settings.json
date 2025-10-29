@@ -5,6 +5,6 @@
     ],
     "java.format.settings.url": ".vscode/java-formatter.xml",
     "java.configuration.updateBuildConfiguration": "interactive",
-    "cmake.sourceDirectory": "C:/Users/Adrian/Documents/sspeed/linux",
+    "cmake.sourceDirectory": "C:/Users/Adrian/AndroidStudioProjects/sspeed/fronted/windows",
     "java.debug.settings.onBuildFailureProceed": true
 }

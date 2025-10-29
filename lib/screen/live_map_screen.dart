@@ -1,15 +1,14 @@
-// Import condicional para web (ahora en utils/google_maps_iframe_web.dart)
 import 'dart:async';
 
 import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-// Import condicional para registrar iframe solo en web
-import 'package:flutter/foundation.dart' show kIsWeb;
-// ...existing imports...
-// Importa la función solo en web
+
+// Importa la función para registrar el iframe de Google Maps solo en la plataforma web.
+// El `ignore` es necesario porque el analizador no reconoce los imports condicionales.
 // ignore: uri_does_not_exist
-import '../utils/google_maps_iframe_web.dart' if (dart.library.html) '../utils/google_maps_iframe_web.dart';
+import '../utils/google_maps_iframe_web.dart'
+    if (dart.library.html) '../utils/google_maps_iframe_web.dart';
 import 'package:location/location.dart';
 import 'package:provider/provider.dart';
 
@@ -60,7 +59,8 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
       await _refreshMarkers();
       if (mounted) {
         setState(() => _isMapReady = true);
-        _refreshTimer ??= Timer.periodic(const Duration(seconds: 20), (_) => _refreshMarkers());
+        _refreshTimer ??= Timer.periodic(
+            const Duration(seconds: 20), (_) => _refreshMarkers());
       }
     } catch (e) {
       if (mounted) {
@@ -78,7 +78,9 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
       if (!serviceEnabled) {
         serviceEnabled = await _location.requestService();
         if (!serviceEnabled) {
-          if (mounted) setState(() => _permissionStatus = PermissionStatus.denied);
+          if (mounted) {
+            setState(() => _permissionStatus = PermissionStatus.denied);
+          }
           return;
         }
       }
@@ -89,24 +91,32 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
       }
 
       if (_permissionStatus != PermissionStatus.granted) {
-        if (mounted) setState(() {}); // Actualiza la UI para mostrar el estado del permiso
+        if (mounted) {
+          setState(() {}); // Actualiza la UI para mostrar el estado del permiso
+        }
         return;
       }
 
       // Si llegamos aquí, los permisos están concedidos.
-      if (mounted) setState(() => _permissionStatus = PermissionStatus.granted);
+      if (mounted) {
+        setState(() => _permissionStatus = PermissionStatus.granted);
+      }
       await _fetchCurrentUserLocation();
-
     } catch (e) {
-      if (mounted) setState(() => _errorMessage = 'Error con los permisos: ${e.toString()}');
+      if (mounted) {
+        setState(
+            () => _errorMessage = 'Error con los permisos: ${e.toString()}');
+      }
     }
   }
 
   Future<void> _fetchCurrentUserLocation() async {
     try {
       final currentLocation = await _location.getLocation();
-      if (currentLocation.latitude != null && currentLocation.longitude != null) {
-        final latLng = LatLng(currentLocation.latitude!, currentLocation.longitude!);
+      if (currentLocation.latitude != null &&
+          currentLocation.longitude != null) {
+        final latLng =
+            LatLng(currentLocation.latitude!, currentLocation.longitude!);
         if (mounted) {
           setState(() {
             _userPosition = latLng;
@@ -116,7 +126,9 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
         }
       }
     } catch (e) {
-      if (mounted) setState(() => _errorMessage = 'No se pudo obtener tu ubicación.');
+      if (mounted) {
+        setState(() => _errorMessage = 'No se pudo obtener tu ubicación.');
+      }
     }
   }
 
@@ -126,11 +138,13 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
     final session = context.read<SessionController>();
     final usuario = session.usuario;
 
-    if (usuario == null) {
-      setState(() {
-        _infoMessage = 'Inicia sesión para ver tus pedidos en el mapa.';
-        _markers.clear();
-      });
+    if (usuario == null || !usuario.isAuthenticated) {
+      if (mounted) {
+        setState(() {
+          _infoMessage = 'Inicia sesión para ver tus pedidos en el mapa.';
+          _markers.clear();
+        });
+      }
       return;
     }
 
@@ -140,26 +154,31 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
     });
 
     try {
-      List<Pedido> pedidos = [];
-      if (usuario.isAuthenticated) {
-        switch (usuario.rol) {
-          case 'repartidor':
-            pedidos = await db.getPedidosPorDelivery(usuario.idUsuario);
-            break;
-          case 'admin':
-          case 'soporte':
-            pedidos = await db.getPedidosPorEstado('en camino');
-            break;
-          default:
-            pedidos = (await db.getPedidos(usuario.idUsuario))
-                .where((p) => p.estado != 'entregado' && p.estado != 'cancelado')
-                .toList();
-        }
+      // CORRECCIÓN: Lógica de obtención de pedidos simplificada.
+      final List<Pedido> pedidos;
+      switch (usuario.rol) {
+        case 'repartidor':
+          pedidos = await db.getPedidosPorDelivery(usuario.idUsuario);
+          break;
+        case 'admin':
+        case 'soporte':
+          pedidos = await db.getPedidosPorEstado('en camino');
+          break;
+        default: // 'cliente'
+          final todosLosPedidos = await db.getPedidos(usuario.idUsuario);
+          pedidos = todosLosPedidos
+              .where((p) => p.estado != 'entregado' && p.estado != 'cancelado')
+              .toList();
       }
 
       final markers = <Marker>{};
       if (_userPosition != null) {
-        markers.add(Marker(markerId: const MarkerId('user'), position: _userPosition!, icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure), infoWindow: const InfoWindow(title: 'Estás aquí')));
+        markers.add(Marker(
+            markerId: const MarkerId('user'),
+            position: _userPosition!,
+            icon: BitmapDescriptor.defaultMarkerWithHue(
+                BitmapDescriptor.hueAzure),
+            infoWindow: const InfoWindow(title: 'Estás aquí')));
       }
 
       final pedidosEnRuta = pedidos.where((p) => p.idDelivery != null).toList();
@@ -169,14 +188,23 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
             final loc = await db.getRepartidorLocation(p.idPedido);
             // Si la respuesta es null, no tiene tracking
             if (loc == null) return (p, null);
-            // Si no tiene lat/lon válidos, tampoco
-            final lat = _parseDouble(loc['latitud'] ?? loc['lat']);
-            final lon = _parseDouble(loc['longitud'] ?? loc['lng']);
+
+            // MEJORA: Se extraen las coordenadas de forma más segura y legible.
+            // Esto maneja diferentes posibles nombres de clave que pueda devolver la API.
+            final lat =
+                _parseDouble(loc['latitud'] ?? loc['lat'] ?? loc['latitude']);
+            final lon =
+                _parseDouble(loc['longitud'] ?? loc['lng'] ?? loc['longitude']);
+
+            // Si después de intentar con todas las claves, alguna es nula, no hay ubicación válida.
             if (lat == null || lon == null) return (p, null);
+
+            // Se devuelve un registro (record) para mayor claridad en lugar de un mapa.
             return (p, {'lat': lat, 'lon': lon});
           } catch (e) {
             if (kDebugMode) {
-              print('No se pudo obtener la ubicación para el pedido #${p.idPedido}: $e');
+              print(
+                  'No se pudo obtener la ubicación para el pedido #${p.idPedido}: $e');
             }
             return (p, null);
           }
@@ -189,11 +217,14 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
           final lon = ubicacion['lon'];
           if (lat is double && lon is double) {
             markers.add(Marker(
-              markerId: MarkerId('delivery_${pedido.idDelivery}_${pedido.idPedido}'),
-              position: LatLng(lat, lon),
-              icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
-              infoWindow: InfoWindow(title: 'Repartidor #${pedido.idDelivery}', snippet: 'Pedido ${pedido.idPedido}')
-            ));
+                markerId: MarkerId(
+                    'delivery_${pedido.idDelivery}_${pedido.idPedido}'),
+                position: LatLng(lat, lon),
+                icon: BitmapDescriptor.defaultMarkerWithHue(
+                    BitmapDescriptor.hueOrange),
+                infoWindow: InfoWindow(
+                    title: 'Repartidor #${pedido.idDelivery}',
+                    snippet: 'Pedido ${pedido.idPedido}')));
           }
         }
       }
@@ -201,8 +232,11 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
       if (mounted) {
         setState(() {
           _markers = markers;
-          final deliveryCount = markers.length - (_userPosition != null ? 1 : 0);
-          _infoMessage = deliveryCount == 0 ? 'Sin repartidores activos.' : 'Mostrando $deliveryCount repartidores.';
+          final deliveryCount =
+              markers.length - (_userPosition != null ? 1 : 0);
+          _infoMessage = deliveryCount == 0
+              ? 'Sin repartidores activos.'
+              : 'Mostrando $deliveryCount repartidores.';
         });
       }
     } catch (e) {
@@ -212,8 +246,12 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
     }
   }
 
-  void _moveCamera(LatLng target, {double zoom = 13}) => _mapController?.animateCamera(CameraUpdate.newCameraPosition(CameraPosition(target: target, zoom: zoom)));
-  double? _parseDouble(dynamic value) => (value is num) ? value.toDouble() : (value is String ? double.tryParse(value) : null);
+  void _moveCamera(LatLng target, {double zoom = 13}) =>
+      _mapController?.animateCamera(CameraUpdate.newCameraPosition(
+          CameraPosition(target: target, zoom: zoom)));
+  double? _parseDouble(dynamic value) => (value is num)
+      ? value.toDouble()
+      : (value is String ? double.tryParse(value) : null);
 
   @override
   Widget build(BuildContext context) {
@@ -250,7 +288,9 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
     } else {
       return Stack(children: [
         GoogleMap(
-          initialCameraPosition: CameraPosition(target: _userPosition ?? _esmeraldasCenter, zoom: _userPosition != null ? 14 : 12),
+          initialCameraPosition: CameraPosition(
+              target: _userPosition ?? _esmeraldasCenter,
+              zoom: _userPosition != null ? 14 : 12),
           markers: _markers,
           myLocationEnabled: false,
           myLocationButtonEnabled: false,
@@ -263,36 +303,49 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   }
 
   Widget _buildMapControls() {
-    return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.end, children: [
-      FloatingActionButton(
-        heroTag: 'center-map',
-        onPressed: _userPosition != null ? () => _moveCamera(_userPosition!, zoom: 15) : null,
-        backgroundColor: _userPosition != null ? Theme.of(context).primaryColor : Colors.grey,
-        child: const Icon(Icons.my_location, color: Colors.white),
-      ),
-      const SizedBox(height: 12),
-      FloatingActionButton(
-        heroTag: 'refresh-map',
-        onPressed: _refreshMarkers,
-        backgroundColor: Theme.of(context).colorScheme.secondary,
-        child: const Icon(Icons.refresh, color: Colors.white),
-      ),
-    ]);
+    return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          FloatingActionButton(
+            heroTag: 'center-map',
+            onPressed: _userPosition != null
+                ? () => _moveCamera(_userPosition!, zoom: 15)
+                : null,
+            backgroundColor: _userPosition != null
+                ? Theme.of(context).primaryColor
+                : Colors.grey,
+            child: const Icon(Icons.my_location, color: Colors.white),
+          ),
+          const SizedBox(height: 12),
+          FloatingActionButton(
+            heroTag: 'refresh-map',
+            onPressed: _refreshMarkers,
+            backgroundColor: Theme.of(context).colorScheme.secondary,
+            child: const Icon(Icons.refresh, color: Colors.white),
+          ),
+        ]);
   }
 
   Widget _buildPermissionDeniedView() {
-    final isPermanentlyDenied = _permissionStatus == PermissionStatus.deniedForever;
+    final isPermanentlyDenied =
+        _permissionStatus == PermissionStatus.deniedForever;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.location_off_outlined, size: 96, color: Theme.of(context).colorScheme.primary.withOpacity(0.7)),
+            Icon(Icons.location_off_outlined,
+                size: 96,
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.7)),
             const SizedBox(height: 24),
             Text(
               'Permiso de Ubicación Requerido',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+              style: Theme.of(context)
+                  .textTheme
+                  .headlineSmall
+                  ?.copyWith(fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
@@ -301,19 +354,26 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                   ? 'Para usar el mapa, debes habilitar los permisos de ubicación manualmente desde la configuración de tu dispositivo.'
                   : 'Necesitamos tu permiso para mostrar tu ubicación y los repartidores cercanos en el mapa.',
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.grey[600]),
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyLarge
+                  ?.copyWith(color: Colors.grey[600]),
             ),
             const SizedBox(height: 32),
             ElevatedButton.icon(
-              icon: Icon(isPermanentlyDenied ? Icons.settings : Icons.location_on),
+              icon: Icon(
+                  isPermanentlyDenied ? Icons.settings : Icons.location_on),
               onPressed: () async {
                 if (isPermanentlyDenied) {
-                  await _location.requestService(); // Intenta abrir la configuración
+                  await _location
+                      .requestService(); // Intenta abrir la configuración
                 } else {
                   _checkAndRequestLocationPermission();
                 }
               },
-              label: Text(isPermanentlyDenied ? 'Abrir Configuración' : 'Conceder Permiso'),
+              label: Text(isPermanentlyDenied
+                  ? 'Abrir Configuración'
+                  : 'Conceder Permiso'),
             ),
           ],
         ),
@@ -324,23 +384,49 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   Widget _buildTopInfoBar() {
     final bool hasError = _errorMessage != null;
     final String message = _errorMessage ?? _infoMessage ?? 'Cargando mapa...';
-    final Color bgColor = hasError ? Colors.red.shade400 : Colors.black.withAlpha(153); // ~0.6 opacity
-    final IconData icon = hasError ? Icons.warning_amber_rounded : Icons.info_outline_rounded;
+    final Color bgColor = hasError
+        ? Colors.red.shade400
+        : Colors.black.withAlpha(153); // ~0.6 opacity
+    final IconData icon =
+        hasError ? Icons.warning_amber_rounded : Icons.info_outline_rounded;
 
     return Positioned(
-      top: 0, left: 0, right: 0,
+      top: 0,
+      left: 0,
+      right: 0,
       child: Material(
         color: Colors.transparent,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8).copyWith(top: MediaQuery.of(context).viewPadding.top + 8),
-          decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.black.withAlpha(128), Colors.transparent])), // 0.5 opacity
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8)
+              .copyWith(top: MediaQuery.of(context).viewPadding.top + 8),
+          decoration: BoxDecoration(
+              gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                Colors.black.withAlpha(128),
+                Colors.transparent
+              ])), // 0.5 opacity
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(10), boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 5, offset: Offset(0, 2))]),
+            decoration: BoxDecoration(
+                color: bgColor,
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.black26,
+                      blurRadius: 5,
+                      offset: Offset(0, 2))
+                ]),
             child: Row(children: [
               Icon(icon, color: Colors.white, size: 20),
               const SizedBox(width: 8),
-              Expanded(child: Text(message, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13))),
+              Expanded(
+                  child: Text(message,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13))),
             ]),
           ),
         ),

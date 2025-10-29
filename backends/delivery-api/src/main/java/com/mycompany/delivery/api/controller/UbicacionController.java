@@ -13,7 +13,7 @@ public class UbicacionController {
 
     private final UbicacionService service = new UbicacionService();
 
-        private final com.mycompany.delivery.api.services.GoogleMapsService mapsService = new com.mycompany.delivery.api.services.GoogleMapsService();
+    private final com.mycompany.delivery.api.services.GoogleMapsService mapsService = new com.mycompany.delivery.api.services.GoogleMapsService();
 
     // ===============================
     // CREAR O ACTUALIZAR UBICACIÓN
@@ -24,19 +24,19 @@ public class UbicacionController {
         return ApiResponse.success(201, "Ubicación guardada correctamente", saved.toMap());
     }
 
-        // ===============================
-        // GEOCODIFICAR DIRECCIÓN (Google Maps)
-        // ===============================
-        public ApiResponse<String> geocodificarDireccion(String direccion) {
-            if (direccion == null || direccion.isBlank()) {
-                throw new ApiException(400, "La dirección es obligatoria");
-            }
-            String resultado = mapsService.geocodeAddress(direccion);
-            if (resultado == null) {
-                throw new ApiException(500, "No se pudo obtener la geocodificación de Google Maps");
-            }
-            return ApiResponse.success(200, "Geocodificación exitosa", resultado);
+    // ===============================
+    // GEOCODIFICAR DIRECCIÓN (Google Maps)
+    // ===============================
+    public ApiResponse<String> geocodificarDireccion(String direccion) {
+        if (direccion == null || direccion.isBlank()) {
+            throw new ApiException(400, "La dirección es obligatoria");
         }
+        String resultado = mapsService.geocodeAddress(direccion);
+        if (resultado == null) {
+            throw new ApiException(500, "No se pudo obtener la geocodificación de Google Maps");
+        }
+        return ApiResponse.success(200, "Geocodificación exitosa", resultado);
+    }
 
     // ===============================
     // ACTUALIZAR COORDENADAS (EN VIVO)
@@ -108,7 +108,8 @@ public class UbicacionController {
             throw new ApiException(400, "ID de ubicación inválido");
         try {
             boolean ok = service.eliminarUbicacion(idUbicacion);
-            if (!ok) throw new ApiException(404, "Ubicación no encontrada");
+            if (!ok)
+                throw new ApiException(404, "Ubicación no encontrada");
             return ApiResponse.success("Ubicación eliminada correctamente");
         } catch (SQLException e) {
             throw new ApiException(500, "Error al eliminar la ubicación", e);
@@ -117,7 +118,11 @@ public class UbicacionController {
 
     public ApiResponse<Map<String, Object>> obtenerUbicacionTracking(int idPedido) {
         try {
-            Map<String, Double> ubicacion = service.obtenerUbicacionTracking(idPedido);
+            java.util.Optional<Map<String, Double>> optUbicacion = service.obtenerUbicacionTracking(idPedido);
+            Map<String, Double> ubicacion = optUbicacion.isPresent() ? optUbicacion.get() : null;
+            if (ubicacion == null || ubicacion.isEmpty()) {
+                throw new ApiException(404, "No se encontró la ubicación de seguimiento para este pedido.");
+            }
             return ApiResponse.success(200, "Ubicación en vivo", Map.of("data", ubicacion));
         } catch (SQLException e) {
             throw new ApiException(500, "Error al obtener tracking", e);
