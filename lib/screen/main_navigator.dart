@@ -59,7 +59,9 @@ class _MainNavigatorState extends State<MainNavigator> {
                     backgroundColor: Colors.transparent,
                     builder: (ctx) => FractionallySizedBox(
                       heightFactor: 0.92,
-                      child: ChatScreen(initialSection: ChatSection.ciaBot),
+                      child: ChatScreen(
+                          currentUser: widget.usuario,
+                          initialSection: ChatSection.ciaBot),
                     ),
                   );
                 },
@@ -84,8 +86,8 @@ class _MainNavigatorState extends State<MainNavigator> {
           items: const <BottomNavigationBarItem>[
             BottomNavigationBarItem(
               icon: Icon(Icons.home_outlined),
-              activeIcon: Icon(Icons.home),
-              label: 'Inicio',
+              activeIcon: Icon(Icons.shop),
+              label: 'Productos',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.map_outlined),

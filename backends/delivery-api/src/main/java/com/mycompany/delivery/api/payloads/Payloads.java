@@ -1,8 +1,7 @@
 package com.mycompany.delivery.api.payloads;
 
-import java.util.List;
-
 import com.google.gson.annotations.SerializedName;
+import java.util.List;
 
 /**
  * Clases de soporte para la API Delivery (compatibles con snake_case y camelCase).
@@ -61,7 +60,7 @@ public class Payloads {
         public double precioUnitario;
     }
 
-    // =========================== PEDIDO COMPLETO ===========================
+   
   // =========================== PEDIDO COMPLETO ===========================
 public static class PedidoPayload {
 
@@ -203,4 +202,14 @@ public static class PedidoPayload {
         public String mensaje;
     }
 
+    // =========================== CHAT BOT ===========================
+    public static class ChatBotRequest {
+        @SerializedName("idRemitente")
+        public Integer idRemitente;
+
+        @SerializedName("idConversacion")
+        public Long idConversacion; // Puede ser nulo si es una nueva conversación
+
+        public String mensaje;
+    }
 }

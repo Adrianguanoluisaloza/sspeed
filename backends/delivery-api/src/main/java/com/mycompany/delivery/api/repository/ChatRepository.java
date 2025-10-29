@@ -243,6 +243,41 @@ public class ChatRepository {
     }
 
     /**
+     * Asegura que un usuario tenga una conversación exclusiva con el chatbot.
+     * Busca una conversación donde el usuario sea el cliente y no haya pedido,
+     * repartidor ni soporte asociado (marcador de una conversación de bot).
+     * Si no la encuentra, crea una nueva.
+     *
+     * @param idUsuario El ID del usuario que chatea con el bot.
+     * @return El ID de la conversación del bot para ese usuario.
+     * @throws SQLException Si ocurre un error en la base de datos.
+     */
+    public long ensureBotConversationForUser(int idUsuario) throws SQLException {
+        // Busca una conversación que sea solo del usuario con el sistema (sin pedido, sin otros participantes)
+        String sql = """
+                SELECT id_conversacion
+                FROM chat_conversaciones
+                WHERE id_cliente = ? 
+                  AND id_pedido IS NULL 
+                  AND id_delivery IS NULL 
+                  AND id_admin_soporte IS NULL
+                ORDER BY fecha_creacion DESC
+                LIMIT 1
+                """;
+        try (Connection c = Database.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, idUsuario);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getLong("id_conversacion"); // Devuelve la conversación existente con el bot
+                }
+            }
+        }
+        // Si no existe, crea una nueva conversación específica para el bot
+        long newId = System.currentTimeMillis();
+        ensureConversation(newId, idUsuario, null, null, null); // Crea una conversación solo con el id_cliente
+        return newId;
+    }
+    /**
      * Asegura que el usuario del "Asistente Virtual" (chatbot) exista en la base de
      * datos. Si no existe, lo crea con el rol de 'soporte'.
      *

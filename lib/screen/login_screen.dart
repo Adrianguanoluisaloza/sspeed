@@ -82,11 +82,11 @@ class _LoginScreenState extends State<LoginScreen>
         sessionController.setUser(user);
 
         // Navega según el rol
-        if (user.rol == 'admin') {
+        if (user.rol.trim().toLowerCase() == 'admin') {
           navigator.pushNamedAndRemoveUntil(
               AppRoutes.adminHome, (route) => false,
               arguments: user);
-        } else if (user.rol == 'repartidor') {
+        } else if (user.rol.trim().toLowerCase() == 'repartidor') {
           navigator.pushNamedAndRemoveUntil(
               AppRoutes.deliveryHome, (route) => false,
               arguments: user);

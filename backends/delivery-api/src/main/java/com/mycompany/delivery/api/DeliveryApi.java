@@ -335,6 +335,39 @@ public class DeliveryApi {
             handleResponse(ctx,
                     ApiResponse.success(200, "Estadísticas delivery", DASHBOARD_DAO.obtenerEstadisticasDelivery(id)));
         });
+
+        // --- CHAT BOT ---
+        app.get("/chat/conversaciones/{id}/mensajes", ctx -> {
+            var idConversacion = parseId(ctx.pathParam("id"));
+            var mensajes = CHAT_REPOSITORY.listarMensajes(idConversacion);
+            handleResponse(ctx, ApiResponse.success(200, "Historial de mensajes", mensajes));
+        });
+
+        app.post("/chat/bot/mensajes", ctx -> {
+            var req = ctx.bodyAsClass(Payloads.ChatBotRequest.class);
+            
+            // 1. Obtener el ID de la conversación. Prioriza el ID enviado por el cliente.
+            // Si el cliente no envía un idConversacion (es nulo o 0), se busca o crea una nueva.
+            long idConversacion = (req.idConversacion != null && req.idConversacion > 0)
+                    ? req.idConversacion
+                    : CHAT_REPOSITORY.ensureBotConversationForUser(req.idRemitente);
+
+            // 2. Guardar el mensaje del usuario
+            CHAT_REPOSITORY.insertMensaje(idConversacion, req.idRemitente, null, req.mensaje);
+
+            // 3. Obtener el historial de la conversación para el contexto de la IA
+            List<Map<String, Object>> history = CHAT_REPOSITORY.listarMensajes(idConversacion);
+
+            // 4. Generar la respuesta del bot
+            String botReply = GEMINI_SERVICE.generateReply(req.mensaje, history, req.idRemitente);
+
+            // 5. Guardar la respuesta del bot (ID de remitente 0 para el bot)
+            CHAT_REPOSITORY.insertMensaje(idConversacion, 0, req.idRemitente, botReply);
+
+            // 6. Devolver el ID de la conversación para que el frontend pueda recargar el historial
+            Map<String, Object> result = Map.of("id_conversacion", idConversacion);
+            handleResponse(ctx, ApiResponse.success(201, "Respuesta generada", result));
+        });
     }
 
     // --- HELPERS ---

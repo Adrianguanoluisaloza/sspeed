@@ -23,7 +23,7 @@ class _RegisterScreenState extends State<RegisterScreen>
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _isLoading = false;
-  String _selectedRole = 'cliente'; // Rol por defecto
+  String _selectedRole = 'CLIENTE'; // Rol por defecto
 
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -312,11 +312,11 @@ class _RegisterScreenState extends State<RegisterScreen>
           children: [
             Expanded(
               child: _buildRoleChip(
-                  theme, 'Cliente', 'cliente', Icons.person_outline),
+                  theme, 'Cliente', 'CLIENTE', Icons.person_outline),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _buildRoleChip(theme, 'Repartidor', 'repartidor',
+              child: _buildRoleChip(theme, 'Repartidor', 'REPARTIDOR',
                   Icons.delivery_dining_outlined),
             ),
           ],

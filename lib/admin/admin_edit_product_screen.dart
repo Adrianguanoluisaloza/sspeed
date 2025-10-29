@@ -41,7 +41,7 @@ class _AdminEditProductScreenState extends State<AdminEditProductScreen> {
     _categoriaController =
         TextEditingController(text: widget.producto?.categoria ?? '');
     _stockController = TextEditingController(
-        text: widget.producto?.stock?.toString() ?? '0'); // Ya estaba bien
+        text: widget.producto?.stock?.toString() ?? '0');
     _disponible = widget.producto?.disponible ?? true;
   }
 
@@ -66,14 +66,13 @@ class _AdminEditProductScreenState extends State<AdminEditProductScreen> {
       final database = Provider.of<DatabaseService>(context, listen: false);
 
       final producto = Producto(
-        // El backend maneja el ID, por lo que lo enviamos solo en edición
         idProducto: widget.isEditing ? widget.producto!.idProducto : 0,
         nombre: _nombreController.text,
         descripcion: _descripcionController.text,
         precio: double.tryParse(_precioController.text) ?? 0.0,
         imagenUrl: _imagenController.text,
         categoria: _categoriaController.text,
-        disponible: _disponible, // Se envía el stock
+        disponible: _disponible,
         stock: int.tryParse(_stockController.text) ?? 0,
       );
 
@@ -100,7 +99,7 @@ class _AdminEditProductScreenState extends State<AdminEditProductScreen> {
 
       if (success) {
         Navigator.pop(
-            context, true); // Devuelve 'true' para refrescar la lista anterior
+            context, true);
       } else {
         setState(() => _isLoading = false);
       }
@@ -115,7 +114,6 @@ class _AdminEditProductScreenState extends State<AdminEditProductScreen> {
   }
 
   Future<void> _deleteProduct() async {
-    // Diálogo de confirmación para evitar borrados accidentales.
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -128,8 +126,7 @@ class _AdminEditProductScreenState extends State<AdminEditProductScreen> {
               child: const Text('Cancelar')),
           TextButton(
               onPressed: () => Navigator.pop(context, true),
-              child:
-                  const Text('Eliminar', style: TextStyle(color: Colors.red))),
+              child: const Text('Eliminar', style: TextStyle(color: Colors.red))),
         ],
       ),
     );
@@ -175,14 +172,11 @@ class _AdminEditProductScreenState extends State<AdminEditProductScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.isEditing ? 'Editar Producto' : 'Nuevo Producto'),
-        // Añadimos el botón de eliminar solo en modo edición.
         actions: [
           if (widget.isEditing)
             IconButton(
               icon: const Icon(Icons.delete_outline),
-              onPressed: _isLoading
-                  ? null
-                  : _deleteProduct, // Llama a la nueva función
+              onPressed: _isLoading ? null : _deleteProduct,
               tooltip: 'Eliminar Producto',
             )
         ],
@@ -194,7 +188,6 @@ class _AdminEditProductScreenState extends State<AdminEditProductScreen> {
           children: _buildFormFields(),
         ),
       ),
-      // --- Botón Flotante para Guardar ---
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _isLoading ? null : _saveProduct,
         label: Text(widget.isEditing ? 'Guardar Cambios' : 'Crear Producto'),
@@ -212,7 +205,6 @@ class _AdminEditProductScreenState extends State<AdminEditProductScreen> {
 
   List<Widget> _buildFormFields() {
     return [
-      // --- Tarjeta de Información Básica ---
       Card(
         elevation: 2,
         child: Padding(
@@ -247,7 +239,6 @@ class _AdminEditProductScreenState extends State<AdminEditProductScreen> {
       ),
       const SizedBox(height: 24),
 
-      // --- Tarjeta de Precios y Stock ---
       Card(
         elevation: 2,
         child: Padding(
@@ -270,9 +261,12 @@ class _AdminEditProductScreenState extends State<AdminEditProductScreen> {
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
                       validator: (v) {
-                        if (v == null || v.trim().isEmpty) return 'Requerido';
-                        if (double.tryParse(v) == null)
+                        if (v == null || v.trim().isEmpty) {
+                          return 'Requerido';
+                        }
+                        if (double.tryParse(v) == null) {
                           return 'Número inválido';
+                        }
                         return null;
                       },
                     ),
@@ -287,8 +281,12 @@ class _AdminEditProductScreenState extends State<AdminEditProductScreen> {
                           prefixIcon: Icon(Icons.inventory_2_outlined)),
                       keyboardType: TextInputType.number,
                       validator: (v) {
-                        if (v == null || v.trim().isEmpty) return 'Requerido';
-                        if (int.tryParse(v) == null) return 'Número inválido';
+                        if (v == null || v.trim().isEmpty) {
+                          return 'Requerido';
+                        }
+                        if (int.tryParse(v) == null) {
+                          return 'Número inválido';
+                        }
                         return null;
                       },
                     ),
@@ -301,7 +299,6 @@ class _AdminEditProductScreenState extends State<AdminEditProductScreen> {
       ),
       const SizedBox(height: 24),
 
-      // --- Tarjeta de Catalogación ---
       Card(
         elevation: 2,
         child: Padding(

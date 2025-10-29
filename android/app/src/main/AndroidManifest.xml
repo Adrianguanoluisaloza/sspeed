@@ -32,6 +32,11 @@
 
         </activity>
 
+        <!-- Agrega la clave de la API de Google Maps aquí -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyAIvLI8lMrPF4gNnMiBW2Pd52ZAgnV6BTw" />
+
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
@@ -46,4 +51,3 @@
     </queries>
 
 </manifest>
-

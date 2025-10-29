@@ -255,6 +255,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               MaterialPageRoute(
                 builder: (context) => ChatScreen(
                   initialSection: ChatSection.ciaBot,
+                  currentUser: widget.usuario,
                 ),
               ),
             );
