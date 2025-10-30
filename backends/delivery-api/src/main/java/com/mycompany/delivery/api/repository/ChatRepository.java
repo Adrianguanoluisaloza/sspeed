@@ -27,11 +27,16 @@ public class ChatRepository {
 
     // Método público para guardar un mensaje desde el API
     public Map<String, Object> guardarMensaje(com.mycompany.delivery.api.model.Mensaje mensaje) {
+        long idConversacion = mensaje.getIdPedido(); // Se asume que idConversacion = idPedido
+        int idPedido = mensaje.getIdPedido();
+        int idCliente = mensaje.getIdRemitente(); // Asumimos que el remitente es el cliente
+
         try {
-            // Se asume que idConversacion = idPedido para simplificar
-            long idConversacion = mensaje.getIdPedido();
+            // Asegura que la conversación exista antes de insertar el mensaje.
+            ensureConversation(idConversacion, idCliente, null, null, idPedido);
             return insertMensaje(idConversacion, mensaje.getIdRemitente(), null, mensaje.getMensaje());
-        } catch (Exception e) {
+        } catch (SQLException e) {
+            System.err.println("Error al guardar mensaje: " + e.getMessage());
             return Map.of("error", e.getMessage());
         }
     }
@@ -252,23 +257,24 @@ public class ChatRepository {
     }
 
     /**
-     * Asegura que un usuario tenga una conversación exclusiva con el chatbot.
-     * Busca una conversación donde el usuario sea el cliente y no haya pedido,
-     * repartidor ni soporte asociado (marcador de una conversación de bot).
-     * Si no la encuentra, crea una nueva.
+     * Asegura que un usuario tenga una conversación exclusiva con el chatbot. Busca
+     * una conversación donde el usuario sea el cliente y no haya pedido, repartidor
+     * ni soporte asociado (marcador de una conversación de bot). Si no la
+     * encuentra, crea una nueva.
      *
      * @param idUsuario El ID del usuario que chatea con el bot.
      * @return El ID de la conversación del bot para ese usuario.
      * @throws SQLException Si ocurre un error en la base de datos.
      */
     public long ensureBotConversationForUser(int idUsuario) throws SQLException {
-        // Busca una conversación que sea solo del usuario con el sistema (sin pedido, sin otros participantes)
+        // Busca una conversación que sea solo del usuario con el sistema (sin pedido,
+        // sin otros participantes)
         String sql = """
                 SELECT id_conversacion
                 FROM chat_conversaciones
-                WHERE id_cliente = ? 
-                  AND id_pedido IS NULL 
-                  AND id_delivery IS NULL 
+                WHERE id_cliente = ?
+                  AND id_pedido IS NULL
+                  AND id_delivery IS NULL
                   AND id_admin_soporte IS NULL
                 ORDER BY fecha_creacion DESC
                 LIMIT 1
@@ -286,6 +292,7 @@ public class ChatRepository {
         ensureConversation(newId, idUsuario, null, null, null); // Crea una conversación solo con el id_cliente
         return newId;
     }
+
     /**
      * Asegura que el usuario del "Asistente Virtual" (chatbot) exista en la base de
      * datos. Si no existe, lo crea con el rol de 'soporte'.
@@ -325,7 +332,9 @@ public class ChatRepository {
             }
         }
         throw new SQLException("No se pudo crear el usuario del chatbot");
-    }    private void ensureSchema() throws SQLException {
+    }
+
+    private void ensureSchema() throws SQLException {
         final String createConversaciones = """
                 CREATE TABLE IF NOT EXISTS chat_conversaciones (
                     id_conversacion BIGINT PRIMARY KEY,
@@ -360,7 +369,7 @@ public class ChatRepository {
                 """;
 
         try (Connection connection = Database.getConnection();
-             java.sql.Statement statement = connection.createStatement()) {
+                java.sql.Statement statement = connection.createStatement()) {
             statement.executeUpdate(createConversaciones);
             statement.executeUpdate(createMensajes);
             statement.executeUpdate(createIndexConversaciones);
@@ -368,5 +377,3 @@ public class ChatRepository {
         }
     }
 }
-
-

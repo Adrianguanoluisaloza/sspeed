@@ -20,22 +20,21 @@ public class GeminiService {
     private final Gson gson;
 
     public GeminiService() {
-        this.httpClient = HttpClient.newBuilder()
-                .version(HttpClient.Version.HTTP_2)
-                .connectTimeout(Duration.ofSeconds(10))
-                .build();
+        this.httpClient = HttpClient.newBuilder().version(HttpClient.Version.HTTP_2)
+                .connectTimeout(Duration.ofSeconds(10)).build();
         this.gson = new Gson();
     }
 
     public String generateReply(String prompt, List<Map<String, Object>> history, int currentUserId) {
         if (API_KEY == null || API_KEY.isBlank()) {
             System.err.println("[ERROR] La variable de entorno GEMINI_API_KEY no está configurada.");
-            return "Lo siento, mi cerebro (IA) no está conectado en este momento. Por favor, contacta a soporte.";
+            return "Lo siento, mi cerebro (IA) no está disponible en este momento. Por favor, contacta a soporte.";
         }
 
         List<Map<String, Object>> contents = new ArrayList<>();
         // System Prompt
-        contents.add(Map.of("role", "user", "parts", List.of(Map.of("text", "Eres CIA Bot, un asistente virtual amigable y servicial para una app de delivery de comida. Tu objetivo es ayudar a los usuarios con sus dudas sobre pedidos, la app, o simplemente conversar de forma amena. Sé breve y directo."))));
+        contents.add(Map.of("role", "user", "parts", List.of(Map.of("text",
+                "Eres CIA Bot, un asistente virtual amigable y servicial para una app de delivery de comida. Tu objetivo es ayudar a los usuarios con sus dudas sobre pedidos, la app, o simplemente conversar de forma amena. Sé breve y directo."))));
         contents.add(Map.of("role", "model", "parts", List.of(Map.of("text", "¡Entendido! Estoy listo para ayudar."))));
 
         // History
@@ -54,10 +53,8 @@ public class GeminiService {
         Map<String, Object> payload = Map.of("contents", contents);
         String requestBody = gson.toJson(payload);
 
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(API_URL + "?key=" + API_KEY))
-                .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(requestBody))
+        HttpRequest request = HttpRequest.newBuilder().uri(URI.create(API_URL + "?key=" + API_KEY))
+                .header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString(requestBody))
                 .build();
 
         try {

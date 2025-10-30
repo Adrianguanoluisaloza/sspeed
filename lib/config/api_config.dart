@@ -46,7 +46,15 @@ class AppConfig {
   AppConfig._(); // Constructor privado
 
   // --- CONFIGURACIÓN PRINCIPAL ---
-  static const _currentEnvironment = Environment.local;
+  // MEJORA: Se lee el entorno desde las variables de compilación de Flutter.
+  // Para compilar en producción, usa: flutter build --dart-define=APP_ENV=production
+  static const String _env =
+      String.fromEnvironment('APP_ENV', defaultValue: 'local');
+
+  static final Environment _currentEnvironment =
+      _env.toLowerCase() == 'production'
+          ? Environment.production
+          : Environment.local;
   // -----------------------------
 
   static final Map<Environment, _ApiSettings> _settings = {

@@ -13,6 +13,7 @@ DROP TABLE IF EXISTS pedidos CASCADE;
 DROP TABLE IF EXISTS ubicaciones CASCADE;
 DROP TABLE IF EXISTS recomendaciones CASCADE;
 DROP TABLE IF EXISTS productos CASCADE;
+DROP TABLE IF EXISTS negocios CASCADE;
 DROP TABLE IF EXISTS usuarios CASCADE;
 
 -- Usuarios
@@ -26,7 +27,6 @@ CREATE TABLE usuarios (
   activo           BOOLEAN NOT NULL DEFAULT TRUE,
   fecha_registro   TIMESTAMP NOT NULL DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS idx_productos_id_negocio ON productos(id_negocio);
 
 -- Tabla de negocios (perfil de comercio) vinculada a un usuario propietario
 CREATE TABLE negocios (
@@ -56,6 +56,7 @@ CREATE TABLE productos (
   proveedor        VARCHAR(100),
   id_negocio       INT REFERENCES negocios(id_negocio)
 );
+CREATE INDEX IF NOT EXISTS idx_productos_id_negocio ON productos(id_negocio);
 
 -- Recomendaciones
 CREATE TABLE recomendaciones (
