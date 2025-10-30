@@ -97,6 +97,19 @@ class _ChatScreenState extends State<ChatScreen> {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
 
+    final requiresConversation =
+        widget.initialSection != ChatSection.ciaBot;
+    if (requiresConversation &&
+        (_idConversacion == null || _idConversacion! <= 0)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'No se encontro una conversacion activa. Regresa a la lista y selecciona un chat disponible.'),
+        ),
+      );
+      return;
+    }
+
     final outgoing = ChatEntry(
       text: text,
       isBot: false,
@@ -177,6 +190,7 @@ class _ChatScreenState extends State<ChatScreen> {
       idConversacion: idConversacion ?? 0,
       idRemitente: idRemitente,
       mensaje: userMessage,
+      esBot: widget.initialSection == ChatSection.ciaBot,
     );
 
     final data = (response['data'] is Map)

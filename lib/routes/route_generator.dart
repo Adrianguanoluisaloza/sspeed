@@ -18,6 +18,7 @@ import '../screen/order_success_screen.dart';
 import '../support/support_home_screen.dart';
 import '../screen/product_detail_screen.dart';
 import '../models/producto.dart';
+import '../screen/chat_home_screen.dart';
 import 'app_routes.dart';
 
 class RouteGenerator {
@@ -102,6 +103,8 @@ class RouteGenerator {
           return _slideUp(settings, OrderDetailScreen(idPedido: id));
         }
         return _redirectToLogin(settings);
+      case AppRoutes.chatHome:
+        return _slideUp(settings, const ChatHomeScreen());
       case AppRoutes.orderHistory:
         final usuario = settings.arguments;
         if (usuario is Usuario) {

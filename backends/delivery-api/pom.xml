@@ -32,18 +32,19 @@
         </dependency>
 
 
-  <dependency>
+<dependency>
     <groupId>com.google.genai</groupId>
     <artifactId>google-genai</artifactId>
-    <version>1.0.0</version>
-  </dependency>
+    <version>1.25.0</version>
+</dependency>
 
 
-
-
-
-
-
+<!-- https://mvnrepository.com/artifact/com.google.ai.client.generativeai/generativeai -->
+<dependency>
+    <groupId>com.google.ai.client.generativeai</groupId>
+    <artifactId>generativeai</artifactId>
+    <version>0.9.0</version>
+</dependency>
 
 
         <!-- Driver para la base de datos PostgreSQL -->

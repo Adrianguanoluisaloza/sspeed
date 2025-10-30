@@ -140,7 +140,6 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
       }
       await _fetchCurrentUserLocation();
       _startLocationUpdates();
-      _startLocationUpdates();
     } catch (e) {
       if (mounted) {
         setState(
@@ -439,7 +438,6 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Mapa en tiempo real')),
       body: _buildMapBody(),
-      floatingActionButton: _buildMapControls(),
     );
   }
 
@@ -465,54 +463,23 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
         _buildTopInfoBar(),
       ]);
     } else {
-      return Stack(children: [
-        GoogleMap(
-          initialCameraPosition: CameraPosition(
+      return Stack(
+        children: [
+          GoogleMap(
+            initialCameraPosition: CameraPosition(
               target: _userPosition ?? _esmeraldasCenter,
-              zoom: _userPosition != null ? 14 : 12),
-          markers: _markers,
-          myLocationEnabled: false,
-          myLocationButtonEnabled: false,
-          zoomControlsEnabled: false,
-          onMapCreated: (controller) => _mapController = controller,
-        ),
-        _buildTopInfoBar(),
-      ]);
+              zoom: _userPosition != null ? 14 : 12,
+            ),
+            markers: _markers,
+            myLocationEnabled: false,
+            myLocationButtonEnabled: false,
+            zoomControlsEnabled: false,
+            onMapCreated: (controller) => _mapController = controller,
+          ),
+          _buildTopInfoBar(),
+        ],
+      );
     }
-  }
-
-  Widget _buildMapControls() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        // Center on my location
-        FloatingActionButton(
-          heroTag: 'center-map',
-          onPressed: () async {
-            if (_userPosition != null) {
-              _moveCamera(_userPosition!, zoom: 15);
-            } else {
-              await _fetchCurrentUserLocation();
-              if (_userPosition != null) {
-                _moveCamera(_userPosition!, zoom: 15);
-              }
-            }
-          },
-          backgroundColor: _userPosition != null
-              ? Theme.of(context).primaryColor
-              : Colors.grey,
-          child: const Icon(Icons.my_location, color: Colors.white),
-        ),
-        const SizedBox(height: 12),
-        // Refresh markers
-        FloatingActionButton(
-          heroTag: 'refresh-map',
-          onPressed: _isRefreshingMarkers ? null : _refreshMarkers,
-          child: const Icon(Icons.refresh),
-        ),
-      ],
-    );
   }
 
   Widget _buildPermissionDeniedView() {

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_speed_dial/flutter_speed_dial.dart';
@@ -9,7 +9,6 @@ import '../services/database_service.dart';
 import '../models/session_state.dart';
 import '../routes/app_routes.dart';
 import 'chat_screen.dart';
-import 'chat_home_screen.dart';
 import 'add_location_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -189,8 +188,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     color: Colors.teal,
                     title: 'Mis Chats',
                     subtitle: 'Revisa tus conversaciones y chats con el bot',
-                    onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                        builder: (_) => const ChatHomeScreen())),
+                    onTap: () =>
+                        Navigator.of(context).pushNamed(AppRoutes.chatHome),
                   ),
                 ],
               ),
@@ -447,3 +446,4 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 }
+

@@ -87,5 +87,6 @@ abstract class DataSource {
     required int idConversacion,
     required int idRemitente,
     required String mensaje,
+    bool esBot = false,
   });
 }

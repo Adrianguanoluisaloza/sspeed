@@ -642,12 +642,27 @@ class ApiDataSource implements DataSource {
     required int idConversacion,
     required int idRemitente,
     required String mensaje,
+    bool esBot = false,
   }) async {
-    final response = await _post('/chat/bot/mensajes', {
-      'idConversacion': idConversacion,
-      'idRemitente': idRemitente,
-      'mensaje': mensaje,
-    });
-    return response;
+    if (esBot) {
+      return _post('/chat/bot/mensajes', {
+        'idConversacion': idConversacion,
+        'idRemitente': idRemitente,
+        'mensaje': mensaje,
+      });
+    }
+
+    if (idConversacion <= 0) {
+      throw const ApiException(
+          'Conversacion no valida para enviar mensajes.');
+    }
+
+    return _post(
+      '/chat/conversaciones/$idConversacion/mensajes',
+      {
+        'idRemitente': idRemitente,
+        'mensaje': mensaje,
+      },
+    );
   }
 }

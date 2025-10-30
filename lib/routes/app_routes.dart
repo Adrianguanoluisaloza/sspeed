@@ -10,6 +10,7 @@ class AppRoutes {
   static const orderDetail = '/orders/detail';
   static const orderHistory = '/orders/history';
   static const editProfile = '/profile/edit';
+  static const chatHome = '/chat/home';
   static const trackingSimulation = '/tracking/simulation';
   static const checkout = '/checkout';
   static const checkoutAddress = '/checkout/address';

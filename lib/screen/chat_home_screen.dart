@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/chat_conversation.dart';
@@ -232,6 +232,10 @@ class _ChatHomeScreenState extends State<ChatHomeScreen> {
     }
     details.add('Creado: $created');
 
-    return details.join(' · ');
+            return details.join(' • ');
   }
 }
+
+
+
+

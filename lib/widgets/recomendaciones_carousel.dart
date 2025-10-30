@@ -32,7 +32,7 @@ class RecomendacionesCarousel extends StatelessWidget {
             return RecommendationCard(productoRankeado: rec, usuario: usuario);
           },
           options: CarouselOptions(
-            height: 220,
+            height: 200,
             enlargeCenterPage: true,
             enableInfiniteScroll: recomendaciones.length > 1,
             autoPlay: recomendaciones.length > 1,
@@ -54,7 +54,8 @@ class RecommendationCard extends StatelessWidget {
     required this.usuario,
   });
 
-  Future<void> _navigateToProduct(BuildContext context, {bool openReviews = false}) async {
+  Future<void> _navigateToProduct(BuildContext context,
+      {bool openReviews = false}) async {
     final dbService = context.read<DatabaseService>();
     final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
@@ -106,109 +107,110 @@ class RecommendationCard extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
-            mainAxisSize: MainAxisSize.max,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              _RecommendationImage(url: productoRankeado.imagenUrl),
-              const SizedBox(height: 12),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.zero,
-                  physics: const BouncingScrollPhysics(),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if ((productoRankeado.negocio ?? '').isNotEmpty)
-                        Text(
-                          productoRankeado.negocio!,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.primary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      Text(
-                        ((productoRankeado.nombre.isNotEmpty
-                                ? productoRankeado.nombre
-                                : 'Producto'))
-                            .trim(),
-                        style: theme.textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w700),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 6),
-                      if (productoRankeado.precio != null)
-                        Text(
-                          productoRankeado.precioFormateado,
-                          style: theme.textTheme.titleSmall
-                              ?.copyWith(fontWeight: FontWeight.bold),
-                        ),
-                      if (productoRankeado.descripcion != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Text(
-                            productoRankeado.descripcion!,
-                            style: theme.textTheme.bodySmall,
-                            maxLines: 2,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _RecommendationImage(
+                    url: productoRankeado.imagenUrl,
+                    size: 86,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if ((productoRankeado.negocio ?? '').isNotEmpty)
+                          Text(
+                            productoRankeado.negocio!,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
+                        Text(
+                          productoRankeado.nombre,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          const Icon(Icons.star, color: Colors.amber, size: 20),
-                          const SizedBox(width: 4),
+                        const SizedBox(height: 4),
+                        if (productoRankeado.precio != null)
                           Text(
-                            productoRankeado.ratingPromedio.toStringAsFixed(1),
-                            style: theme.textTheme.bodyMedium?.copyWith(
+                            '\$${productoRankeado.precio!.toStringAsFixed(2)}',
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              color: theme.colorScheme.primary,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          const SizedBox(width: 6),
-                          Text(
-                            '${productoRankeado.totalReviews} reseñas',
-                            style: theme.textTheme.bodySmall
-                                ?.copyWith(color: theme.hintColor),
-                          ),
-                        ],
-                      ),
-                      if (comentario != null && comentario.trim().isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Text(
-                            '"$comentario"',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              fontStyle: FontStyle.italic,
-                              color: theme.hintColor,
+                        const SizedBox(height: 6),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.star_rounded,
+                              color: Colors.amber.shade600,
+                              size: 20,
                             ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                            const SizedBox(width: 4),
+                            Text(
+                              productoRankeado.ratingPromedio
+                                  .toStringAsFixed(1),
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              '${productoRankeado.totalReviews} reseñas',
+                              style: theme.textTheme.bodySmall
+                                  ?.copyWith(color: theme.hintColor),
+                            ),
+                          ],
                         ),
-                      const SizedBox(height: 8),
-                    ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              if (comentario != null && comentario.trim().isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    '"$comentario"',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontStyle: FontStyle.italic,
+                      color: theme.hintColor,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-              ),
+              ],
               const SizedBox(height: 12),
               Row(
                 children: [
                   Expanded(
                     child: FilledButton.icon(
-                      onPressed: () => _navigateToProduct(context, openReviews: false),
+                      onPressed: () =>
+                          _navigateToProduct(context, openReviews: false),
                       icon: const Icon(Icons.info_outline),
-                      label: const Text('Ver detalles'),
+                      label: const Text('Ver producto'),
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => _navigateToProduct(context, openReviews: true),
-                      icon: const Icon(Icons.reviews_outlined, size: 18),
-                      label: const Text('Reseñas'),
-                    ),
+                  IconButton.filledTonal(
+                    tooltip: 'Ver reseñas',
+                    onPressed: () =>
+                        _navigateToProduct(context, openReviews: true),
+                    icon: const Icon(Icons.reviews_outlined),
                   ),
                 ],
               ),
@@ -222,15 +224,16 @@ class RecommendationCard extends StatelessWidget {
 
 class _RecommendationImage extends StatelessWidget {
   final String? url;
-  const _RecommendationImage({required this.url});
+  final double size;
+  const _RecommendationImage({required this.url, this.size = 96});
 
   @override
   Widget build(BuildContext context) {
     final borderRadius = BorderRadius.circular(14);
     if (url == null || url!.isEmpty) {
       return Container(
-        height: 90,
-        width: double.infinity,
+        height: size,
+        width: size,
         decoration: BoxDecoration(
           borderRadius: borderRadius,
           gradient: LinearGradient(
@@ -242,7 +245,8 @@ class _RecommendationImage extends StatelessWidget {
             end: Alignment.bottomRight,
           ),
         ),
-        child: const Icon(Icons.fastfood, size: 36, color: Colors.black54),
+        alignment: Alignment.center,
+        child: const Icon(Icons.fastfood, size: 32, color: Colors.black54),
       );
     }
 
@@ -250,17 +254,18 @@ class _RecommendationImage extends StatelessWidget {
       borderRadius: borderRadius,
       child: Image.network(
         url!,
-        height: 90,
-        width: double.infinity,
+        height: size,
+        width: size,
         fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) => Container(
-          height: 90,
-          width: double.infinity,
+          height: size,
+          width: size,
           decoration: BoxDecoration(
             borderRadius: borderRadius,
             color: Theme.of(context).colorScheme.surfaceContainerHighest,
           ),
-          child: const Icon(Icons.fastfood, size: 36, color: Colors.black54),
+          alignment: Alignment.center,
+          child: const Icon(Icons.fastfood, size: 32, color: Colors.black54),
         ),
       ),
     );
@@ -275,13 +280,13 @@ class RecommendationsLoading extends StatelessWidget {
       baseColor: Colors.grey.shade300,
       highlightColor: Colors.grey.shade100,
       child: SizedBox(
-        height: 220,
+        height: 200,
         child: ListView.builder(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           itemCount: 3,
           itemBuilder: (context, index) => Container(
-            width: 260,
+            width: 250,
             margin: const EdgeInsets.only(right: 12),
             decoration: BoxDecoration(
               color: Colors.white,
