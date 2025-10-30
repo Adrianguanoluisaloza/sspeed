@@ -7,6 +7,7 @@ import '../models/producto.dart';
 import '../models/usuario.dart';
 import '../models/ubicacion.dart';
 import '../models/recomendacion_data.dart';
+import '../models/tracking_point.dart';
 import 'api_data_source.dart';
 import 'data_source.dart';
 
@@ -173,6 +174,10 @@ class DatabaseService implements DataSource {
   @override
   Future<Map<String, dynamic>?> getRepartidorLocation(int idPedido) =>
       _dataSource.getRepartidorLocation(idPedido);
+
+  @override
+  Future<List<TrackingPoint>> getTrackingRoute(int idPedido) =>
+      _dataSource.getTrackingRoute(idPedido);
 
   // --- Módulo de Chat ---
   @override

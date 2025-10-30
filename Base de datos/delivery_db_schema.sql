@@ -89,6 +89,18 @@ CREATE TABLE IF NOT EXISTS public.detalle_pedidos (
     subtotal NUMERIC(10, 2) NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS public.tracking_eventos (
+    id_evento SERIAL PRIMARY KEY,
+    id_pedido INTEGER NOT NULL REFERENCES public.pedidos(id_pedido) ON DELETE CASCADE,
+    orden INTEGER NOT NULL DEFAULT 1,
+    latitud DOUBLE PRECISION NOT NULL,
+    longitud DOUBLE PRECISION NOT NULL,
+    descripcion TEXT,
+    fecha_evento TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_tracking_eventos_pedido
+    ON public.tracking_eventos(id_pedido, orden, fecha_evento);
+
 CREATE TABLE IF NOT EXISTS public.recomendaciones (
     id_recomendacion SERIAL PRIMARY KEY,
     id_producto INTEGER NOT NULL REFERENCES public.productos(id_producto) ON DELETE CASCADE,
@@ -217,7 +229,11 @@ VALUES
     ('Admin Sistema', 'admin@example.com', 'admin123', 'admin', '0987654324'),
     ('Repartidor Demo', 'delivery@example.com', 'delivery123', 'delivery', '0987654323'),
     ('Cliente Demo', 'cliente@example.com', 'cliente123', 'cliente', '0987654321'),
-    ('Asistente Virtual', 'chatbot@system.local', 'chatbot123', 'soporte', '0000000000')
+    ('Asistente Virtual', 'chatbot@system.local', 'chatbot123', 'soporte', '0000000000'),
+    ('Negocio XYZ', 'negocio@example.com', 'negocio123', 'negocio', '0999999999'),
+    ('Maria Garcia', 'maria@example.com', '123456', 'cliente', '0987654322'),
+    ('Carlos Lopez', 'carlos@example.com', '1234567', 'delivery', '0987654323'),
+    ('Lucas Gomez', 'lucas@example.com', '1234567', 'soporte', '0911111111')
 ON CONFLICT (correo) DO NOTHING;
 
 -- Insertar productos de prueba si no existen
@@ -227,6 +243,101 @@ VALUES
     ('Hamburguesa Clásica', 'Hamburguesa con carne, lechuga, tomate y queso', 8.99, 'https://images.unsplash.com/photo-1550547660-d9450f859349', 'Hamburguesas', TRUE),
     ('Papas Fritas', 'Papas fritas crujientes listas para compartir', 3.50, 'https://images.unsplash.com/photo-1550450005-4a1bca4de59c', 'Acompañamientos', TRUE)
 ON CONFLICT (nombre) DO NOTHING;
+
+-- Registrar el perfil del negocio demo
+INSERT INTO public.negocios (id_negocio, nombre_comercial, razon_social, ruc, direccion, telefono, email_contacto, horario)
+SELECT id_usuario, 'Negocio XYZ', 'Negocio XYZ S.A.', '1790012345001', 'Av. Libertad y Malecón, Esmeraldas', '0999999999',
+       'contacto@negocioxyz.ec', 'L-V 09:00-18:00; S 09:00-14:00'
+FROM public.usuarios
+WHERE correo = 'negocio@example.com'
+ON CONFLICT (id_negocio) DO NOTHING;
+
+-- Vincular productos de ejemplo al negocio cuando exista
+UPDATE public.productos
+SET proveedor = 'Negocio XYZ', id_negocio = (
+    SELECT id_usuario FROM public.usuarios WHERE correo = 'negocio@example.com'
+)
+WHERE proveedor IS NULL;
+
+-- Ubicaciones predeterminadas para cliente y repartidor demo
+WITH cliente AS (SELECT id_usuario FROM public.usuarios WHERE correo = 'maria@example.com' OR correo = 'cliente@example.com' LIMIT 1),
+     delivery AS (SELECT id_usuario FROM public.usuarios WHERE correo = 'carlos@example.com' OR correo = 'delivery@example.com' LIMIT 1)
+INSERT INTO public.ubicaciones (id_usuario, latitud, longitud, direccion, descripcion, activa)
+VALUES
+    ((SELECT id_usuario FROM cliente), 0.989000, -79.653000, 'Av. Quito 999', 'Casa del cliente', TRUE),
+    ((SELECT id_usuario FROM delivery), 0.990000, -79.655000, 'Calle Falsa 123', 'Punto de partida', TRUE)
+ON CONFLICT DO NOTHING;
+
+-- Ubicación viva del repartidor para los endpoints de tracking
+WITH delivery AS (SELECT id_usuario FROM public.usuarios WHERE correo = 'carlos@example.com' OR correo = 'delivery@example.com' LIMIT 1)
+INSERT INTO public.ubicaciones (id_usuario, latitud, longitud, direccion, descripcion, activa)
+VALUES ((SELECT id_usuario FROM delivery), 0.970362, -79.652557, 'Base de salida del repartidor', 'LIVE_TRACKING', TRUE)
+ON CONFLICT (id_usuario, descripcion)
+WHERE (descripcion = 'LIVE_TRACKING')
+DO UPDATE SET latitud = EXCLUDED.latitud, longitud = EXCLUDED.longitud, fecha_registro = NOW();
+
+-- Pedido de demostración con detalle para alimentar dashboards
+WITH cliente AS (SELECT id_usuario FROM public.usuarios WHERE correo = 'maria@example.com' OR correo = 'cliente@example.com' LIMIT 1),
+     delivery AS (SELECT id_usuario FROM public.usuarios WHERE correo = 'carlos@example.com' OR correo = 'delivery@example.com' LIMIT 1),
+     ubicacion AS (
+        INSERT INTO public.ubicaciones (id_usuario, latitud, longitud, direccion, descripcion, activa)
+        SELECT (SELECT id_usuario FROM cliente), 0.989, -79.653, 'Av. Quito 999', 'Entrega principal', TRUE
+        RETURNING id_ubicacion
+     ),
+     pedido AS (
+        INSERT INTO public.pedidos (id_cliente, id_delivery, id_ubicacion, estado, total, metodo_pago, direccion_entrega, fecha_entrega)
+        SELECT (SELECT id_usuario FROM cliente), (SELECT id_usuario FROM delivery), (SELECT id_ubicacion FROM ubicacion),
+               'en camino', 18.00, 'tarjeta', 'Av. Quito 999', NOW()
+        RETURNING id_pedido
+     )
+INSERT INTO public.detalle_pedidos (id_pedido, id_producto, cantidad, precio_unitario, subtotal)
+SELECT (SELECT id_pedido FROM pedido), id_producto, 1, precio, precio
+FROM public.productos
+ORDER BY id_producto
+LIMIT 2;
+
+-- Ruta simulada asociada al pedido demo
+WITH pedido_actual AS (
+  SELECT id_pedido FROM public.pedidos
+  WHERE estado IN ('en camino','pendiente')
+  ORDER BY id_pedido DESC
+  LIMIT 1
+), puntos AS (
+  SELECT 1 AS orden, 0.970362::DOUBLE PRECISION AS latitud, -79.652557::DOUBLE PRECISION AS longitud,
+         'Inicio en restaurante'::TEXT AS descripcion, NOW() - INTERVAL '15 minutes' AS fecha_evento
+  UNION ALL SELECT 2, 0.972900, -79.654900, 'Retiro del pedido', NOW() - INTERVAL '12 minutes'
+  UNION ALL SELECT 3, 0.978120, -79.655900, 'En camino por Av. Libertad', NOW() - INTERVAL '9 minutes'
+  UNION ALL SELECT 4, 0.983438, -79.655182, 'Cruce principal', NOW() - INTERVAL '6 minutes'
+  UNION ALL SELECT 5, 0.984854, -79.657457, 'Cerca del destino', NOW() - INTERVAL '3 minutes'
+  UNION ALL SELECT 6, 0.988033, -79.659094, 'Entrega en puerta', NOW()
+)
+INSERT INTO public.tracking_eventos (id_pedido, orden, latitud, longitud, descripcion, fecha_evento)
+SELECT pa.id_pedido, pt.orden, pt.latitud, pt.longitud, pt.descripcion, pt.fecha_evento
+FROM pedido_actual pa
+JOIN puntos pt ON TRUE;
+
+-- Conversación pre-cargada para el asistente virtual
+WITH cliente AS (SELECT id_usuario FROM public.usuarios WHERE correo = 'maria@example.com' OR correo = 'cliente@example.com' LIMIT 1),
+     bot AS (SELECT id_usuario FROM public.usuarios WHERE correo = 'chatbot@system.local' LIMIT 1),
+     conversacion AS (
+       INSERT INTO public.chat_conversaciones (id_conversacion, id_cliente, activa)
+       VALUES (1000001, (SELECT id_usuario FROM cliente), TRUE)
+       ON CONFLICT (id_conversacion) DO UPDATE SET activa = TRUE
+       RETURNING id_conversacion
+     ),
+     conv_id AS (
+       SELECT id_conversacion FROM conversacion
+       UNION
+       SELECT 1000001 WHERE NOT EXISTS (SELECT 1 FROM conversacion)
+     )
+INSERT INTO public.chat_mensajes (id_conversacion, id_remitente, id_destinatario, mensaje, fecha_envio)
+VALUES
+  ((SELECT id_conversacion FROM conv_id), (SELECT id_usuario FROM cliente), (SELECT id_usuario FROM bot),
+   'Hola, ¿podrías confirmar mi entrega?', NOW() - INTERVAL '5 minutes'),
+  ((SELECT id_conversacion FROM conv_id), (SELECT id_usuario FROM bot), (SELECT id_usuario FROM cliente),
+   '¡Hola! Tu pedido está en ruta y llegará en menos de 15 minutos.', NOW() - INTERVAL '4 minutes'),
+  ((SELECT id_conversacion FROM conv_id), (SELECT id_usuario FROM cliente), (SELECT id_usuario FROM bot),
+   'Gracias, estaré pendiente.', NOW() - INTERVAL '3 minutes');
 
 
 -- =================================================================

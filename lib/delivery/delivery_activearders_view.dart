@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_application_2/models/pedido.dart';
 import 'package:flutter_application_2/models/usuario.dart';
 import 'package:flutter_application_2/services/database_service.dart';
+import 'package:intl/intl.dart';
 import 'package:location/location.dart';
 import 'package:provider/provider.dart';
 import 'dart:async' show Future, Timer;
@@ -143,21 +144,88 @@ class _DeliveryActiveOrdersViewState extends State<DeliveryActiveOrdersView> {
             itemCount: pedidos.length,
             itemBuilder: (context, index) {
               final pedido = pedidos[index];
+              final formattedDate = DateFormat(
+                      'dd MMM yyyy • hh:mm a',
+                      'es_EC')
+                  .format(pedido.fechaPedido);
+
               return Card(
                 margin: const EdgeInsets.all(8),
-                child: ListTile(
-                  title: Text(
-                      'Pedido #${pedido.idPedido} - ${pedido.estado.toUpperCase()}'),
-                  subtitle: Text('Direccion: ${pedido.direccionEntrega}'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () async {
-                    await Navigator.of(context).pushNamed(
-                      AppRoutes.orderDetail,
-                      arguments: pedido.idPedido,
-                    );
-                    if (!mounted) return;
-                    setState(() => _loadPedidos());
-                  },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(
+                          'Pedido #${pedido.idPedido}',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: Padding(
+                          padding: const EdgeInsets.only(top: 4.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Estado: ${pedido.estado.toUpperCase()}',
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text('Dirección: ${pedido.direccionEntrega}'),
+                              const SizedBox(height: 4),
+                              Text('Asignado: $formattedDate',
+                                  style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                            ],
+                          ),
+                        ),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () async {
+                          await Navigator.of(context).pushNamed(
+                            AppRoutes.orderDetail,
+                            arguments: pedido.idPedido,
+                          );
+                          if (!mounted) return;
+                          setState(() => _loadPedidos());
+                        },
+                      ),
+                      const Divider(height: 12),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Wrap(
+                          spacing: 12,
+                          runSpacing: 8,
+                          children: [
+                            OutlinedButton.icon(
+                              icon: const Icon(Icons.map_outlined),
+                              label: const Text('Ver tracking'),
+                              onPressed: () {
+                                Navigator.of(context).pushNamed(
+                                  AppRoutes.trackingSimulation,
+                                  arguments: pedido.idPedido,
+                                );
+                              },
+                            ),
+                            ElevatedButton.icon(
+                              icon: const Icon(Icons.description_outlined),
+                              label: const Text('Ver detalle'),
+                              onPressed: () async {
+                                await Navigator.of(context).pushNamed(
+                                  AppRoutes.orderDetail,
+                                  arguments: pedido.idPedido,
+                                );
+                                if (!mounted) return;
+                                setState(() => _loadPedidos());
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               );
             },

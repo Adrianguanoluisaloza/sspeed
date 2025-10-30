@@ -13,6 +13,7 @@ import '../models/pedido.dart';
 import '../models/pedido_detalle.dart';
 import '../models/producto.dart';
 import '../models/recomendacion_data.dart';
+import '../models/tracking_point.dart';
 import '../models/ubicacion.dart';
 import '../models/usuario.dart';
 import 'api_exception.dart';
@@ -445,6 +446,21 @@ class ApiDataSource implements DataSource {
       return data['data'] as Map<String, dynamic>?;
     } on ApiException catch (e) {
       if (e.statusCode == 404) return null; // Not found is not an error here.
+      rethrow;
+    }
+  }
+
+  @override
+  Future<List<TrackingPoint>> getTrackingRoute(int idPedido) async {
+    try {
+      final data = await _get('/tracking/pedido/$idPedido/ruta');
+      return data
+          .map((item) => TrackingPoint.fromMap(item as Map<String, dynamic>))
+          .toList();
+    } on ApiException catch (e) {
+      if (e.statusCode == 404) {
+        return const [];
+      }
       rethrow;
     }
   }

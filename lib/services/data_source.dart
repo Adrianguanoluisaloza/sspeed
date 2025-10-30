@@ -5,6 +5,7 @@ import '../models/pedido.dart';
 import '../models/pedido_detalle.dart';
 import '../models/producto.dart';
 import '../models/recomendacion_data.dart';
+import '../models/tracking_point.dart';
 import '../models/ubicacion.dart';
 import '../models/usuario.dart';
 
@@ -67,6 +68,7 @@ abstract class DataSource {
   // --- Métodos de Tracking ---
   Future<bool> updateRepartidorLocation(int idRepartidor, double lat, double lon);
   Future<Map<String, dynamic>?> getRepartidorLocation(int idPedido);
+  Future<List<TrackingPoint>> getTrackingRoute(int idPedido);
 
   // --- Módulo de Chat ---
   Future<int?> iniciarConversacion({
