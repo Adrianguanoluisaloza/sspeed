@@ -49,7 +49,7 @@ public class DeliveryApi {
             System.err.println("[WARN] No se pudo cargar .env: " + e.getMessage());
         }
 
-        // Ping a la base de datos para asegurar conexión
+        // Ping a la base de datos para asegurar conexiÃ³n
         Database.ping();
 
         // Configurar el mapeador de JSON para usar Gson
@@ -63,7 +63,7 @@ public class DeliveryApi {
                     }
                     T body = GSON.fromJson(json, targetType);
                     if (body == null) {
-                        throw new ApiException(400, "El cuerpo de la solicitud es obligatorio o el JSON es inválido");
+                        throw new ApiException(400, "El cuerpo de la solicitud es obligatorio o el JSON es invÃ¡lido");
                     }
                     return body;
                 } catch (JsonSyntaxException e) {
@@ -78,7 +78,7 @@ public class DeliveryApi {
             }
         };
 
-        // Crear y configurar la aplicación Javalin
+        // Crear y configurar la aplicaciÃ³n Javalin
         Javalin app = Javalin.create(config -> {
             config.jsonMapper(gsonMapper);
             config.http.defaultContentType = "application/json; charset=utf-8";
@@ -101,17 +101,17 @@ public class DeliveryApi {
             String authHeader = ctx.header("Authorization");
             if (authHeader == null || !authHeader.startsWith("Bearer ")) {
                 ctx.status(401);
-                ctx.result(GSON.toJson(ApiResponse.error(401, "Token de autenticación requerido")));
+                ctx.result(GSON.toJson(ApiResponse.error(401, "Token de autenticaciÃ³n requerido")));
                 return;
             }
             String token = authHeader.substring(7);
             Usuario usuario = USUARIO_CONTROLLER.validarToken(token);
             if (usuario == null) {
                 ctx.status(401);
-                ctx.result(GSON.toJson(ApiResponse.error(401, "Token inválido")));
+                ctx.result(GSON.toJson(ApiResponse.error(401, "Token invÃ¡lido")));
                 return;
             }
-            if (!"repartidor".equalsIgnoreCase(usuario.getRol())) {
+            if (!("repartidor".equalsIgnoreCase(usuario.getRol()) || "delivery".equalsIgnoreCase(usuario.getRol()))) {
                 ctx.status(403);
                 ctx.result(GSON.toJson(ApiResponse.error(403, "Acceso solo para repartidores")));
                 return;
@@ -126,9 +126,9 @@ public class DeliveryApi {
         });
         app.exception(Exception.class, (ex, ctx) -> {
             ctx.status(500);
-            System.err.println("[ERROR] Ocurrió un error inesperado: " + ex.getMessage());
-            ex.printStackTrace(); // Para depuración
-            ctx.json(ApiResponse.error(500, "Ocurrió un error inesperado"));
+            System.err.println("[ERROR] OcurriÃ³ un error inesperado: " + ex.getMessage());
+            ex.printStackTrace(); // Para depuraciÃ³n
+            ctx.json(ApiResponse.error(500, "OcurriÃ³ un error inesperado"));
         });
         app.error(404, ctx -> {
             ctx.json(ApiResponse.error(404, "Ruta no encontrada"));
@@ -148,7 +148,7 @@ public class DeliveryApi {
             var b = ctx.bodyAsClass(Payloads.RegistroRequest.class);
             if (!"cliente".equalsIgnoreCase(b.rol) && !"repartidor".equalsIgnoreCase(b.rol)) {
                 throw new ApiException(400,
-                        "El rol especificado '" + b.rol + "' no es válido. Debe ser 'cliente' o 'repartidor'.");
+                        "El rol especificado '" + b.rol + "' no es vÃ¡lido. Debe ser 'cliente' o 'repartidor'.");
             }
             var u = new Usuario();
             u.setNombre(b.nombre);
@@ -198,6 +198,71 @@ public class DeliveryApi {
             handleResponse(ctx, PRODUCTO_CONTROLLER.deleteProducto(id));
         });
 
+        // --- NEGOCIOS (usa usuarios con rol admin como "negocio" por compatibilidad con el esquema guÃ­a) ---
+        app.get("/admin/negocios", ctx -> {
+            var all = USUARIO_CONTROLLER.listarUsuarios();
+            // Filtra en memoria a los que sean rol 'admin' y evita el admin del sistema
+            @SuppressWarnings("unchecked")
+            java.util.List<com.mycompany.delivery.api.model.Usuario> lista = (java.util.List<com.mycompany.delivery.api.model.Usuario>) all.getData();
+            var negocios = new java.util.ArrayList<java.util.Map<String, Object>>();
+            if (lista != null) {
+                for (var u : lista) {
+                    if ("admin".equalsIgnoreCase(u.getRol()) && (u.getCorreo() == null || !u.getCorreo().equalsIgnoreCase("admin@example.com"))) {
+                        negocios.add(u.toMap());
+                    }
+                }
+            }
+            handleResponse(ctx, ApiResponse.success(200, "Negocios listados", negocios));
+        });
+
+        app.post("/admin/negocios", ctx -> {
+            var u = ctx.bodyAsClass(Usuario.class);
+            if (u.getNombre() == null || u.getCorreo() == null || u.getContrasena() == null) {
+                throw new ApiException(400, "nombre, correo y contrase\u00f1a son obligatorios");
+            }
+            u.setRol("admin"); // Usamos 'admin' como rol de negocio segÃºn esquema guÃ­a
+            handleResponse(ctx, USUARIO_CONTROLLER.registrar(u));
+        });
+
+        app.get("/admin/negocios/{id}", ctx -> {
+            var id = parseId(ctx.pathParam("id"));
+            handleResponse(ctx, USUARIO_CONTROLLER.obtenerPorId(id));
+        });
+
+        app.put("/admin/negocios/{id}", ctx -> {
+            var id = parseId(ctx.pathParam("id"));
+            var body = ctx.bodyAsClass(Usuario.class);
+            body.setIdUsuario(id);
+            body.setRol("admin");
+            handleResponse(ctx, USUARIO_CONTROLLER.actualizarUsuario(body));
+        });
+
+        app.get("/admin/negocios/{id}/productos", ctx -> {
+            var id = parseId(ctx.pathParam("id"));
+            var negocio = USUARIO_CONTROLLER.obtenerPorId(id).getData();
+            if (negocio == null || !"admin".equalsIgnoreCase(((Usuario)negocio).getRol())) {
+                throw new ApiException(404, "Negocio no encontrado");
+            }
+            var prov = ((Usuario)negocio).getNombre();
+            var repo = new com.mycompany.delivery.api.repository.ProductoRepository();
+            var lista = repo.listarPorProveedor(prov);
+            handleResponse(ctx, ApiResponse.success(200, "Productos del negocio", lista));
+        });
+
+        app.post("/admin/negocios/{id}/productos", ctx -> {
+            var id = parseId(ctx.pathParam("id"));
+            var negocio = USUARIO_CONTROLLER.obtenerPorId(id).getData();
+            if (negocio == null || !"admin".equalsIgnoreCase(((Usuario)negocio).getRol())) {
+                throw new ApiException(404, "Negocio no encontrado");
+            }
+            var prov = ((Usuario)negocio).getNombre();
+            var p = ctx.bodyAsClass(Producto.class);
+            var repo = new com.mycompany.delivery.api.repository.ProductoRepository();
+            var creado = repo.crearProductoParaProveedor(p, prov);
+            if (creado.isEmpty()) throw new ApiException(500, "No se pudo crear el producto");
+            handleResponse(ctx, ApiResponse.success(201, "Producto creado para negocio", creado.get()));
+        });
+
         // --- PEDIDOS ---
         app.post("/pedidos", ctx -> {
             var body = ctx.bodyAsClass(PedidoPayload.class);
@@ -225,6 +290,10 @@ public class DeliveryApi {
         });
         app.get("/pedidos", ctx -> {
             handleResponse(ctx, PEDIDO_CONTROLLER.getPedidos());
+        });
+        // Colocar antes de /pedidos/{id} para que no capture 'disponibles'
+        app.get("/pedidos/disponibles", ctx -> {
+            handleResponse(ctx, PEDIDO_CONTROLLER.getPedidosPorEstado("pendiente"));
         });
         app.get("/pedidos/{id}", ctx -> {
             var id = parseId(ctx.pathParam("id"));
@@ -271,7 +340,7 @@ public class DeliveryApi {
             var id = parseId(ctx.pathParam("idUbicacion"));
             var b = ctx.bodyAsClass(Payloads.UbicacionRequest.class);
             UBICACION_CONTROLLER.actualizarCoordenadas(id, b.getLatitud(), b.getLongitud());
-            handleResponse(ctx, ApiResponse.success("Ubicación actualizada correctamente"));
+            handleResponse(ctx, ApiResponse.success("UbicaciÃ³n actualizada correctamente"));
         });
         app.get("/ubicaciones/activas", ctx -> {
             handleResponse(ctx, UBICACION_CONTROLLER.listarActivas());
@@ -279,6 +348,10 @@ public class DeliveryApi {
         app.get("/ubicaciones/usuario/{id}", ctx -> {
             var id = parseId(ctx.pathParam("id"));
             handleResponse(ctx, UBICACION_CONTROLLER.obtenerUbicacionesPorUsuario(id));
+        });
+        app.delete("/ubicaciones/{id}", ctx -> {
+            var id = parseId(ctx.pathParam("id"));
+            handleResponse(ctx, UBICACION_CONTROLLER.eliminarUbicacion(id));
         });
 
         // --- MENSAJES (CHAT) ---
@@ -302,6 +375,22 @@ public class DeliveryApi {
             var body = ctx.bodyAsClass(Recomendacion.class);
             handleResponse(ctx, RECOMENDACION_CONTROLLER.crearRecomendacion(body));
         });
+        // Endpoint de reseñas por producto
+        app.post("/productos/{id}/recomendaciones", ctx -> {
+            var idProducto = parseId(ctx.pathParam("id"));
+            @SuppressWarnings("unchecked")
+            Map<String, Object> body = (Map<String, Object>) ctx.bodyAsClass(Map.class);
+            Integer idUsuario = parseNullableInt(body.get("id_usuario"));
+            Integer puntuacion = parseNullableInt(body.get("puntuacion"));
+            String comentario = body.get("comentario") != null ? body.get("comentario").toString() : null;
+            if (idUsuario == null || idUsuario <= 0 || puntuacion == null) {
+                throw new ApiException(400, "Debe enviar id_usuario y puntuacion");
+            }
+            handleResponse(ctx, RECOMENDACION_CONTROLLER.guardarRecomendacion(idProducto, idUsuario, puntuacion, comentario));
+        });
+        app.get("/recomendaciones", ctx -> {
+            handleResponse(ctx, RECOMENDACION_CONTROLLER.listarRecomendacionesPrincipales());
+        });
         app.get("/recomendaciones/usuario/{id}", ctx -> {
             var idUsuario = parseId(ctx.pathParam("id"));
             handleResponse(ctx, RECOMENDACION_CONTROLLER.obtenerRecomendacionesPorUsuario(idUsuario));
@@ -316,7 +405,7 @@ public class DeliveryApi {
             var idRepartidor = parseId(ctx.pathParam("idRepartidor"));
             var body = ctx.bodyAsClass(Payloads.UbicacionRequest.class);
             UBICACION_CONTROLLER.actualizarCoordenadas(idRepartidor, body.getLatitud(), body.getLongitud());
-            handleResponse(ctx, ApiResponse.success("Ubicación del repartidor actualizada"));
+            handleResponse(ctx, ApiResponse.success("UbicaciÃ³n del repartidor actualizada"));
         });
         // --- GEOCODIFICAR ---
         app.post("/geocodificar", ctx -> {
@@ -329,12 +418,12 @@ public class DeliveryApi {
         // --- DASHBOARD ---
         app.get("/admin/stats", ctx -> {
             handleResponse(ctx,
-                    ApiResponse.success(200, "Estadísticas admin", DASHBOARD_DAO.obtenerEstadisticasAdmin()));
+                    ApiResponse.success(200, "EstadÃ­sticas admin", DASHBOARD_DAO.obtenerEstadisticasAdmin()));
         });
         app.get("/delivery/stats/{id}", ctx -> {
             var id = parseId(ctx.pathParam("id"));
             handleResponse(ctx,
-                    ApiResponse.success(200, "Estadísticas delivery", DASHBOARD_DAO.obtenerEstadisticasDelivery(id)));
+                    ApiResponse.success(200, "EstadÃ­sticas delivery", DASHBOARD_DAO.obtenerEstadisticasDelivery(id)));
         });
 
         // --- CHAT BOT ---
@@ -418,8 +507,8 @@ public class DeliveryApi {
         app.post("/chat/bot/mensajes", ctx -> {
             var req = ctx.bodyAsClass(Payloads.ChatBotRequest.class);
             
-            // 1. Obtener el ID de la conversación. Prioriza el ID enviado por el cliente.
-            // Si el cliente no envía un idConversacion (es nulo o 0), se busca o crea una nueva.
+            // 1. Obtener el ID de la conversaciÃ³n. Prioriza el ID enviado por el cliente.
+            // Si el cliente no envÃ­a un idConversacion (es nulo o 0), se busca o crea una nueva.
             long idConversacion = (req.idConversacion != null && req.idConversacion > 0)
                     ? req.idConversacion
                     : CHAT_REPOSITORY.ensureBotConversationForUser(req.idRemitente);
@@ -427,7 +516,7 @@ public class DeliveryApi {
             // 2. Guardar el mensaje del usuario
             CHAT_REPOSITORY.insertMensaje(idConversacion, req.idRemitente, null, req.mensaje);
 
-            // 3. Obtener el historial de la conversación para el contexto de la IA
+            // 3. Obtener el historial de la conversaciÃ³n para el contexto de la IA
             List<Map<String, Object>> history = CHAT_REPOSITORY.listarMensajes(idConversacion);
 
             // 4. Generar la respuesta del bot
@@ -441,7 +530,7 @@ public class DeliveryApi {
                 throw new ApiException(500, "No se pudo registrar la respuesta del bot", e);
             }
 
-            // 6. Devolver el ID de la conversación para que el frontend pueda recargar el historial
+            // 6. Devolver el ID de la conversaciÃ³n para que el frontend pueda recargar el historial
             Map<String, Object> result = Map.of("id_conversacion", idConversacion);
             handleResponse(ctx, ApiResponse.success(201, "Respuesta generada", result));
         });
@@ -458,12 +547,12 @@ public class DeliveryApi {
         if (r == null) {
             throw new ApiException(400, "El cuerpo de la solicitud es obligatorio");
         }
-        requireValidCoordinates(r.getLatitud(), r.getLongitud(), "Coordenadas inválidas");
+        requireValidCoordinates(r.getLatitud(), r.getLongitud(), "Coordenadas invÃ¡lidas");
         Ubicacion u = new Ubicacion();
         u.setIdUsuario(r.getIdUsuario());
         u.setLatitud(r.getLatitud());
         u.setLongitud(r.getLongitud());
-        u.setDireccion(requireNonBlank(r.getDireccion(), "La dirección es obligatoria"));
+        u.setDireccion(requireNonBlank(r.getDireccion(), "La direcciÃ³n es obligatoria"));
         u.setDescripcion(normalizeDescripcion(r.getDescripcion()));
         u.setActiva(r.getActiva() == null || r.getActiva());
         return u;
@@ -473,7 +562,7 @@ public class DeliveryApi {
         try {
             return Integer.parseInt(raw);
         } catch (NumberFormatException e) {
-            throw new ApiException(400, "Identificador inválido: '" + raw + "'");
+            throw new ApiException(400, "Identificador invÃ¡lido: '" + raw + "'");
         }
     }
 }

@@ -50,6 +50,14 @@ abstract class DataSource {
   Future<bool> deleteProducto(int idProducto);
   Future<Map<String, dynamic>> getAdminStats();
 
+  // --- Módulo de Negocios ---
+  Future<List<Usuario>> getNegocios();
+  Future<Usuario?> createNegocio(Usuario negocio);
+  Future<Usuario?> getNegocioById(int id);
+  Future<Usuario?> updateNegocio(Usuario negocio);
+  Future<List<Producto>> getProductosPorNegocio(int idNegocio);
+  Future<Producto?> createProductoParaNegocio(int idNegocio, Producto producto);
+
   // --- Métodos de Delivery ---
   Future<List<Pedido>> getPedidosDisponibles();
   Future<bool> asignarPedido(int idPedido, int idDelivery);

@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_application_2/models/pedido.dart';
 import 'package:flutter_application_2/models/usuario.dart';
 import 'package:flutter_application_2/services/database_service.dart';
+import 'package:location/location.dart';
 import 'package:provider/provider.dart';
 import 'dart:async' show Future, Timer;
-import 'package:location/location.dart';
 
 import '../routes/app_routes.dart';
 
@@ -13,21 +14,19 @@ class DeliveryActiveOrdersView extends StatefulWidget {
   const DeliveryActiveOrdersView({super.key, required this.deliveryUser});
 
   @override
-  State<DeliveryActiveOrdersView> createState() =>
-      _DeliveryActiveOrdersViewState();
+  State<DeliveryActiveOrdersView> createState() => _DeliveryActiveOrdersViewState();
 }
 
 class _DeliveryActiveOrdersViewState extends State<DeliveryActiveOrdersView> {
   late Future<List<Pedido>> _pedidosFuture;
-  DatabaseService? _databaseService; // Para usar en el Timer
+  DatabaseService? _databaseService;
 
-  // --- 5. Variables para el Tracking de Ubicación ---
+  // Variables de tracking de ubicacion
   Timer? _locationTimer;
   Location location = Location();
   bool _serviceEnabled = false;
   PermissionStatus _permissionGranted = PermissionStatus.denied;
   LocationData? _currentLocation;
-  // --------------------------------------------------
 
   @override
   void initState() {
@@ -38,17 +37,14 @@ class _DeliveryActiveOrdersViewState extends State<DeliveryActiveOrdersView> {
 
   @override
   void dispose() {
-    // 6. Detener el timer al salir de la pantalla
     _stopLocationTimer();
     super.dispose();
   }
 
   void _loadPedidos() {
     _pedidosFuture = _databaseService!
-        // 7. CORREGIDO: Usar el método correcto
         .getPedidosPorDelivery(widget.deliveryUser.idUsuario)
         .then((pedidos) {
-      // 8. Iniciar o detener el tracking basado en si hay pedidos
       if (pedidos.isNotEmpty) {
         _startLocationTracking();
       } else {
@@ -58,16 +54,20 @@ class _DeliveryActiveOrdersViewState extends State<DeliveryActiveOrdersView> {
     });
   }
 
-  // --- 9. Lógica para Iniciar el Servicio de Localización ---
+  // Inicia seguimiento de ubicacion (solo mobile)
   Future<void> _startLocationTracking() async {
-    // Si el timer ya está activo, no hacer nada
+    if (kIsWeb) {
+      _stopLocationTimer();
+      debugPrint('Tracking de ubicacion deshabilitado en Web.');
+      return;
+    }
     if (_locationTimer != null && _locationTimer!.isActive) return;
 
     _serviceEnabled = await location.serviceEnabled();
     if (!_serviceEnabled) {
       _serviceEnabled = await location.requestService();
       if (!_serviceEnabled) {
-        debugPrint('Servicio de localización deshabilitado.');
+        debugPrint('Servicio de ubicacion deshabilitado.');
         return;
       }
     }
@@ -76,34 +76,31 @@ class _DeliveryActiveOrdersViewState extends State<DeliveryActiveOrdersView> {
     if (_permissionGranted == PermissionStatus.denied) {
       _permissionGranted = await location.requestPermission();
       if (_permissionGranted != PermissionStatus.granted) {
-        debugPrint('Permiso de localización denegado.');
+        debugPrint('Permiso de ubicacion denegado.');
         return;
       }
     }
 
-    // Configurar para alta precisión
     await location.changeSettings(
       accuracy: LocationAccuracy.high,
-      interval: 10000, // 10 segundos
-      distanceFilter: 10, // 10 metros
+      interval: 10000,
+      distanceFilter: 10,
     );
 
-    // Iniciar el timer que envía la ubicación cada 30 segundos
     _locationTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
       _sendCurrentLocation();
     });
-    // Enviar ubicación inmediatamente al iniciar
     _sendCurrentLocation();
   }
 
-  /// Envía la ubicación actual al backend
+  // Envia ubicacion actual al backend
   Future<void> _sendCurrentLocation() async {
     try {
+      if (kIsWeb) return;
       _currentLocation = await location.getLocation();
       if (_currentLocation != null && _databaseService != null) {
         debugPrint(
-            ' Enviando ubicación: ${_currentLocation!.latitude}, ${_currentLocation!.longitude}');
-        // 10. CORREGIDO: Usar el método de servicio
+            'Enviando ubicacion: ${_currentLocation!.latitude}, ${_currentLocation!.longitude}');
         await _databaseService!.updateRepartidorLocation(
           widget.deliveryUser.idUsuario,
           _currentLocation!.latitude!,
@@ -111,21 +108,18 @@ class _DeliveryActiveOrdersViewState extends State<DeliveryActiveOrdersView> {
         );
       }
     } catch (e) {
-      debugPrint('Error al obtener/enviar ubicación: $e');
-      // Si se deniegan permisos mientras corre, detener el timer
+      debugPrint('Error al obtener/enviar ubicacion: $e');
       if (e.toString().contains('PERMISSION_DENIED')) {
         _stopLocationTimer();
       }
     }
   }
 
-  /// Detiene el timer de localización
   void _stopLocationTimer() {
     _locationTimer?.cancel();
     _locationTimer = null;
-    debugPrint('🛑 Tracking de ubicación detenido.');
+    debugPrint('🛑 Tracking de ubicacion detenido.');
   }
-  // --- Fin de la lógica de Localización ---
 
   @override
   Widget build(BuildContext context) {
@@ -154,19 +148,14 @@ class _DeliveryActiveOrdersViewState extends State<DeliveryActiveOrdersView> {
                 child: ListTile(
                   title: Text(
                       'Pedido #${pedido.idPedido} - ${pedido.estado.toUpperCase()}'),
-                  subtitle: Text('Dirección: ${pedido.direccionEntrega}'),
+                  subtitle: Text('Direccion: ${pedido.direccionEntrega}'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () async {
-                    // 11. CORREGIDO: Navegar a la pantalla de detalle
-                    // El repartidor puede ver el detalle (igual que el cliente)
-                    // para ver los productos o el mapa de su propio tracking
                     await Navigator.of(context).pushNamed(
                       AppRoutes.orderDetail,
                       arguments: pedido.idPedido,
                     );
-
                     if (!mounted) return;
-                    // 12. Refrescar la lista al volver usando la ruta centralizada.
                     setState(() => _loadPedidos());
                   },
                 ),
@@ -178,3 +167,4 @@ class _DeliveryActiveOrdersViewState extends State<DeliveryActiveOrdersView> {
     );
   }
 }
+

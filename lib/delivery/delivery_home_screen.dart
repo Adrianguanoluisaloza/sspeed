@@ -29,8 +29,7 @@ class DeliveryHomeScreen extends StatefulWidget {
   State<DeliveryHomeScreen> createState() => _DeliveryHomeScreenState();
 }
 
-class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
-    with SingleTickerProviderStateMixin {
+class _DeliveryHomeScreenState extends State<DeliveryHomeScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   int _availableOrdersCount = 0;
 
@@ -61,10 +60,7 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
 
     if (mounted) {
       sessionController.clearUser();
-      navigator.pushNamedAndRemoveUntil(
-        AppRoutes.login,
-        (route) => false,
-      );
+      navigator.pushNamedAndRemoveUntil(AppRoutes.login, (route) => false);
     }
   }
 
@@ -113,8 +109,7 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
     );
   }
 
-  Widget _buildTabWithBadge(
-      {required String text, required IconData icon, required int count}) {
+  Widget _buildTabWithBadge({required String text, required IconData icon, required int count}) {
     return Tab(
       child: badges.Badge(
         showBadge: count > 0,
@@ -174,8 +169,7 @@ class DeliveryChatHubView extends StatelessWidget {
               backgroundColor: theme.primaryColor.withAlpha(25),
               child: Icon(entry.icon, color: theme.primaryColor),
             ),
-            title: Text(entry.title,
-                style: const TextStyle(fontWeight: FontWeight.bold)),
+            title: Text(entry.title, style: const TextStyle(fontWeight: FontWeight.bold)),
             subtitle: Text(entry.description),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => Navigator.of(context).push(MaterialPageRoute(
@@ -241,12 +235,10 @@ class _DeliveryStatsViewState extends State<DeliveryStatsView> {
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasError) {
-          return Center(
-              child: Text('Error al cargar estadísticas: ${snapshot.error}'));
+          return Center(child: Text('Error al cargar estadísticas: ${snapshot.error}'));
         }
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Center(
-              child: Text('No hay datos de estadísticas disponibles.'));
+          return const Center(child: Text('No hay datos de estadísticas disponibles.'));
         }
 
         final stats = snapshot.data!;
@@ -262,22 +254,9 @@ class _DeliveryStatsViewState extends State<DeliveryStatsView> {
             crossAxisSpacing: 16,
             mainAxisSpacing: 16,
             children: [
-              _StatTile(
-                  title: 'Completados Hoy',
-                  value: pedidosCompletados.toString(),
-                  icon: Icons.check_circle,
-                  color: Colors.green),
-              _StatTile(
-                  title: 'Total Generado',
-                  value: NumberFormat.currency(locale: 'es_EC', symbol: '\$')
-                      .format(totalGenerado),
-                  icon: Icons.attach_money,
-                  color: Colors.teal),
-              _StatTile(
-                  title: 'Tiempo Promedio',
-                  value: '$promedioMinutos min',
-                  icon: Icons.timer,
-                  color: Colors.blue),
+              _StatTile(title: 'Completados Hoy', value: pedidosCompletados.toString(), icon: Icons.check_circle, color: Colors.green),
+              _StatTile(title: 'Total Generado', value: NumberFormat.currency(locale: 'es_EC', symbol: '\$').format(totalGenerado), icon: Icons.attach_money, color: Colors.teal),
+              _StatTile(title: 'Tiempo Promedio', value: '$promedioMinutos min', icon: Icons.timer, color: Colors.blue),
             ],
           ),
         );
@@ -295,11 +274,7 @@ class _StatTile extends StatelessWidget {
   final IconData icon;
   final Color color;
 
-  const _StatTile(
-      {required this.title,
-      required this.value,
-      required this.icon,
-      required this.color});
+  const _StatTile({required this.title, required this.value, required this.icon, required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -309,16 +284,9 @@ class _StatTile extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircleAvatar(
-                backgroundColor: color.withAlpha(30),
-                radius: 25,
-                child: Icon(icon, color: color, size: 30)),
+            CircleAvatar(backgroundColor: color.withAlpha(30), radius: 25, child: Icon(icon, color: color, size: 30)),
             const SizedBox(height: 12),
-            Text(value,
-                style: Theme.of(context)
-                    .textTheme
-                    .headlineSmall
-                    ?.copyWith(fontWeight: FontWeight.bold)),
+            Text(value, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
             Text(title, textAlign: TextAlign.center),
           ],
@@ -327,4 +295,3 @@ class _StatTile extends StatelessWidget {
     );
   }
 }
-

@@ -79,6 +79,88 @@ public class ProductoRepository {
         return Optional.empty();
     }
 
+    public Optional<Producto> crearProductoParaNegocio(Producto producto, int idNegocio) throws SQLException {
+        String sql = "INSERT INTO productos (nombre, descripcion, precio, imagen_url, categoria, disponible, id_negocio) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        try (Connection conn = Database.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+
+            stmt.setString(1, producto.getNombre());
+            stmt.setString(2, producto.getDescripcion());
+            stmt.setDouble(3, producto.getPrecio());
+            stmt.setString(4, producto.getImagenUrl());
+            stmt.setString(5, producto.getCategoria());
+            stmt.setBoolean(6, producto.isDisponible());
+            stmt.setInt(7, idNegocio);
+
+            int rows = stmt.executeUpdate();
+            if (rows > 0) {
+                try (ResultSet keys = stmt.getGeneratedKeys()) {
+                    if (keys.next()) {
+                        producto.setIdProducto(keys.getInt(1));
+                        return Optional.of(producto);
+                    }
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
+    public List<Producto> listarPorNegocio(int idNegocio) throws SQLException {
+        String sql = "SELECT id_producto, nombre, descripcion, precio, imagen_url, disponible FROM productos WHERE id_negocio = ? ORDER BY nombre ASC";
+        try (Connection conn = Database.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, idNegocio);
+            List<Producto> productos = new ArrayList<>();
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    productos.add(mapRow(rs));
+                }
+            }
+            return productos;
+        }
+    }
+
+    public Optional<Producto> crearProductoParaProveedor(Producto producto, String proveedorNombre) throws SQLException {
+        String sql = "INSERT INTO productos (nombre, descripcion, precio, imagen_url, categoria, disponible, proveedor) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        try (Connection conn = Database.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+
+            stmt.setString(1, producto.getNombre());
+            stmt.setString(2, producto.getDescripcion());
+            stmt.setDouble(3, producto.getPrecio());
+            stmt.setString(4, producto.getImagenUrl());
+            stmt.setString(5, producto.getCategoria());
+            stmt.setBoolean(6, producto.isDisponible());
+            stmt.setString(7, proveedorNombre);
+
+            int rows = stmt.executeUpdate();
+            if (rows > 0) {
+                try (ResultSet keys = stmt.getGeneratedKeys()) {
+                    if (keys.next()) {
+                        producto.setIdProducto(keys.getInt(1));
+                        return Optional.of(producto);
+                    }
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
+    public List<Producto> listarPorProveedor(String proveedorNombre) throws SQLException {
+        String sql = "SELECT id_producto, nombre, descripcion, precio, imagen_url, disponible FROM productos WHERE proveedor = ? ORDER BY nombre ASC";
+        try (Connection conn = Database.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, proveedorNombre);
+            List<Producto> productos = new ArrayList<>();
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    productos.add(mapRow(rs));
+                }
+            }
+            return productos;
+        }
+    }
+
     public boolean actualizarProducto(Producto producto) throws SQLException {
         String sql = "UPDATE productos SET nombre=?, descripcion=?, precio=?, imagen_url=?, categoria=?, disponible=? WHERE id_producto=?";
         try (Connection conn = Database.getConnection();

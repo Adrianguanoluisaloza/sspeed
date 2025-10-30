@@ -74,7 +74,7 @@ class _RegisterScreenState extends State<RegisterScreen>
       'soporte': 'soporte',
       'admin': 'admin',
     };
-    final apiRole = roleMap[normalizedRole] ?? 'cliente';
+    final apiRole = roleMap[normalizedRole] ?? 'cliente' ;
 
     setState(() => _isLoading = true);
 

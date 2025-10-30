@@ -127,6 +127,26 @@ class DatabaseService implements DataSource {
   @override
   Future<Map<String, dynamic>> getAdminStats() => _dataSource.getAdminStats();
 
+  // --- Negocios ---
+  @override
+  Future<List<Usuario>> getNegocios() => _dataSource.getNegocios();
+
+  @override
+  Future<Usuario?> createNegocio(Usuario negocio) => _dataSource.createNegocio(negocio);
+
+  @override
+  Future<Usuario?> getNegocioById(int id) => _dataSource.getNegocioById(id);
+
+  @override
+  Future<Usuario?> updateNegocio(Usuario negocio) => _dataSource.updateNegocio(negocio);
+
+  @override
+  Future<List<Producto>> getProductosPorNegocio(int idNegocio) => _dataSource.getProductosPorNegocio(idNegocio);
+
+  @override
+  Future<Producto?> createProductoParaNegocio(int idNegocio, Producto producto) =>
+      _dataSource.createProductoParaNegocio(idNegocio, producto);
+
   // --- Métodos de Delivery ---
   @override
   Future<List<Pedido>> getPedidosDisponibles() =>

@@ -421,9 +421,16 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
         children: [
           FloatingActionButton(
             heroTag: 'center-map',
-            onPressed: _userPosition != null
-                ? () => _moveCamera(_userPosition!, zoom: 15)
-                : null,
+            onPressed: () async {
+              if (_userPosition != null) {
+                _moveCamera(_userPosition!, zoom: 15);
+              } else {
+                await _fetchCurrentUserLocation();
+                if (_userPosition != null) {
+                  _moveCamera(_userPosition!, zoom: 15);
+                }
+              }
+            },
             backgroundColor: _userPosition != null
                 ? Theme.of(context).primaryColor
                 : Colors.grey,

@@ -168,8 +168,9 @@ class ApiDataSource implements DataSource {
   Future<bool> register(String name, String email, String password, String phone, String rol) async {
     final normalizedRole = {
       'cliente': 'cliente',
-      'delivery': 'delivery',
-      'repartidor': 'delivery',
+      // Compatibilidad: el backend espera 'repartidor' en /registro
+      'delivery': 'repartidor',
+      'repartidor': 'repartidor',
       'admin': 'admin',
       'soporte': 'soporte',
     }[rol.trim().toLowerCase()] ?? 'cliente';
@@ -391,6 +392,47 @@ class ApiDataSource implements DataSource {
   @override
   Future<Map<String, dynamic>> getAdminStats() async {
     return await _getMap('/admin/stats');
+  }
+
+  // --- Negocios ---
+  @override
+  Future<List<Usuario>> getNegocios() async {
+    final data = await _get('/admin/negocios');
+    return data.map((e) => Usuario.fromMap(e as Map<String, dynamic>)).toList();
+  }
+
+  @override
+  Future<Usuario?> createNegocio(Usuario negocio) async {
+    final resp = await _post('/admin/negocios', negocio.toMap());
+    final m = resp['usuario'] as Map<String, dynamic>? ?? resp['data'] as Map<String, dynamic>? ?? resp;
+    return Usuario.fromMap(m);
+  }
+
+  @override
+  Future<Usuario?> getNegocioById(int id) async {
+    final m = await _getMap('/admin/negocios/$id');
+    final data = m['data'] as Map<String, dynamic>? ?? m;
+    return Usuario.fromMap(data);
+  }
+
+  @override
+  Future<Usuario?> updateNegocio(Usuario negocio) async {
+    final m = await _put('/admin/negocios/${negocio.idUsuario}', negocio.toMap());
+    final data = m['data'] as Map<String, dynamic>? ?? m;
+    return Usuario.fromMap(data);
+  }
+
+  @override
+  Future<List<Producto>> getProductosPorNegocio(int idNegocio) async {
+    final data = await _get('/admin/negocios/$idNegocio/productos');
+    return data.map((e) => Producto.fromMap(e as Map<String, dynamic>)).toList();
+  }
+
+  @override
+  Future<Producto?> createProductoParaNegocio(int idNegocio, Producto producto) async {
+    final resp = await _post('/admin/negocios/$idNegocio/productos', producto.toMap());
+    final m = resp['producto'] as Map<String, dynamic>? ?? resp['data'] as Map<String, dynamic>? ?? resp;
+    return Producto.fromMap(m);
   }
 
   @override
