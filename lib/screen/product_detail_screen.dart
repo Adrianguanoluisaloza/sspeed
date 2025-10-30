@@ -12,11 +12,13 @@ import 'widgets/login_required_dialog.dart';
 class ProductDetailScreen extends StatefulWidget {
   final Producto producto;
   final Usuario usuario;
+  final bool openReviews;
 
   const ProductDetailScreen({
     super.key,
     required this.producto,
     required this.usuario,
+    this.openReviews = false,
   });
 
   @override
@@ -28,6 +30,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   final TextEditingController _commentController = TextEditingController();
   bool _isSubmittingReview = false;
   late Future<RecomendacionesProducto> _recomendacionesFuture;
+  final GlobalKey _reviewsKey = GlobalKey();
 
   @override
   void initState() {
@@ -35,6 +38,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final dbService = Provider.of<DatabaseService>(context, listen: false);
     _recomendacionesFuture =
         dbService.getRecomendacionesPorProducto(widget.producto.idProducto);
+    if (widget.openReviews) {
+      // Desplazar a la sección de reseñas al cargar
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final ctx = _reviewsKey.currentContext;
+        if (ctx != null) {
+          Scrollable.ensureVisible(ctx, duration: const Duration(milliseconds: 350));
+        }
+      });
+    }
   }
 
   void _refreshReviews() {
@@ -193,7 +205,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   const Text('Calificaciones', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
                   const Divider(),
                   const SizedBox(height: 12),
-                  _buildReviewsSection(),
+                  Container(key: _reviewsKey, child: _buildReviewsSection()),
                   const SizedBox(height: 30),
                   const Text('Deja tu resena', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
                   const Divider(),

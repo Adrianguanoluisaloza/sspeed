@@ -6,6 +6,7 @@ class ChatMessage {
   final String mensaje;
   final DateTime? fechaEnvio;
   final String? remitenteNombre;
+  final bool esBot;
 
   const ChatMessage({
     required this.idMensaje,
@@ -14,6 +15,7 @@ class ChatMessage {
     required this.mensaje,
     this.fechaEnvio,
     this.remitenteNombre,
+    this.esBot = false,
   });
 
   // CORRECCIÃ“N: Se aÃ±ade el factory constructor para el indicador de "escribiendo..."
@@ -59,6 +61,7 @@ class ChatMessage {
       mensaje: readString(['mensaje', 'message']) ?? 'Sin datos',
       fechaEnvio: parseDate(map['fecha_envio'] ?? map['sentAt']),
       remitenteNombre: readString(['remitente_nombre', 'senderName']),
+      esBot: (map['es_bot'] ?? map['esBot']) == true,
     );
   }
 
@@ -70,6 +73,7 @@ class ChatMessage {
       'mensaje': mensaje,
       'fecha_envio': fechaEnvio?.toIso8601String(),
       'remitente_nombre': remitenteNombre,
+      'es_bot': esBot,
     }..removeWhere((key, value) => value == null);
   }
 }

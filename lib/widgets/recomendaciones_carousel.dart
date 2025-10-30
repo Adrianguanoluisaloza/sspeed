@@ -54,7 +54,7 @@ class RecommendationCard extends StatelessWidget {
     required this.usuario,
   });
 
-  Future<void> _navigateToProduct(BuildContext context) async {
+  Future<void> _navigateToProduct(BuildContext context, {bool openReviews = false}) async {
     final dbService = context.read<DatabaseService>();
     final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
@@ -67,8 +67,11 @@ class RecommendationCard extends StatelessWidget {
       if (fullProduct != null) {
         navigator.push(
           MaterialPageRoute(
-            builder: (context) =>
-                ProductDetailScreen(producto: fullProduct, usuario: usuario),
+            builder: (context) => ProductDetailScreen(
+              producto: fullProduct,
+              usuario: usuario,
+              openReviews: openReviews,
+            ),
           ),
         );
       } else {
@@ -103,78 +106,112 @@ class RecommendationCard extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisSize: MainAxisSize.max,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _RecommendationImage(url: productoRankeado.imagenUrl),
               const SizedBox(height: 12),
-              if ((productoRankeado.negocio ?? '').isNotEmpty)
-                Text(
-                  productoRankeado.negocio!,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.primary,
-                    fontWeight: FontWeight.w600,
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.zero,
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if ((productoRankeado.negocio ?? '').isNotEmpty)
+                        Text(
+                          productoRankeado.negocio!,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      Text(
+                        ((productoRankeado.nombre.isNotEmpty
+                                ? productoRankeado.nombre
+                                : 'Producto'))
+                            .trim(),
+                        style: theme.textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 6),
+                      if (productoRankeado.precio != null)
+                        Text(
+                          productoRankeado.precioFormateado,
+                          style: theme.textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                      if (productoRankeado.descripcion != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            productoRankeado.descripcion!,
+                            style: theme.textTheme.bodySmall,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          const Icon(Icons.star, color: Colors.amber, size: 20),
+                          const SizedBox(width: 4),
+                          Text(
+                            productoRankeado.ratingPromedio.toStringAsFixed(1),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '${productoRankeado.totalReviews} reseñas',
+                            style: theme.textTheme.bodySmall
+                                ?.copyWith(color: theme.hintColor),
+                          ),
+                        ],
+                      ),
+                      if (comentario != null && comentario.trim().isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            '"$comentario"',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontStyle: FontStyle.italic,
+                              color: theme.hintColor,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      const SizedBox(height: 8),
+                    ],
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
-              Text(((productoRankeado.nombre.isNotEmpty ? productoRankeado.nombre : 'Producto')).trim(),
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w700),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 6),
-              if (productoRankeado.precio != null)
-                Text(
-                  productoRankeado.precioFormateado,
-                  style: theme.textTheme.titleSmall
-                      ?.copyWith(fontWeight: FontWeight.bold),
-                ),
-              if (productoRankeado.descripcion != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    productoRankeado.descripcion!,
-                    style: theme.textTheme.bodySmall,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               Row(
                 children: [
-                  const Icon(Icons.star, color: Colors.amber, size: 20),
-                  const SizedBox(width: 4),
-                  Text(
-                    productoRankeado.ratingPromedio.toStringAsFixed(1),
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: () => _navigateToProduct(context, openReviews: false),
+                      icon: const Icon(Icons.info_outline),
+                      label: const Text('Ver detalles'),
                     ),
                   ),
-                  const SizedBox(width: 6),
-                  Text(
-                    '${productoRankeado.totalReviews} resenas',
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: theme.hintColor),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _navigateToProduct(context, openReviews: true),
+                      icon: const Icon(Icons.reviews_outlined, size: 18),
+                      label: const Text('Reseñas'),
+                    ),
                   ),
                 ],
-                ),
-              if (comentario != null && comentario.trim().isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(
-                    '"$comentario"',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontStyle: FontStyle.italic,
-                      color: theme.hintColor,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              const SizedBox(height: 12),
-              Row(children: [Expanded(child: FilledButton.icon(onPressed: () => _navigateToProduct(context), icon: const Icon(Icons.info_outline), label: const Text('Ver detalles'))), const SizedBox(width: 8), Expanded(child: OutlinedButton.icon(onPressed: () => _navigateToProduct(context), icon: const Icon(Icons.reviews_outlined, size: 18), label: const Text('Reseñas')))],)
+              ),
             ],
           ),
         ),

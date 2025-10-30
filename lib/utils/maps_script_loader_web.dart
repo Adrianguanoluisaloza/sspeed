@@ -1,6 +1,7 @@
 // ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use
 
 import 'dart:async';
+import 'package:web/helpers.dart';
 import 'package:web/web.dart' as web;
 import 'dart:js_util' as js_util;
 
@@ -44,7 +45,7 @@ Future<void> ensureGoogleMapsScriptLoaded(String apiKey) {
         _completeLoader(error: StateError('No se pudo cargar Google Maps JS.')),
   );
 
-  web.document.head?.append(script);
+  web.document.head?.appendChild(script);
 
   return _loader!.future;
 }

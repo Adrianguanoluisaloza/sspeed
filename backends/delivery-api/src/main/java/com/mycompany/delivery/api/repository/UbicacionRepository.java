@@ -20,17 +20,16 @@ public class UbicacionRepository {
     // ===============================
     public Optional<Ubicacion> guardar(Ubicacion ubicacion) throws SQLException {
         String sql = """
-            INSERT INTO ubicaciones (id_usuario, latitud, longitud, descripcion, direccion, activa, fecha_registro)
-            VALUES (?, ?, ?, ?, ?, ?, NOW())
-            ON CONFLICT (id_ubicacion) DO UPDATE
-            SET latitud = EXCLUDED.latitud, longitud = EXCLUDED.longitud,
-                descripcion = EXCLUDED.descripcion,
-                direccion = EXCLUDED.direccion, activa = EXCLUDED.activa
-            RETURNING *;
-        """;
+                    INSERT INTO ubicaciones (id_usuario, latitud, longitud, descripcion, direccion, activa, fecha_registro)
+                    VALUES (?, ?, ?, ?, ?, ?, NOW())
+                    ON CONFLICT (id_ubicacion) DO UPDATE
+                    SET latitud = EXCLUDED.latitud, longitud = EXCLUDED.longitud,
+                        descripcion = EXCLUDED.descripcion,
+                        direccion = EXCLUDED.direccion, activa = EXCLUDED.activa
+                    RETURNING *;
+                """;
 
-        try (Connection conn = Database.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+        try (Connection conn = Database.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setInt(1, ubicacion.getIdUsuario());
             stmt.setDouble(2, ubicacion.getLatitud());
@@ -53,11 +52,10 @@ public class UbicacionRepository {
     // ===============================
     public boolean actualizarUbicacionLive(int idUsuario, double latitud, double longitud) throws SQLException {
         String sql = """
-            UPDATE ubicaciones SET latitud = ?, longitud = ?, fecha_registro = NOW()
-            WHERE id_usuario = ? AND descripcion = 'LIVE_TRACKING'
-        """;
-        try (Connection conn = Database.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+                    UPDATE ubicaciones SET latitud = ?, longitud = ?, fecha_registro = NOW()
+                    WHERE id_usuario = ? AND descripcion = 'LIVE_TRACKING'
+                """;
+        try (Connection conn = Database.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setDouble(1, latitud);
             stmt.setDouble(2, longitud);
             stmt.setInt(3, idUsuario);
@@ -68,11 +66,10 @@ public class UbicacionRepository {
 
     public void insertarUbicacionLive(int idUsuario, double latitud, double longitud) throws SQLException {
         String sql = """
-            INSERT INTO ubicaciones (id_usuario, latitud, longitud, descripcion, activa)
-            VALUES (?, ?, ?, 'LIVE_TRACKING', TRUE)
-            """;
-        try (Connection conn = Database.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+                INSERT INTO ubicaciones (id_usuario, latitud, longitud, descripcion, activa)
+                VALUES (?, ?, ?, 'LIVE_TRACKING', TRUE)
+                """;
+        try (Connection conn = Database.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, idUsuario);
             stmt.setDouble(2, latitud);
             stmt.setDouble(3, longitud);
@@ -82,16 +79,15 @@ public class UbicacionRepository {
 
     public void registrarEventoTracking(int idDelivery, double latitud, double longitud) throws SQLException {
         String sql = """
-            INSERT INTO tracking_eventos (id_pedido, orden, latitud, longitud, descripcion)
-            SELECT p.id_pedido,
-                   COALESCE((SELECT MAX(te.orden) + 1 FROM tracking_eventos te WHERE te.id_pedido = p.id_pedido), 1) AS orden,
-                   ?, ?, 'Actualización automática'
-            FROM pedidos p
-            WHERE p.id_delivery = ?
-              AND p.estado NOT IN ('entregado', 'cancelado')
-        """;
-        try (Connection conn = Database.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+                    INSERT INTO tracking_eventos (id_pedido, orden, latitud, longitud, descripcion)
+                    SELECT p.id_pedido,
+                           COALESCE((SELECT MAX(te.orden) + 1 FROM tracking_eventos te WHERE te.id_pedido = p.id_pedido), 1) AS orden,
+                           ?, ?, 'Actualización automática'
+                    FROM pedidos p
+                    WHERE p.id_delivery = ?
+                      AND p.estado NOT IN ('entregado', 'cancelado')
+                """;
+        try (Connection conn = Database.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setDouble(1, latitud);
             stmt.setDouble(2, longitud);
             stmt.setInt(3, idDelivery);
@@ -101,16 +97,17 @@ public class UbicacionRepository {
 
     public Optional<Map<String, Double>> obtenerUbicacionTracking(int idPedido) throws SQLException {
         String sql = """
-            SELECT u.latitud, u.longitud FROM ubicaciones u
-            JOIN pedidos p ON p.id_delivery = u.id_usuario
-            WHERE p.id_pedido = ? AND u.descripcion = 'LIVE_TRACKING'
-            ORDER BY u.fecha_registro DESC LIMIT 1
-            """;
+                SELECT u.latitud, u.longitud FROM ubicaciones u
+                JOIN pedidos p ON p.id_delivery = u.id_usuario
+                WHERE p.id_pedido = ? AND u.descripcion = 'LIVE_TRACKING'
+                ORDER BY u.fecha_registro DESC LIMIT 1
+                """;
         try (Connection conn = Database.getConnection(); PreparedStatement st = conn.prepareStatement(sql)) {
             st.setInt(1, idPedido);
             try (ResultSet rs = st.executeQuery()) {
                 if (rs.next()) {
-                    return Optional.of(Map.of("latitud", rs.getDouble("latitud"), "longitud", rs.getDouble("longitud")));
+                    return Optional
+                            .of(Map.of("latitud", rs.getDouble("latitud"), "longitud", rs.getDouble("longitud")));
                 }
             }
         }
@@ -120,13 +117,12 @@ public class UbicacionRepository {
     public List<TrackingEvento> obtenerRutaPedido(int idPedido) throws SQLException {
         List<TrackingEvento> lista = new ArrayList<>();
         String sql = """
-            SELECT id_pedido, orden, latitud, longitud, descripcion, fecha_evento
-            FROM tracking_eventos
-            WHERE id_pedido = ?
-            ORDER BY orden ASC, fecha_evento ASC, id_evento ASC
-        """;
-        try (Connection conn = Database.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+                    SELECT id_pedido, orden, latitud, longitud, descripcion, fecha_evento
+                    FROM tracking_eventos
+                    WHERE id_pedido = ?
+                    ORDER BY orden ASC, fecha_evento ASC, id_evento ASC
+                """;
+        try (Connection conn = Database.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, idPedido);
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
@@ -149,9 +145,11 @@ public class UbicacionRepository {
     // ===============================
     public List<Ubicacion> obtenerPorUsuario(int idUsuario) throws SQLException {
         List<Ubicacion> lista = new ArrayList<>();
-        String sql = "SELECT * FROM ubicaciones WHERE id_usuario = ?";
-        try (Connection conn = Database.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+        // CORRECCIÓN: Se excluyen las ubicaciones de tracking en vivo, que son de uso
+        // interno para el repartidor y no deben mostrarse al usuario como una
+        // dirección guardada.
+        String sql = "SELECT * FROM ubicaciones WHERE id_usuario = ? AND (descripcion IS NULL OR descripcion != 'LIVE_TRACKING')";
+        try (Connection conn = Database.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, idUsuario);
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
@@ -167,10 +165,12 @@ public class UbicacionRepository {
     // ===============================
     public List<Ubicacion> listarActivas() throws SQLException {
         List<Ubicacion> lista = new ArrayList<>();
-        String sql = "SELECT * FROM ubicaciones WHERE activa = TRUE";
+        // CORRECCIÓN: También se excluyen las ubicaciones de tracking en vivo de
+        // este listado general.
+        String sql = "SELECT * FROM ubicaciones WHERE activa = TRUE AND (descripcion IS NULL OR descripcion != 'LIVE_TRACKING')";
         try (Connection conn = Database.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql);
-             ResultSet rs = stmt.executeQuery()) {
+                PreparedStatement stmt = conn.prepareStatement(sql);
+                ResultSet rs = stmt.executeQuery()) {
             while (rs.next()) {
                 lista.add(mapRow(rs));
             }
@@ -183,8 +183,7 @@ public class UbicacionRepository {
     // ===============================
     public boolean eliminar(int idUbicacion) throws SQLException {
         String sql = "DELETE FROM ubicaciones WHERE id_ubicacion = ?";
-        try (Connection conn = Database.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+        try (Connection conn = Database.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, idUbicacion);
             return stmt.executeUpdate() > 0;
         }
@@ -206,12 +205,48 @@ public class UbicacionRepository {
             java.sql.ResultSetMetaData md = rs.getMetaData();
             boolean hasFecha = false;
             for (int i = 1; i <= md.getColumnCount(); i++) {
-                if ("fecha_registro".equalsIgnoreCase(md.getColumnName(i))) { hasFecha = true; break; }
+                if ("fecha_registro".equalsIgnoreCase(md.getColumnName(i))) {
+                    hasFecha = true;
+                    break;
+                }
             }
             if (hasFecha) {
                 u.setFechaRegistro(rs.getTimestamp("fecha_registro"));
             }
-        } catch (SQLException ignored) {}
+        } catch (SQLException ignored) {
+        }
         return u;
+    }
+
+    public List<Map<String, Object>> obtenerUbicacionesDeRepartidores(List<Integer> repartidorIds) throws SQLException {
+        // Prepara la consulta SQL. El `ANY(?)` es la forma en que PostgreSQL maneja
+        // la cláusula IN con un array de parámetros.
+        String sql = """
+                SELECT DISTINCT ON (id_usuario)
+                    id_usuario,
+                    latitud,
+                    longitud
+                FROM ubicaciones
+                WHERE id_usuario = ANY(?) AND descripcion = 'LIVE_TRACKING'
+                ORDER BY id_usuario, fecha_registro DESC;
+                """;
+
+        List<Map<String, Object>> ubicaciones = new ArrayList<>();
+
+        try (Connection conn = Database.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            // Convierte la lista de Integer a un array SQL.
+            Integer[] idsArray = repartidorIds.toArray(new Integer[0]);
+            java.sql.Array sqlArray = conn.createArrayOf("integer", idsArray);
+            ps.setArray(1, sqlArray);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    ubicaciones.add(Map.of("id_repartidor", rs.getInt("id_usuario"), "latitud", rs.getDouble("latitud"),
+                            "longitud", rs.getDouble("longitud")));
+                }
+            }
+        }
+        return ubicaciones;
     }
 }

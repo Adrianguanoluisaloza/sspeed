@@ -41,23 +41,6 @@ public class UbicacionController {
     }
 
     // ===============================
-    // ACTUALIZAR COORDENADAS (EN VIVO)
-    // ===============================
-    public boolean actualizarUbicacionRepartidor(int idRepartidor, double latitud, double longitud) {
-        try {
-            var req = new com.mycompany.delivery.api.config.UbicacionUpdateRequest();
-            req.setLatitud(latitud);
-            req.setLongitud(longitud);
-            service.actualizarUbicacionRepartidor(idRepartidor, req);
-            return true;
-        } catch (ApiException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new ApiException(500, "Error al actualizar la ubicación", e);
-        }
-    }
-
-    // ===============================
     // ACTUALIZAR COORDENADAS (para DeliveryApi)
     // ===============================
     public void actualizarCoordenadas(int idUsuario, Double latitud, Double longitud) {
@@ -137,9 +120,7 @@ public class UbicacionController {
     public ApiResponse<List<Map<String, Object>>> obtenerRutaTracking(int idPedido) {
         try {
             var eventos = service.obtenerRutaPedido(idPedido);
-            var payload = eventos.stream()
-                    .map(TrackingEvento::toMap)
-                    .collect(Collectors.toList());
+            var payload = eventos.stream().map(TrackingEvento::toMap).collect(Collectors.toList());
             if (payload.isEmpty()) {
                 throw new ApiException(404, "No hay puntos de ruta registrados para este pedido.");
             }
@@ -147,5 +128,20 @@ public class UbicacionController {
         } catch (SQLException e) {
             throw new ApiException(500, "Error al obtener la ruta de tracking", e);
         }
+    }
+
+    /**
+     * Obtiene las últimas ubicaciones de una lista de repartidores.
+     *
+     * @param repartidorIds La lista de IDs de los repartidores.
+     * @return Una respuesta de API con una lista de mapas, donde cada mapa contiene
+     *         el id del repartidor y sus coordenadas.
+     */
+    public ApiResponse<List<Map<String, Object>>> obtenerUbicacionesDeRepartidores(List<Integer> repartidorIds) {
+        if (repartidorIds == null || repartidorIds.isEmpty()) {
+            throw new ApiException(400, "La lista de IDs de repartidores no puede estar vacía.");
+        }
+        return ApiResponse.success(200, "Ubicaciones obtenidas",
+                service.obtenerUbicacionesDeRepartidores(repartidorIds));
     }
 }

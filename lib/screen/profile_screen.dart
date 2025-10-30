@@ -9,6 +9,7 @@ import '../services/database_service.dart';
 import '../models/session_state.dart';
 import '../routes/app_routes.dart';
 import 'chat_screen.dart';
+import 'chat_home_screen.dart';
 import 'add_location_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -32,9 +33,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _loadLocations() {
     setState(() {
-      _ubicacionesFuture =
-          Provider.of<DatabaseService>(context, listen: false)
-              .getUbicaciones(widget.usuario.idUsuario);
+      _ubicacionesFuture = Provider.of<DatabaseService>(context, listen: false)
+          .getUbicaciones(widget.usuario.idUsuario);
     });
   }
 
@@ -55,7 +55,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _defaultLocationId = idUbicacion;
     });
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Ubicacion marcada como predeterminada'), backgroundColor: Colors.green),
+      const SnackBar(
+          content: Text('Ubicacion marcada como predeterminada'),
+          backgroundColor: Colors.green),
     );
   }
 
@@ -180,6 +182,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       arguments: widget.usuario,
                     ),
                   ),
+                  const Divider(height: 1, indent: 16, endIndent: 16),
+                  _buildMenuOption(
+                    context,
+                    icon: Icons.chat_bubble_outline,
+                    color: Colors.teal,
+                    title: 'Mis Chats',
+                    subtitle: 'Revisa tus conversaciones y chats con el bot',
+                    onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => const ChatHomeScreen())),
+                  ),
                 ],
               ),
             ),
@@ -232,17 +244,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: theme.primaryColor.withAlpha(26),
-          child: Icon(Icons.place_outlined, color: theme.primaryColor, size: 24),
+          child:
+              Icon(Icons.place_outlined, color: theme.primaryColor, size: 24),
         ),
         title: Row(
           children: [
             Expanded(
               child: Text(
                 ubicacion.descripcion ?? 'Ubicacion guardada',
-                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                style: theme.textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.bold),
               ),
             ),
-            if (_defaultLocationId != null && ubicacion.id == _defaultLocationId)
+            if (_defaultLocationId != null &&
+                ubicacion.id == _defaultLocationId)
               Row(children: const [
                 Icon(Icons.star, color: Colors.amber, size: 18),
                 SizedBox(width: 4),
@@ -259,10 +274,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             if (value == 'edit') {
               Navigator.of(context)
                   .push<bool>(
-                    MaterialPageRoute(
-                      builder: (_) => AddLocationScreen(initial: ubicacion),
-                    ),
-                  )
+                MaterialPageRoute(
+                  builder: (_) => AddLocationScreen(initial: ubicacion),
+                ),
+              )
                   .then((ok) {
                 if (ok == true) _loadLocations();
               });
@@ -274,7 +289,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           },
           itemBuilder: (context) => [
             const PopupMenuItem(value: 'edit', child: Text('Editar')),
-            const PopupMenuItem(value: 'default', child: Text('Marcar predeterminada')),
+            const PopupMenuItem(
+                value: 'default', child: Text('Marcar predeterminada')),
             const PopupMenuItem(value: 'delete', child: Text('Eliminar')),
           ],
         ),
@@ -325,7 +341,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               radius: 30,
               backgroundColor: theme.colorScheme.primaryContainer,
               child: Text(
-                usuario.nombre.isNotEmpty ? usuario.nombre[0].toUpperCase() : '?',
+                usuario.nombre.isNotEmpty
+                    ? usuario.nombre[0].toUpperCase()
+                    : '?',
                 style: TextStyle(
                   fontSize: 24,
                   color: theme.colorScheme.onPrimaryContainer,
@@ -389,9 +407,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const Icon(Icons.cloud_off, size: 48, color: Colors.redAccent),
             const SizedBox(height: 16),
             Text(title,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                style:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            Text(message, textAlign: TextAlign.center,
+            Text(message,
+                textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey[600])),
           ],
         ),
@@ -409,9 +429,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const Icon(Icons.map_outlined, size: 48, color: Colors.grey),
             const SizedBox(height: 16),
             Text(title,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                style:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            Text(message, textAlign: TextAlign.center,
+            Text(message,
+                textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey[600])),
             const SizedBox(height: 16),
             TextButton.icon(

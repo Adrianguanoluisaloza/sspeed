@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+// ignore_for_file: use_build_context_synchronously
+ import 'package:flutter/material.dart';
+ import 'package:provider/provider.dart';
 
 import '../models/producto.dart';
 import '../models/usuario.dart';
@@ -80,7 +81,6 @@ class _BusinessProductsViewState extends State<BusinessProductsView> {
       ),
     );
   }
-
   Future<void> _showNewProductDialog() async {
     final nameCtrl = TextEditingController();
     final priceCtrl = TextEditingController();
@@ -133,11 +133,15 @@ class _BusinessProductsViewState extends State<BusinessProductsView> {
       ),
     );
 
-    if (result != true) return;
+    if (result != true) {
+      return;
+    }
 
     final nombre = nameCtrl.text.trim();
     final precio = double.tryParse(priceCtrl.text.trim()) ?? 0;
-    if (nombre.isEmpty || precio <= 0) return;
+    if (nombre.isEmpty || precio <= 0) {
+      return;
+    }
 
     final nuevo = Producto(
       idProducto: 0,
@@ -150,33 +154,51 @@ class _BusinessProductsViewState extends State<BusinessProductsView> {
       disponible: true,
     );
 
-    // Muestra un loader modal mientras se crea el producto
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => const Center(child: CircularProgressIndicator()),
     );
 
+    if (!context.mounted) {
+      return;
+    }
     final messenger = ScaffoldMessenger.of(context);
-    try {
-      final created = await context
-          .read<DatabaseService>()
-          .createProductoParaNegocio(widget.negocioUser.idUsuario, nuevo);
-      if (mounted) Navigator.of(context).pop();
-      if (!mounted) return;
+    final navigator = Navigator.of(context);
+    final databaseService = context.read<DatabaseService>();
+
+    databaseService
+        .createProductoParaNegocio(widget.negocioUser.idUsuario, nuevo)
+        .then((created) {
+      if (!context.mounted) {
+        return;
+      }
+      if (navigator.mounted) {
+        navigator.pop();
+      }
       setState(_reload);
       messenger.showSnackBar(
         SnackBar(
-          content: Text(created != null ? 'Producto creado' : 'No se pudo crear el producto'),
+          content: Text(created != null
+              ? 'Producto creado'
+              : 'No se pudo crear el producto'),
           backgroundColor: created != null ? Colors.green : Colors.red,
         ),
       );
-    } catch (e) {
-      if (mounted) Navigator.of(context).pop();
+    }).catchError((error, _) {
+      if (!context.mounted) {
+        return;
+      }
+      if (navigator.mounted) {
+        navigator.pop();
+      }
       messenger.showSnackBar(
-        SnackBar(content: Text('Error al crear producto: $e'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text('Error al crear producto: $error'),
+          backgroundColor: Colors.red,
+        ),
       );
-    }
+    });
   }
 
   Future<void> _showEditProductDialog(Producto p) async {
@@ -230,7 +252,9 @@ class _BusinessProductsViewState extends State<BusinessProductsView> {
         ],
       ),
     );
-    if (result != true) return;
+    if (result != true) {
+      return;
+    }
 
     final updated = Producto(
       idProducto: p.idProducto,
@@ -247,9 +271,14 @@ class _BusinessProductsViewState extends State<BusinessProductsView> {
       fechaCreacion: p.fechaCreacion,
     );
 
+    if (!mounted) {
+      return;
+    }
     final db2 = context.read<DatabaseService>();
     await db2.updateProducto(updated);
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
     setState(_reload);
   }
 
@@ -272,10 +301,18 @@ class _BusinessProductsViewState extends State<BusinessProductsView> {
       ),
     );
     if (ok == true) {
+      if (!mounted) {
+        return; // Asegura que el widget sigue montado antes de usar el contexto
+      }
       final db3 = context.read<DatabaseService>();
       await db3.deleteProducto(p.idProducto);
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       setState(_reload);
     }
   }
 }
+
+
+

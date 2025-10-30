@@ -31,6 +31,21 @@
             <version>2.13.2</version>
         </dependency>
 
+
+  <dependency>
+    <groupId>com.google.genai</groupId>
+    <artifactId>google-genai</artifactId>
+    <version>1.0.0</version>
+  </dependency>
+
+
+
+
+
+
+
+
+
         <!-- Driver para la base de datos PostgreSQL -->
         <dependency>
             <groupId>org.postgresql</groupId>

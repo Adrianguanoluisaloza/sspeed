@@ -16,7 +16,8 @@ abstract class DataSource {
 
   // --- Métodos de Usuario ---
   Future<Usuario?> login(String email, String password);
-  Future<bool> register(String name, String email, String password, String phone, String rol);
+  Future<bool> register(
+      String name, String email, String password, String phone, String rol);
   Future<Usuario?> updateUsuario(Usuario usuario);
 
   // --- Métodos del Cliente ---
@@ -66,8 +67,11 @@ abstract class DataSource {
   Future<Map<String, dynamic>> getDeliveryStats(int idDelivery);
 
   // --- Métodos de Tracking ---
-  Future<bool> updateRepartidorLocation(int idRepartidor, double lat, double lon);
+  Future<bool> updateRepartidorLocation(
+      int idRepartidor, double lat, double lon);
   Future<Map<String, dynamic>?> getRepartidorLocation(int idPedido);
+  // CORRECCIÓN: Se añade la definición del método que faltaba.
+  Future<List<Map<String, dynamic>>> getRepartidoresLocation(List<int> ids);
   Future<List<TrackingPoint>> getTrackingRoute(int idPedido);
 
   // --- Módulo de Chat ---
@@ -79,10 +83,9 @@ abstract class DataSource {
   });
   Future<List<ChatConversation>> getConversaciones(int idUsuario);
   Future<List<ChatMessage>> getMensajesDeConversacion(int idConversacion);
-  Future<bool> enviarMensaje({
+  Future<Map<String, dynamic>> enviarMensaje({
     required int idConversacion,
     required int idRemitente,
     required String mensaje,
-    bool isBot,
   });
 }

@@ -14,6 +14,7 @@ import com.mycompany.delivery.api.services.GeminiService;
 import com.mycompany.delivery.api.util.ApiResponse;
 
 import io.javalin.Javalin;
+import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import io.javalin.json.JsonMapper;
 import org.jetbrains.annotations.NotNull;
@@ -23,6 +24,7 @@ import java.sql.SQLException;
 import java.util.*;
 
 import static com.mycompany.delivery.api.payloads.Payloads.*;
+import com.mycompany.delivery.api.payloads.Payloads.UbicacionesRequest;
 import static com.mycompany.delivery.api.util.UbicacionValidator.*;
 
 /**
@@ -100,23 +102,41 @@ public class DeliveryApi {
         app.before("/pedidos/disponibles", ctx -> {
             String authHeader = ctx.header("Authorization");
             if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-                ctx.status(401);
-                ctx.result(GSON.toJson(ApiResponse.error(401, "Token de autenticación requerido")));
+                ctx.status(401).json(ApiResponse.error(401, "Token de autenticación requerido"));
                 return;
             }
             String token = authHeader.substring(7);
             Usuario usuario = USUARIO_CONTROLLER.validarToken(token);
             if (usuario == null) {
-                ctx.status(401);
-                ctx.result(GSON.toJson(ApiResponse.error(401, "Token inválido")));
+                ctx.status(401).json(ApiResponse.error(401, "Token inválido"));
                 return;
             }
             if (!("repartidor".equalsIgnoreCase(usuario.getRol()) || "delivery".equalsIgnoreCase(usuario.getRol()))) {
-                ctx.status(403);
-                ctx.result(GSON.toJson(ApiResponse.error(403, "Acceso solo para repartidores")));
+                ctx.status(403).json(ApiResponse.error(403, "Acceso solo para repartidores"));
                 return;
             }
             ctx.attribute("id_usuario", usuario.getIdUsuario());
+        });
+
+        // --- NUEVO MIDDLEWARE PARA ENDPOINT DE ADMIN ---
+        app.before("/tracking/repartidores/ubicaciones", ctx -> {
+            String authHeader = ctx.header("Authorization");
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                ctx.status(401).json(ApiResponse.error(401, "Token de autenticación requerido"));
+                return;
+            }
+            String token = authHeader.substring(7);
+            Usuario usuario = USUARIO_CONTROLLER.validarToken(token);
+            if (usuario == null) {
+                ctx.status(401).json(ApiResponse.error(401, "Token inválido"));
+                return;
+            }
+            // La única diferencia es que aquí validamos que el rol sea 'admin'.
+            if (!"admin".equalsIgnoreCase(usuario.getRol())) {
+                ctx.status(403).json(ApiResponse.error(403, "Acceso solo para administradores"));
+                return;
+            }
+            ctx.attribute("admin_user", usuario); // Guardamos el usuario admin en el contexto
         });
 
         // --- MANEJO DE EXCEPCIONES ---
@@ -128,7 +148,7 @@ public class DeliveryApi {
             ctx.status(500);
             System.err.println("[ERROR] Ocurrió un error inesperado: " + ex.getMessage());
             ex.printStackTrace(); // Para depuración
-            ctx.json(ApiResponse.error(500, "OcurriÃ³ un error inesperado"));
+            ctx.json(ApiResponse.error(500, "Ocurrió un error inesperado"));
         });
         app.error(404, ctx -> {
             ctx.json(ApiResponse.error(404, "Ruta no encontrada"));
@@ -406,11 +426,29 @@ public class DeliveryApi {
         // --- TRACKING (SEGUIMIENTO) ---
         app.get("/tracking/pedido/{idPedido}", ctx -> {
             var idPedido = parseId(ctx.pathParam("idPedido"));
-            handleResponse(ctx, UBICACION_CONTROLLER.obtenerUbicacionTracking(idPedido));
+            try {
+                handleResponse(ctx, UBICACION_CONTROLLER.obtenerUbicacionTracking(idPedido));
+            } catch (ApiException ex) {
+                if (ex.getStatus() == 404) {
+                    handleResponse(ctx,
+                            ApiResponse.success(200, "Sin ubicacion de seguimiento", java.util.Collections.emptyMap()));
+                } else {
+                    throw ex;
+                }
+            }
         });
         app.get("/tracking/pedido/{idPedido}/ruta", ctx -> {
             var idPedido = parseId(ctx.pathParam("idPedido"));
-            handleResponse(ctx, UBICACION_CONTROLLER.obtenerRutaTracking(idPedido));
+            try {
+                handleResponse(ctx, UBICACION_CONTROLLER.obtenerRutaTracking(idPedido));
+            } catch (ApiException ex) {
+                if (ex.getStatus() == 404) {
+                    handleResponse(ctx,
+                            ApiResponse.success(200, "Ruta de seguimiento", java.util.Collections.emptyList()));
+                } else {
+                    throw ex;
+                }
+            }
         });
         app.put("/ubicaciones/repartidor/{idRepartidor}", ctx -> {
             var idRepartidor = parseId(ctx.pathParam("idRepartidor"));
@@ -418,6 +456,16 @@ public class DeliveryApi {
             UBICACION_CONTROLLER.actualizarCoordenadas(idRepartidor, body.getLatitud(), body.getLongitud());
             handleResponse(ctx, ApiResponse.success("Ubicación del repartidor actualizada"));
         });
+
+        // --- NUEVO ENDPOINT OPTIMIZADO ---
+        app.post("/tracking/repartidores/ubicaciones", ctx -> {
+            var body = ctx.bodyAsClass(UbicacionesRequest.class);
+            if (body.ids == null || body.ids.isEmpty()) {
+                throw new BadRequestResponse("La lista de IDs de repartidores es obligatoria.");
+            }
+            handleResponse(ctx, UBICACION_CONTROLLER.obtenerUbicacionesDeRepartidores(body.ids));
+        });
+
         // --- GEOCODIFICAR ---
         app.post("/geocodificar", ctx -> {
             @SuppressWarnings("unchecked")
@@ -450,48 +498,10 @@ public class DeliveryApi {
             @SuppressWarnings("unchecked")
             Map<String, Object> body = (Map<String, Object>) ctx.bodyAsClass(Map.class);
 
-            Integer idCliente = null, idDelivery = null, idAdminSoporte = null, idPedido = null;
-            Object v;
-            v = body.get("idCliente");
-            if (v != null) {
-                if (v instanceof Number n)
-                    idCliente = n.intValue();
-                else
-                    try {
-                        idCliente = Integer.parseInt(v.toString());
-                    } catch (Exception ignored) {
-                    }
-            }
-            v = body.get("idDelivery");
-            if (v != null) {
-                if (v instanceof Number n)
-                    idDelivery = n.intValue();
-                else
-                    try {
-                        idDelivery = Integer.parseInt(v.toString());
-                    } catch (Exception ignored) {
-                    }
-            }
-            v = body.get("idAdminSoporte");
-            if (v != null) {
-                if (v instanceof Number n)
-                    idAdminSoporte = n.intValue();
-                else
-                    try {
-                        idAdminSoporte = Integer.parseInt(v.toString());
-                    } catch (Exception ignored) {
-                    }
-            }
-            v = body.get("idPedido");
-            if (v != null) {
-                if (v instanceof Number n)
-                    idPedido = n.intValue();
-                else
-                    try {
-                        idPedido = Integer.parseInt(v.toString());
-                    } catch (Exception ignored) {
-                    }
-            }
+            Integer idCliente = parseNullableInt(body.get("idCliente"));
+            Integer idDelivery = parseNullableInt(body.get("idDelivery"));
+            Integer idAdminSoporte = parseNullableInt(body.get("idAdminSoporte"));
+            Integer idPedido = parseNullableInt(body.get("idPedido"));
 
             if (idCliente == null || idCliente <= 0) {
                 throw new ApiException(400, "El campo 'idCliente' es obligatorio");
@@ -500,11 +510,13 @@ public class DeliveryApi {
             long idConversacion;
             if (idPedido != null && idPedido > 0) {
                 idConversacion = idPedido.longValue();
-                CHAT_REPOSITORY.ensureConversation(idConversacion, idCliente, idDelivery, idAdminSoporte, idPedido);
+                CHAT_REPOSITORY.ensureConversation(idConversacion, idCliente, idDelivery, idAdminSoporte, idPedido,
+                        false);
             } else {
                 idConversacion = CHAT_REPOSITORY.ensureConversationForUser(idCliente);
                 if (idDelivery != null || idAdminSoporte != null) {
-                    CHAT_REPOSITORY.ensureConversation(idConversacion, idCliente, idDelivery, idAdminSoporte, null);
+                    CHAT_REPOSITORY.ensureConversation(idConversacion, idCliente, idDelivery, idAdminSoporte, null,
+                            false);
                 }
             }
 
@@ -516,39 +528,9 @@ public class DeliveryApi {
         app.post("/chat/mensajes", ctx -> {
             @SuppressWarnings("unchecked")
             Map<String, Object> body = (Map<String, Object>) ctx.bodyAsClass(Map.class);
-            Integer idConversacion = null, idRemitente = null, idDestinatario = null;
-            Object v;
-            v = body.get("idConversacion");
-            if (v != null) {
-                if (v instanceof Number n)
-                    idConversacion = n.intValue();
-                else
-                    try {
-                        idConversacion = Integer.parseInt(v.toString());
-                    } catch (Exception ignored) {
-                    }
-            }
-            v = body.get("idRemitente");
-            if (v != null) {
-                if (v instanceof Number n)
-                    idRemitente = n.intValue();
-                else
-                    try {
-                        idRemitente = Integer.parseInt(v.toString());
-                    } catch (Exception ignored) {
-                    }
-            }
-            v = body.get("idDestinatario");
-            if (v != null) {
-                if (v instanceof Number n)
-                    idDestinatario = n.intValue();
-                else
-                    try {
-                        idDestinatario = Integer.parseInt(v.toString());
-                    } catch (Exception ignored) {
-                    }
-            }
-
+            Integer idConversacion = parseNullableInt(body.get("idConversacion"));
+            Integer idRemitente = parseNullableInt(body.get("idRemitente"));
+            Integer idDestinatario = parseNullableInt(body.get("idDestinatario"));
             String mensaje = Objects.toString(body.get("mensaje"), "").trim();
 
             if (idConversacion == null || idConversacion <= 0) {
@@ -567,7 +549,7 @@ public class DeliveryApi {
         });
 
         app.get("/chat/conversaciones/{id}/mensajes", ctx -> {
-            var idConversacion = parseId(ctx.pathParam("id"));
+            var idConversacion = parseLong(ctx.pathParam("id"));
             var mensajes = CHAT_REPOSITORY.listarMensajes(idConversacion);
             handleResponse(ctx, ApiResponse.success(200, "Historial de mensajes", mensajes));
         });
@@ -600,7 +582,10 @@ public class DeliveryApi {
 
             // 6. Devolver el ID de la conversaciÃ³n para que el frontend pueda recargar el
             // historial
-            Map<String, Object> result = Map.of("id_conversacion", idConversacion);
+            Map<String, Object> result = Map.of(
+                    "id_conversacion", idConversacion,
+                    "bot_reply", botReply
+            );
             handleResponse(ctx, ApiResponse.success(201, "Respuesta generada", result));
         });
     }
@@ -616,7 +601,7 @@ public class DeliveryApi {
         if (r == null) {
             throw new ApiException(400, "El cuerpo de la solicitud es obligatorio");
         }
-        requireValidCoordinates(r.getLatitud(), r.getLongitud(), "Coordenadas invÃ¡lidas");
+        requireValidCoordinates(r.getLatitud(), r.getLongitud(), "Coordenadas inválidas");
         Ubicacion u = new Ubicacion();
         u.setIdUsuario(r.getIdUsuario());
         u.setLatitud(r.getLatitud());
@@ -630,6 +615,14 @@ public class DeliveryApi {
     private static int parseId(String raw) {
         try {
             return Integer.parseInt(raw);
+        } catch (NumberFormatException e) {
+            throw new ApiException(400, "Identificador invalido: '" + raw + "'");
+        }
+    }
+
+    private static long parseLong(String raw) {
+        try {
+            return Long.parseLong(raw);
         } catch (NumberFormatException e) {
             throw new ApiException(400, "Identificador invalido: '" + raw + "'");
         }
@@ -653,4 +646,3 @@ public class DeliveryApi {
         }
     }
 }
-

@@ -133,19 +133,23 @@ class DatabaseService implements DataSource {
   Future<List<Usuario>> getNegocios() => _dataSource.getNegocios();
 
   @override
-  Future<Usuario?> createNegocio(Usuario negocio) => _dataSource.createNegocio(negocio);
+  Future<Usuario?> createNegocio(Usuario negocio) =>
+      _dataSource.createNegocio(negocio);
 
   @override
   Future<Usuario?> getNegocioById(int id) => _dataSource.getNegocioById(id);
 
   @override
-  Future<Usuario?> updateNegocio(Usuario negocio) => _dataSource.updateNegocio(negocio);
+  Future<Usuario?> updateNegocio(Usuario negocio) =>
+      _dataSource.updateNegocio(negocio);
 
   @override
-  Future<List<Producto>> getProductosPorNegocio(int idNegocio) => _dataSource.getProductosPorNegocio(idNegocio);
+  Future<List<Producto>> getProductosPorNegocio(int idNegocio) =>
+      _dataSource.getProductosPorNegocio(idNegocio);
 
   @override
-  Future<Producto?> createProductoParaNegocio(int idNegocio, Producto producto) =>
+  Future<Producto?> createProductoParaNegocio(
+          int idNegocio, Producto producto) =>
       _dataSource.createProductoParaNegocio(idNegocio, producto);
 
   // --- Métodos de Delivery ---
@@ -176,6 +180,10 @@ class DatabaseService implements DataSource {
       _dataSource.getRepartidorLocation(idPedido);
 
   @override
+  Future<List<Map<String, dynamic>>> getRepartidoresLocation(List<int> ids) =>
+      _dataSource.getRepartidoresLocation(ids);
+
+  @override
   Future<List<TrackingPoint>> getTrackingRoute(int idPedido) =>
       _dataSource.getTrackingRoute(idPedido);
 
@@ -203,16 +211,14 @@ class DatabaseService implements DataSource {
       _dataSource.getMensajesDeConversacion(idConversacion);
 
   @override
-  Future<bool> enviarMensaje({
+  Future<Map<String, dynamic>> enviarMensaje({
     required int idConversacion,
     required int idRemitente,
     required String mensaje,
-    bool isBot = false,
   }) =>
       _dataSource.enviarMensaje(
-        idConversacion: idConversacion,
-        idRemitente: idRemitente,
-        mensaje: mensaje,
-        isBot: isBot,
-      );
+          idConversacion: idConversacion,
+          idRemitente: idRemitente,
+          mensaje: mensaje,
+        );
 }

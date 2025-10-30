@@ -10,6 +10,8 @@ import 'package:provider/provider.dart';
 import '../models/session_state.dart';
 import '../models/ubicacion.dart';
 import '../services/database_service.dart';
+import '../utils/web_geolocation_stub.dart'
+    if (dart.library.html) '../utils/web_geolocation_web.dart' as webgeo;
 
 class AddLocationScreen extends StatefulWidget {
   final Ubicacion? initial;
@@ -60,8 +62,12 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
   Future<void> _initLocation() async {
     try {
       if (kIsWeb) {
+        // Obtener ubicacion real del navegador si es posible; fallback a centro conocido
+        final pos = await webgeo.getCurrentPosition();
         setState(() {
-          _currentLatLng = const LatLng(0.988, -79.652);
+          _currentLatLng = pos != null
+              ? LatLng(pos.lat, pos.lng)
+              : const LatLng(0.988, -79.652);
           _isLoading = false;
         });
         return;
@@ -86,7 +92,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
         _currentLatLng = LatLng(locationData.latitude!, locationData.longitude!);
         _isLoading = false;
       });
-      _reverseGeocodeCurrentLocation(); // Get initial address
+      await _reverseGeocodeCurrentLocation(); // Obtener dirección inicial
     } catch (e) {
       setState(() {
         _errorMessage = e.toString();
@@ -130,16 +136,15 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
 
   Future<void> _reverseGeocodeCurrentLocation() async {
     if (_currentLatLng == null) return;
-    final dbService = context.read<DatabaseService>();
     try {
-      // This is a placeholder. Actual reverse geocoding would need a backend endpoint
-      // or a client-side library. For now, we'll just update the address controller
-      // with a generic message or leave it as is if it was manually entered.
-      // If the backend has a reverse geocoding endpoint, it would be called here.
-      // Example: final result = await dbService.reverseGeocodificar(lat: _currentLatLng!.latitude, lon: _currentLatLng!.longitude);
-      // _addressController.text = result['address'];
+      final lat = _currentLatLng!.latitude.toStringAsFixed(6);
+      final lon = _currentLatLng!.longitude.toStringAsFixed(6);
+      if (_addressController.text.trim().isEmpty) {
+        _addressController.text = 'Lat: $lat, Lon: $lon';
+        _searchController.text = _addressController.text;
+      }
     } catch (e) {
-      debugPrint('Error during reverse geocoding: $e');
+      debugPrint('Error durante reverse geocoding: $e');
     }
   }
 
@@ -279,3 +284,4 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
     );
   }
 }
+

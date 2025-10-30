@@ -8,6 +8,7 @@ class ChatConversation {
   final int? idAdminSoporte;
   final int? idPedido;
   final DateTime fechaCreacion;
+  final bool esChatbot;
   final bool activa;
   final List<ChatMessage> mensajes;
 
@@ -19,6 +20,7 @@ class ChatConversation {
     this.idDelivery,
     this.idAdminSoporte,
     this.idPedido,
+    this.esChatbot = false,
     this.mensajes = const [],
   });
 
@@ -47,16 +49,22 @@ class ChatConversation {
 
     final messagesRaw = readValue(['mensajes', 'messages']) as List?;
     final messageList = messagesRaw
-        ?.map((item) => ChatMessage.fromMap(Map<String, dynamic>.from(item as Map)))
-        .toList() ?? [];
+            ?.map((item) =>
+                ChatMessage.fromMap(Map<String, dynamic>.from(item as Map)))
+            .toList() ??
+        [];
 
     return ChatConversation(
-      idConversacion: parseInt(readValue(['id_conversacion', 'idConversacion', 'id'])) ?? 0,
+      idConversacion:
+          parseInt(readValue(['id_conversacion', 'idConversacion', 'id'])) ?? 0,
       idCliente: parseInt(readValue(['id_cliente', 'idCliente'])),
       idDelivery: parseInt(readValue(['id_delivery', 'idDelivery'])),
-      idAdminSoporte: parseInt(readValue(['id_admin_soporte', 'idAdminSoporte'])),
+      idAdminSoporte:
+          parseInt(readValue(['id_admin_soporte', 'idAdminSoporte'])),
       idPedido: parseInt(readValue(['id_pedido', 'idPedido'])),
-      fechaCreacion: parseDate(readValue(['fecha_creacion', 'fechaCreacion', 'createdAt'])),
+      fechaCreacion: parseDate(
+          readValue(['fecha_creacion', 'fechaCreacion', 'createdAt'])),
+      esChatbot: readValue(['es_chatbot', 'esChatbot']) as bool? ?? false,
       activa: readValue(['activa', 'isActive']) as bool? ?? true,
       mensajes: messageList,
     );
@@ -72,7 +80,28 @@ class ChatConversation {
       idDelivery: idDelivery,
       idAdminSoporte: idAdminSoporte,
       idPedido: idPedido,
+      esChatbot: esChatbot,
       mensajes: mensajes ?? this.mensajes,
     );
+  }
+
+  // Método para determinar el título del chat
+  String get aDisplayTitle {
+    if (esChatbot) {
+      return 'CIA Bot';
+    }
+    if (idAdminSoporte != null) {
+      return 'Soporte y Ayuda';
+    }
+    if (idPedido != null) {
+      return 'Pedido #$idPedido';
+    }
+    if (idDelivery != null) {
+      return 'Chat con Repartidor';
+    }
+    if (idCliente != null) {
+      return 'Chat con Cliente';
+    }
+    return 'Conversacion #';
   }
 }

@@ -1,9 +1,7 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
 
-import '../config/api_config.dart';
+import '../services/database_service.dart';
 import '../models/usuario.dart';
 import '../routes/app_routes.dart';
 
@@ -133,6 +131,16 @@ class _ChatScreenState extends State<ChatScreen> {
         }
       }
 
+      if (response['success'] == false) {
+        if (!mounted) return;
+        setState(() {
+          _isSending = false;
+          _error = response['message']?.toString() ??
+              'El bot no pudo procesar tu mensaje. Intenta nuevamente.';
+        });
+        return;
+      }
+
       List<ChatEntry> updated = _messages;
       if (_idConversacion != null) {
         updated = await _getHistorial(_idConversacion);
@@ -164,29 +172,37 @@ class _ChatScreenState extends State<ChatScreen> {
     int idRemitente,
     int? idConversacion,
   ) async {
-    final url = Uri.parse('${AppConfig.baseUrl}/chat/bot/mensajes');
-    final payload = {
-      'idRemitente': idRemitente,
-      'mensaje': userMessage,
-      if (idConversacion != null) 'idConversacion': idConversacion,
-    };
-
-    final response = await http.post(
-      url,
-      headers: const {'Content-Type': 'application/json'},
-      body: jsonEncode(payload),
+    final dbService = context.read<DatabaseService>();
+    final response = await dbService.enviarMensaje(
+      idConversacion: idConversacion ?? 0,
+      idRemitente: idRemitente,
+      mensaje: userMessage,
     );
 
-    if (response.statusCode == 201 || response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      if (data['success'] == true && data['data'] != null) {
-        return Map<String, dynamic>.from(data['data'] as Map);
-      }
-      throw Exception('Respuesta inesperada del backend: ${response.body}');
-    }
+    final data = (response['data'] is Map)
+        ? Map<String, dynamic>.from(response['data'] as Map)
+        : <String, dynamic>{};
 
-    throw Exception(
-        'Error en la respuesta del backend: ${response.statusCode}');
+    final resolvedId = _parseConversationId(
+      data['id_conversacion'] ?? response['id_conversacion'] ?? idConversacion,
+    );
+
+    final botReply = data['bot_reply'] ?? response['bot_reply'];
+
+    return {
+      'id_conversacion': resolvedId ?? idConversacion,
+      if (botReply != null) 'bot_reply': botReply,
+      'success': response['success'] ?? true,
+      'message': response['message'],
+    };
+  }
+
+  int? _parseConversationId(dynamic raw) {
+    if (raw == null) return null;
+    if (raw is int) return raw;
+    if (raw is num) return raw.toInt();
+    if (raw is String) return int.tryParse(raw);
+    return null;
   }
 
   Future<List<ChatEntry>> _getHistorial(int? idConversacion) async {
@@ -194,35 +210,32 @@ class _ChatScreenState extends State<ChatScreen> {
       return _messages;
     }
 
-    final url = Uri.parse(
-        '${AppConfig.baseUrl}/chat/conversaciones/$idConversacion/mensajes');
-    final response = await http.get(url);
-    if (response.statusCode != 200) return _messages;
-
-    final decoded = jsonDecode(response.body);
-    if (decoded is! Map || decoded['success'] != true) return _messages;
-
-    final list = decoded['data'];
-    if (list is! List) return _messages;
+    // CORRECCIÓN: Se utiliza el DatabaseService centralizado.
+    final dbService = context.read<DatabaseService>();
+    final messageModels =
+        await dbService.getMensajesDeConversacion(idConversacion);
 
     final entries = <ChatEntry>[];
-    for (final raw in list) {
-      if (raw is! Map) continue;
-      final texto = raw['mensaje']?.toString() ?? '';
-      final senderId =
-          int.tryParse(raw['id_remitente']?.toString() ?? '') ?? -1;
-      final fecha = raw['fecha_envio'] ?? raw['fecha'] ?? raw['created_at'];
+    for (final msg in messageModels) {
+      final isBot = msg.esBot || _isBotUser(msg.idRemitente);
+      final senderName =
+          (msg.remitenteNombre != null && msg.remitenteNombre!.isNotEmpty)
+              ? msg.remitenteNombre
+              : _resolveSenderName(msg.idRemitente, isBot: isBot);
+
       entries.add(
         ChatEntry(
-          text: texto,
-          isBot: senderId == 0 || raw['esBot'] == true,
-          time: DateTime.tryParse(fecha?.toString() ?? '') ?? DateTime.now(),
-          senderName: _resolveSenderName(senderId),
+          text: msg.mensaje,
+          isBot: isBot,
+          time: msg.fechaEnvio ?? DateTime.now(),
+          senderName: senderName,
         ),
       );
     }
     return entries;
   }
+
+  bool _isBotUser(int senderId) => senderId <= 0;
 
   bool _detectBotFallback(List<ChatEntry> mensajes) {
     if (mensajes.isEmpty) return false;
@@ -240,8 +253,8 @@ class _ChatScreenState extends State<ChatScreen> {
     return patterns.any(text.contains);
   }
 
-  String _resolveSenderName(int senderId) {
-    if (senderId == 0) return _botDisplayName;
+  String _resolveSenderName(int senderId, {bool isBot = false}) {
+    if (isBot) return _botDisplayName;
     if (senderId == widget.currentUser.idUsuario) {
       return widget.currentUser.nombre;
     }
@@ -304,7 +317,8 @@ class _ChatScreenState extends State<ChatScreen> {
         title: Text(_getAppBarTitle()),
         backgroundColor: Colors.blueGrey[900],
         actions: [
-          if (_detectBotFallback(_messages) && widget.initialSection == ChatSection.ciaBot)
+          if (_detectBotFallback(_messages) &&
+              widget.initialSection == ChatSection.ciaBot)
             IconButton(
               tooltip: 'Hablar con Soporte',
               icon: const Icon(Icons.support_agent),
@@ -324,7 +338,8 @@ class _ChatScreenState extends State<ChatScreen> {
             if (_detectBotFallback(_messages))
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 color: Colors.amber.shade100,
                 child: Row(
                   children: [
@@ -362,7 +377,8 @@ class _ChatScreenState extends State<ChatScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     ),
                     SizedBox(width: 8),
-                    Text('CIA Bot está escribiendo...', style: TextStyle(fontSize: 12, color: Colors.black54)),
+                    Text('CIA Bot está escribiendo...',
+                        style: TextStyle(fontSize: 12, color: Colors.black54)),
                   ],
                 ),
               ),

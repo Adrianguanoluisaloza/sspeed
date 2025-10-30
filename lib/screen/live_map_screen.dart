@@ -5,10 +5,8 @@ import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-// Importa la funcion para registrar el iframe de Google Maps solo en la plataforma web.
-// El `ignore` es necesario porque el analizador no reconoce los imports condicionales.
-// ignore: uri_does_not_exist
-import '../utils/google_maps_iframe_web.dart'
+// Importa la función adecuada según la plataforma (web o no web).
+import '../utils/google_maps_iframe_stub.dart'
     if (dart.library.html) '../utils/google_maps_iframe_web.dart';
 import 'package:location/location.dart';
 import 'package:provider/provider.dart';
@@ -17,6 +15,8 @@ import '../routes/app_routes.dart';
 import '../models/pedido.dart';
 import '../models/session_state.dart';
 import '../services/database_service.dart';
+import '../utils/web_geolocation_stub.dart'
+    if (dart.library.html) '../utils/web_geolocation_web.dart' as webgeo;
 
 class LiveMapScreen extends StatefulWidget {
   const LiveMapScreen({super.key});
@@ -31,15 +31,18 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   final Location _location = Location();
   GoogleMapController? _mapController;
   StreamSubscription<LocationData>? _locationSubscription;
+  StreamSubscription<webgeo.WebGeoPosition>? _webLocationSubscription;
   Timer? _refreshTimer;
-  bool _autoRefreshEnabled = true;
-  
+  final bool _autoRefreshEnabled = true;
+
   void _startAutoRefreshTimer() {
     _refreshTimer?.cancel();
     if (_autoRefreshEnabled) {
-      _refreshTimer = Timer.periodic(const Duration(seconds: 20), (_) => _refreshMarkers());
+      _refreshTimer =
+          Timer.periodic(const Duration(seconds: 20), (_) => _refreshMarkers());
     }
   }
+
   Timer? _shortRetryTimer;
   DateTime? _lastLocationUpload;
   bool _isRefreshingMarkers = false;
@@ -62,6 +65,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   void dispose() {
     _mapController?.dispose();
     _locationSubscription?.cancel();
+    _webLocationSubscription?.cancel();
     _refreshTimer?.cancel();
     super.dispose();
   }
@@ -72,6 +76,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
       await _refreshMarkers();
       if (mounted) {
         setState(() => _isMapReady = true);
+        _startLocationUpdates();
         _startAutoRefreshTimer();
       }
     } catch (e) {
@@ -89,7 +94,15 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
       if (kIsWeb) {
         if (mounted) {
           setState(() => _permissionStatus = PermissionStatus.granted);
-          _userPosition ??= _esmeraldasCenter;
+        }
+        // Intentar obtener posicion real del navegador (web)
+        final pos = await webgeo.getCurrentPosition();
+        if (mounted) {
+          setState(() {
+            _userPosition = pos != null
+                ? LatLng(pos.lat, pos.lng)
+                : _esmeraldasCenter; // fallback si no hay permiso en navegador
+          });
         }
         await _refreshMarkers();
         return;
@@ -126,6 +139,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
         setState(() => _permissionStatus = PermissionStatus.granted);
       }
       await _fetchCurrentUserLocation();
+      _startLocationUpdates();
       _startLocationUpdates();
     } catch (e) {
       if (mounted) {
@@ -211,67 +225,59 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
             infoWindow: const InfoWindow(title: 'Estas aqui')));
       }
 
-      final pedidosEnRuta = pedidos.where((p) => p.idDelivery != null).toList();
-      if (pedidosEnRuta.isNotEmpty) {
-        final futures = pedidosEnRuta.map((p) async {
-          try {
-            final loc = await db.getRepartidorLocation(p.idPedido);
-            // Si la respuesta es null, no tiene tracking
-            if (loc == null) return (p, null);
+      // OPTIMIZACIÓN: En lugar de hacer una llamada a la API por cada pedido,
+      // agrupamos por repartidor para reducir las llamadas de red.
 
-            // MEJORA: Se extraen las coordenadas de forma más segura y legible.
-            // Esto maneja diferentes posibles nombres de clave que pueda devolver la API.
-            final lat =
-                _parseDouble(loc['latitud'] ?? loc['lat'] ?? loc['latitude']);
-            final lon =
-                _parseDouble(loc['longitud'] ?? loc['lng'] ?? loc['longitude']);
+      // 1. Obtener una lista de IDs de repartidores únicos que tienen pedidos en ruta.
+      final deliveryIds = pedidos
+          .where((p) => p.idDelivery != null)
+          .map((p) => p.idDelivery!)
+          .toSet() // .toSet() elimina duplicados automáticamente.
+          .toList();
 
-            // Si después de intentar con todas las claves, alguna es nula, no hay ubicacion válida.
-            if (lat == null || lon == null) return (p, null);
+      // 2. Crear un mapa para almacenar la ubicación de cada repartidor.
+      final deliveryLocations = <int, LatLng>{};
 
-            // Se devuelve un registro (record) para mayor claridad en lugar de un mapa.
-            return (p, {'lat': lat, 'lon': lon});
-          } catch (e) {
-            if (kDebugMode) {
-              print(
-                  'No se pudo obtener la ubicacion para el pedido #${p.idPedido}: $e');
+      if (deliveryIds.isNotEmpty) {
+        // 3. Obtener la ubicación para cada repartidor único.
+        // ¡OPTIMIZACIÓN FINAL! Hacemos una sola llamada al backend.
+        try {
+          final locationsData = await db.getRepartidoresLocation(deliveryIds);
+          for (final locData in locationsData) {
+            final id = locData['id_repartidor'] as int?;
+            final lat = _parseDouble(locData['latitud']);
+            final lon = _parseDouble(locData['longitud']);
+
+            if (id != null && lat != null && lon != null) {
+              deliveryLocations[id] = LatLng(lat, lon);
             }
-            return (p, null);
           }
-        });
-        final results = await Future.wait(futures);
+        } catch (e) {
+          if (kDebugMode) {
+            print('Error al obtener ubicaciones de repartidores en lote: $e');
+          }
+          // Si la llamada en lote falla, podríamos implementar un fallback
+          // para pedirlas una por una, pero por ahora solo lo registramos.
+        }
+      }
 
-        for (final (pedido, ubicacion) in results) {
-          if (ubicacion == null) continue;
-          final lat = ubicacion['lat'];
-          final lon = ubicacion['lon'];
-          if (lat is double && lon is double) {
-            markers.add(Marker(
-                markerId: MarkerId(
-                    'delivery_${pedido.idDelivery}_${pedido.idPedido}'),
-                position: LatLng(lat, lon),
-                icon: BitmapDescriptor.defaultMarkerWithHue(
-                    BitmapDescriptor.hueOrange),
-                infoWindow: InfoWindow(
-                    title: 'Repartidor #${pedido.idDelivery}',
-                    snippet: 'Pedido ${pedido.idPedido}'),
-                onTap: () {
-                  _moveCamera(LatLng(lat, lon), zoom: 16);
-                  Navigator.of(context).pushNamed(
-                    AppRoutes.orderDetail,
-                    arguments: pedido.idPedido,
-                  );
-                },
-                ));
-          }
+      // 4. Construir los marcadores usando el mapa de ubicaciones pre-cargado.
+      for (final pedido in pedidos) {
+        if (pedido.idDelivery == null) continue;
+        final deliveryPosition = deliveryLocations[pedido.idDelivery];
+        if (deliveryPosition != null) {
+          markers.add(_createDeliveryMarker(pedido, deliveryPosition));
         }
       }
 
       if (mounted) {
         setState(() {
           _markers = markers;
-          final deliveryCount = markers.length - (_userPosition != null ? 1 : 0);
-          _infoMessage = deliveryCount == 0 ? 'Sin repartidores activos.' : 'Mostrando $deliveryCount repartidores.';
+          final deliveryCount =
+              markers.length - (_userPosition != null ? 1 : 0);
+          _infoMessage = deliveryCount == 0
+              ? 'Sin repartidores activos.'
+              : 'Mostrando $deliveryCount repartidores.';
         });
         // Si no hay repartidores visibles, agenda un reintento corto (5s)
         final deliveryCount = markers.length - (_userPosition != null ? 1 : 0);
@@ -293,6 +299,25 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
     }
   }
 
+  Marker _createDeliveryMarker(Pedido pedido, LatLng position) {
+    return Marker(
+      markerId: MarkerId('delivery_${pedido.idDelivery}_${pedido.idPedido}'),
+      position: position,
+      icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
+      infoWindow: InfoWindow(
+        title: 'Repartidor #${pedido.idDelivery}',
+        snippet: 'Pedido ${pedido.idPedido}',
+      ),
+      onTap: () {
+        _moveCamera(position, zoom: 16);
+        Navigator.of(context).pushNamed(
+          AppRoutes.orderDetail,
+          arguments: pedido.idPedido,
+        );
+      },
+    );
+  }
+
   void _moveCamera(LatLng target, {double zoom = 13}) =>
       _mapController?.animateCamera(CameraUpdate.newCameraPosition(
           CameraPosition(target: target, zoom: zoom)));
@@ -301,7 +326,26 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
       : (value is String ? double.tryParse(value) : null);
 
   void _startLocationUpdates() {
-    if (kIsWeb) return;
+    if (kIsWeb) {
+      // Web: usar Geolocation API del navegador
+      _webLocationSubscription?.cancel();
+      _webLocationSubscription = webgeo.watchPosition().listen((p) {
+        if (!mounted) return;
+        final nextPosition = LatLng(p.lat, p.lng);
+        final movedEnough = _userPosition == null ||
+            _distanceBetween(_userPosition!, nextPosition) > 5;
+        if (!movedEnough) return;
+        setState(() {
+          _userPosition = nextPosition;
+          _infoMessage = 'Ubicacion actualizada.';
+        });
+        _maybeUploadDeliveryLocation(nextPosition);
+        if (!_isRefreshingMarkers) {
+          _refreshMarkers();
+        }
+      });
+      return;
+    }
     _locationSubscription?.cancel();
     _locationSubscription = _location.onLocationChanged.listen((data) {
       if (!mounted) return;
@@ -325,7 +369,6 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   }
 
   Future<void> _maybeUploadDeliveryLocation(LatLng position) async {
-    if (kIsWeb) return;
     final session = context.read<SessionController>();
     final usuario = session.usuario;
     if (usuario == null || !usuario.isAuthenticated) return;
@@ -456,8 +499,9 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
               }
             }
           },
-          backgroundColor:
-              _userPosition != null ? Theme.of(context).primaryColor : Colors.grey,
+          backgroundColor: _userPosition != null
+              ? Theme.of(context).primaryColor
+              : Colors.grey,
           child: const Icon(Icons.my_location, color: Colors.white),
         ),
         const SizedBox(height: 12),
@@ -472,7 +516,8 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   }
 
   Widget _buildPermissionDeniedView() {
-    final isPermanentlyDenied = _permissionStatus == PermissionStatus.deniedForever;
+    final isPermanentlyDenied =
+        _permissionStatus == PermissionStatus.deniedForever;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24.0),
@@ -506,7 +551,9 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
             const SizedBox(height: 32),
             ElevatedButton.icon(
               icon: Icon(
-                isPermanentlyDenied && !kIsWeb ? Icons.settings : Icons.location_on,
+                isPermanentlyDenied && !kIsWeb
+                    ? Icons.settings
+                    : Icons.location_on,
               ),
               onPressed: () async {
                 if (isPermanentlyDenied && !kIsWeb) {
@@ -514,7 +561,9 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                 }
                 await _checkAndRequestLocationPermission();
               },
-              label: Text(isPermanentlyDenied ? 'Abrir configuracion' : 'Conceder Permiso'),
+              label: Text(isPermanentlyDenied
+                  ? 'Abrir configuracion'
+                  : 'Conceder Permiso'),
             ),
           ],
         ),
@@ -525,11 +574,11 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   Widget _buildTopInfoBar() {
     final bool hasError = _errorMessage != null;
     final String message = _errorMessage ?? _infoMessage ?? 'Cargando mapa...';
-    final Color bgColor =
-        hasError ? Colors.red.shade400 : Colors.black.withAlpha(153); // ~0.6 opacity
-    final IconData icon = hasError
-        ? Icons.warning_amber_rounded
-        : Icons.info_outline_rounded;
+    final Color bgColor = hasError
+        ? Colors.red.shade400
+        : Colors.black.withAlpha(153); // ~0.6 opacity
+    final IconData icon =
+        hasError ? Icons.warning_amber_rounded : Icons.info_outline_rounded;
 
     return Positioned(
       top: 0,
@@ -556,7 +605,8 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
               color: bgColor,
               borderRadius: BorderRadius.circular(10),
               boxShadow: const [
-                BoxShadow(color: Colors.black26, blurRadius: 5, offset: Offset(0, 2)),
+                BoxShadow(
+                    color: Colors.black26, blurRadius: 5, offset: Offset(0, 2)),
               ],
             ),
             child: Row(
@@ -573,7 +623,9 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                     ),
                   ),
                 ),
-                if (hasError || message.contains('Sin repartidores') || message.contains('Actualizando'))
+                if (hasError ||
+                    message.contains('Sin repartidores') ||
+                    message.contains('Actualizando'))
                   TextButton(
                     onPressed: _refreshMarkers,
                     child: const Text(

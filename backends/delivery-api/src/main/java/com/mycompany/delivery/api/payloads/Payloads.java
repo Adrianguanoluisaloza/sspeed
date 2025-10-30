@@ -4,20 +4,30 @@ import com.google.gson.annotations.SerializedName;
 import java.util.List;
 
 /**
- * Clases de soporte para la API Delivery (compatibles con snake_case y camelCase).
- * Acepta alias en campos críticos (id_usuario/idUsuario, puntuacion/rating, etc.)
+ * Clases de soporte para la API Delivery (compatibles con snake_case y
+ * camelCase). Acepta alias en campos críticos (id_usuario/idUsuario,
+ * puntuacion/rating, etc.)
  */
 public class Payloads {
 
     // =========================== LOGIN ===========================
     public static class LoginRequest {
-        @SerializedName("correo")     private String correo;
-        @SerializedName("email")      private String email;
-        @SerializedName("contrasena") private String contrasena;
-        @SerializedName("password")   private String password;
+        @SerializedName("correo")
+        private String correo;
+        @SerializedName("email")
+        private String email;
+        @SerializedName("contrasena")
+        private String contrasena;
+        @SerializedName("password")
+        private String password;
 
-        public String getCorreo()     { return correo != null ? correo : email; }
-        public String getContrasena() { return contrasena != null ? contrasena : password; }
+        public String getCorreo() {
+            return correo != null ? correo : email;
+        }
+
+        public String getContrasena() {
+            return contrasena != null ? contrasena : password;
+        }
     }
 
     // =========================== REGISTRO ===========================
@@ -60,50 +70,49 @@ public class Payloads {
         public double precioUnitario;
     }
 
-   
-  // =========================== PEDIDO COMPLETO ===========================
-public static class PedidoPayload {
+    // =========================== PEDIDO COMPLETO ===========================
+    public static class PedidoPayload {
 
-    @SerializedName("id_cliente")
-    public int idCliente;
+        @SerializedName("id_cliente")
+        public int idCliente;
 
-    @SerializedName("id_delivery")
-    public Integer idDelivery;
+        @SerializedName("id_delivery")
+        public Integer idDelivery;
 
-    @SerializedName("id_ubicacion")
-    public Integer idUbicacion; // ✅ agregado
+        @SerializedName("id_ubicacion")
+        public Integer idUbicacion; // ✅ agregado
 
-    // Acepta direccion_entrega y direccionEntrega
-    @SerializedName("direccion_entrega")
-    private String direccionEntregaSnake;
-    @SerializedName("direccionEntrega")
-    private String direccionEntregaCamel;
+        // Acepta direccion_entrega y direccionEntrega
+        @SerializedName("direccion_entrega")
+        private String direccionEntregaSnake;
+        @SerializedName("direccionEntrega")
+        private String direccionEntregaCamel;
 
-    @SerializedName("metodo_pago")
-    public String metodoPago;
+        @SerializedName("metodo_pago")
+        public String metodoPago;
 
-    public String estado;
+        public String estado;
 
-    // ✅ Acepta "total" o "monto_total"
-    @SerializedName(value = "total", alternate = {"monto_total"})
-    public Double total;
+        // ✅ Acepta "total" o "monto_total"
+        @SerializedName(value = "total", alternate = { "monto_total" })
+        public Double total;
 
-    public List<PedidoDetallePayload> productos;
+        public List<PedidoDetallePayload> productos;
 
-    // ========== Getters útiles ==========
+        // ========== Getters útiles ==========
 
-    public String getDireccionEntrega() {
-        return direccionEntregaSnake != null ? direccionEntregaSnake : direccionEntregaCamel;
+        public String getDireccionEntrega() {
+            return direccionEntregaSnake != null ? direccionEntregaSnake : direccionEntregaCamel;
+        }
+
+        public Double getTotal() {
+            return total != null ? total : 0.0;
+        }
+
+        public Integer getIdUbicacion() {
+            return idUbicacion; // Devuelve null si no está presente
+        }
     }
-
-    public Double getTotal() {
-        return total != null ? total : 0.0;
-    }
-
-    public Integer getIdUbicacion() {
-        return idUbicacion; // Devuelve null si no está presente
-    }
-}
 
     // =========================== ACTUALIZAR ESTADO ===========================
     public static class EstadoUpdateRequest {
@@ -148,7 +157,8 @@ public static class PedidoPayload {
         private Double latitud;
         private Double longitud;
 
-        // Acepta direccion (snake) y direccionEntrega (camel) por si algún cliente lo manda así
+        // Acepta direccion (snake) y direccionEntrega (camel) por si algún cliente lo
+        // manda así
         @SerializedName("direccion")
         private String direccionSnake;
         @SerializedName("direccionEntrega")
@@ -157,12 +167,29 @@ public static class PedidoPayload {
         private String descripcion;
         private Boolean activa = Boolean.TRUE;
 
-        public Integer getIdUsuario() { return idUsuarioSnake != null ? idUsuarioSnake : idUsuarioCamel; }
-        public Double getLatitud() { return latitud; }
-        public Double getLongitud() { return longitud; }
-        public String getDireccion() { return direccionSnake != null ? direccionSnake : direccionCamel; }
-        public String getDescripcion() { return descripcion; }
-        public Boolean getActiva() { return activa; }
+        public Integer getIdUsuario() {
+            return idUsuarioSnake != null ? idUsuarioSnake : idUsuarioCamel;
+        }
+
+        public Double getLatitud() {
+            return latitud;
+        }
+
+        public Double getLongitud() {
+            return longitud;
+        }
+
+        public String getDireccion() {
+            return direccionSnake != null ? direccionSnake : direccionCamel;
+        }
+
+        public String getDescripcion() {
+            return descripcion;
+        }
+
+        public Boolean getActiva() {
+            return activa;
+        }
     }
 
     // =========================== RECOMENDACIONES ===========================
@@ -181,8 +208,13 @@ public static class PedidoPayload {
 
         public String comentario;
 
-        public Integer getIdUsuario()   { return idUsuarioSnake != null ? idUsuarioSnake : idUsuarioCamel; }
-        public Integer getPuntuacion()  { return puntuacion != null ? puntuacion : rating; }
+        public Integer getIdUsuario() {
+            return idUsuarioSnake != null ? idUsuarioSnake : idUsuarioCamel;
+        }
+
+        public Integer getPuntuacion() {
+            return puntuacion != null ? puntuacion : rating;
+        }
     }
 
     // =========================== CHAT ===========================
@@ -211,5 +243,13 @@ public static class PedidoPayload {
         public Long idConversacion; // Puede ser nulo si es una nueva conversación
 
         public String mensaje;
+    }
+
+    /**
+     * Payload para solicitar las ubicaciones de múltiples repartidores. Contiene
+     * una lista de IDs de repartidores.
+     */
+    public static class UbicacionesRequest {
+        public List<Integer> ids;
     }
 }

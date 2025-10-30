@@ -50,6 +50,8 @@ class AppConfig {
   // Para compilar en producción, usa: flutter build --dart-define=APP_ENV=production
   static const String _env =
       String.fromEnvironment('APP_ENV', defaultValue: 'local');
+  static const String _envBaseUrl =
+      String.fromEnvironment('API_BASE_URL', defaultValue: '');
 
   static final Environment _currentEnvironment =
       _env.toLowerCase() == 'production'
@@ -81,6 +83,9 @@ class AppConfig {
   static String get baseUrl {
     if (_manualOverride != null) {
       return _manualOverride!;
+    }
+    if (_envBaseUrl.isNotEmpty) {
+      return _envBaseUrl;
     }
     return _settings[_currentEnvironment]!.baseUrl;
   }

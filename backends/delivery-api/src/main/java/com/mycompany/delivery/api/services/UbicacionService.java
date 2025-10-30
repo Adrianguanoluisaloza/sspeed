@@ -64,11 +64,17 @@ public class UbicacionService {
 
         requireValidCoordinates(latitud, longitud, "Las coordenadas proporcionadas son inválidas");
 
+        // CORRECCIÓN: Se asegura que la ubicación se guarde con la descripción
+        // 'LIVE_TRACKING' para que el endpoint de tracking pueda encontrarla.
         try {
             boolean updated = repo.actualizarUbicacionLive(idRepartidor, latitud, longitud);
             if (!updated) {
+                // Si no se actualizó ninguna fila (porque no existía una entrada
+                // 'LIVE_TRACKING'),
+                // se inserta una nueva.
                 repo.insertarUbicacionLive(idRepartidor, latitud, longitud);
             }
+            // Adicionalmente, se registra el evento para el historial de ruta del pedido.
             repo.registrarEventoTracking(idRepartidor, latitud, longitud);
         } catch (SQLException e) {
             throw new ApiException(500, "Error actualizando ubicación del repartidor", e);
@@ -112,5 +118,17 @@ public class UbicacionService {
         }
         return repo.obtenerRutaPedido(idPedido);
     }
+    
 
+    // CORRECCIÓN: Método faltante para obtener ubicaciones de múltiples repartidores
+    public List<Map<String, Object>> obtenerUbicacionesDeRepartidores(List<Integer> repartidorIds) {
+        try {
+            return repo.obtenerUbicacionesDeRepartidores(repartidorIds);
+        } catch (SQLException e) {
+            throw new ApiException(500, "Error al obtener ubicaciones de repartidores", e);
+        }
+    }
 }
+
+
+

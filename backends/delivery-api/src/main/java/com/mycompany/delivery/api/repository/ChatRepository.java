@@ -33,7 +33,7 @@ public class ChatRepository {
 
         try {
             // Asegura que la conversación exista antes de insertar el mensaje.
-            ensureConversation(idConversacion, idCliente, null, null, idPedido);
+            ensureConversation(idConversacion, idCliente, null, null, idPedido, false);
             return insertMensaje(idConversacion, mensaje.getIdRemitente(), null, mensaje.getMensaje());
         } catch (SQLException e) {
             System.err.println("Error al guardar mensaje: " + e.getMessage());
@@ -76,16 +76,17 @@ public class ChatRepository {
      * @param idPedido       El ID del pedido asociado a la conversación.
      * @throws SQLException Si ocurre un error en la base de datos.
      */
-    public void ensureConversation(long idConversacion, //
-            Integer idCliente, Integer idDelivery, Integer idAdminSoporte, Integer idPedido) throws SQLException {
+    public void ensureConversation(long idConversacion, Integer idCliente, Integer idDelivery, Integer idAdminSoporte,
+            Integer idPedido, boolean esChatbot) throws SQLException {
         String sql = """
-                INSERT INTO chat_conversaciones (id_conversacion, id_pedido, id_cliente, id_delivery, id_admin_soporte, fecha_creacion, activa)
-                VALUES (?, ?, ?, ?, ?, NOW(), TRUE)
+                INSERT INTO chat_conversaciones (id_conversacion, id_pedido, id_cliente, id_delivery, id_admin_soporte, es_chatbot, fecha_creacion, activa)
+                VALUES (?, ?, ?, ?, ?, ?, NOW(), TRUE)
                 ON CONFLICT (id_conversacion) DO UPDATE
                 SET id_pedido = COALESCE(chat_conversaciones.id_pedido, EXCLUDED.id_pedido),
                     id_cliente = COALESCE(chat_conversaciones.id_cliente, EXCLUDED.id_cliente),
                     id_delivery = COALESCE(chat_conversaciones.id_delivery, EXCLUDED.id_delivery),
                     id_admin_soporte = COALESCE(chat_conversaciones.id_admin_soporte, EXCLUDED.id_admin_soporte),
+                    es_chatbot = COALESCE(chat_conversaciones.es_chatbot, EXCLUDED.es_chatbot),
                     activa = COALESCE(EXCLUDED.activa, chat_conversaciones.activa)
                 """;
         try (Connection c = Database.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
@@ -94,6 +95,7 @@ public class ChatRepository {
             ps.setObject(3, idCliente);
             ps.setObject(4, idDelivery);
             ps.setObject(5, idAdminSoporte);
+            ps.setBoolean(6, esChatbot);
             ps.executeUpdate();
         }
     }
@@ -147,13 +149,22 @@ public class ChatRepository {
      */
     public List<Map<String, Object>> listarMensajes(long idConversacion) throws SQLException {
         String sql = """
-                SELECT id_mensaje, id_conversacion, id_remitente, id_destinatario, mensaje, fecha_envio
-                FROM chat_mensajes
-                WHERE id_conversacion = ?
-                ORDER BY fecha_envio ASC, id_mensaje ASC
+                SELECT m.id_mensaje,
+                       m.id_conversacion,
+                       m.id_remitente,
+                       m.id_destinatario,
+                       m.mensaje,
+                       m.fecha_envio,
+                       u.nombre AS remitente_nombre,
+                       (LOWER(u.correo) = LOWER(?)) AS es_bot
+                FROM chat_mensajes m
+                LEFT JOIN usuarios u ON u.id_usuario = m.id_remitente
+                WHERE m.id_conversacion = ?
+                ORDER BY m.fecha_envio ASC, m.id_mensaje ASC
                 """;
         try (Connection c = Database.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setLong(1, idConversacion);
+            ps.setString(1, BOT_EMAIL);
+            ps.setLong(2, idConversacion);
             try (ResultSet rs = ps.executeQuery()) {
                 List<Map<String, Object>> list = new ArrayList<>();
                 while (rs.next()) {
@@ -164,6 +175,8 @@ public class ChatRepository {
                     row.put("id_destinatario", (Integer) rs.getObject("id_destinatario"));
                     row.put("mensaje", rs.getString("mensaje"));
                     row.put("fecha_envio", rs.getTimestamp("fecha_envio"));
+                    row.put("remitente_nombre", rs.getString("remitente_nombre"));
+                    row.put("es_bot", rs.getBoolean("es_bot"));
                     list.add(row);
                 }
                 return list;
@@ -180,7 +193,7 @@ public class ChatRepository {
      */
     public List<Map<String, Object>> listarConversacionesPorUsuario(int idUsuario) throws SQLException {
         String sql = """
-                SELECT id_conversacion, id_pedido, id_cliente, id_delivery, id_admin_soporte, fecha_creacion, activa
+                SELECT id_conversacion, id_pedido, id_cliente, id_delivery, id_admin_soporte, es_chatbot, fecha_creacion, activa
                 FROM chat_conversaciones
                 WHERE id_cliente = ? OR id_delivery = ? OR id_admin_soporte = ?
                 ORDER BY fecha_creacion DESC
@@ -198,6 +211,7 @@ public class ChatRepository {
                     row.put("id_cliente", (Integer) rs.getObject("id_cliente"));
                     row.put("id_delivery", (Integer) rs.getObject("id_delivery"));
                     row.put("id_admin_soporte", (Integer) rs.getObject("id_admin_soporte"));
+                    row.put("es_chatbot", rs.getBoolean("es_chatbot"));
                     row.put("fecha_creacion", rs.getTimestamp("fecha_creacion"));
                     row.put("activa", rs.getObject("activa"));
                     list.add(row);
@@ -252,7 +266,7 @@ public class ChatRepository {
             }
         }
         long newId = System.currentTimeMillis();
-        ensureConversation(newId, idUsuario, null, null, null);
+        ensureConversation(newId, idUsuario, null, null, null, false);
         return newId;
     }
 
@@ -267,15 +281,12 @@ public class ChatRepository {
      * @throws SQLException Si ocurre un error en la base de datos.
      */
     public long ensureBotConversationForUser(int idUsuario) throws SQLException {
-        // Busca una conversación que sea solo del usuario con el sistema (sin pedido,
-        // sin otros participantes)
+        // Busca una conversación marcada explícitamente como de chatbot para este
+        // usuario.
         String sql = """
                 SELECT id_conversacion
                 FROM chat_conversaciones
-                WHERE id_cliente = ?
-                  AND id_pedido IS NULL
-                  AND id_delivery IS NULL
-                  AND id_admin_soporte IS NULL
+                WHERE id_cliente = ? AND es_chatbot = TRUE
                 ORDER BY fecha_creacion DESC
                 LIMIT 1
                 """;
@@ -289,7 +300,7 @@ public class ChatRepository {
         }
         // Si no existe, crea una nueva conversación específica para el bot
         long newId = System.currentTimeMillis();
-        ensureConversation(newId, idUsuario, null, null, null); // Crea una conversación solo con el id_cliente
+        ensureConversation(newId, idUsuario, null, null, null, true); // Crea una conversación marcada como chatbot
         return newId;
     }
 
