@@ -112,15 +112,40 @@ public class RecomendacionRepository {
         }
     }
 
-    public List<Map<String, Object>> listarPrincipales() throws SQLException {
+    public List<Map<String, Object>> listarDestacadas() throws SQLException {
         String sql = """
-            SELECT r.id_recomendacion, r.id_producto, r.id_usuario, r.comentario, r.puntuacion,
-                   r.fecha AS fecha_creacion, p.nombre AS producto, u.nombre AS usuario
+            SELECT
+                p.id_producto,
+                p.nombre AS producto,
+                p.descripcion,
+                p.precio,
+                p.imagen_url,
+                COALESCE(n.nombre_comercial, p.proveedor) AS negocio,
+                ROUND(AVG(r.puntuacion)::numeric, 1) AS rating_promedio,
+                COUNT(r.id_recomendacion)::int AS total_reviews,
+                MAX(r.fecha) AS ultima_resena,
+                (
+                    SELECT r2.comentario
+                    FROM recomendaciones r2
+                    WHERE r2.id_producto = p.id_producto
+                      AND r2.comentario IS NOT NULL
+                      AND TRIM(r2.comentario) <> ''
+                    ORDER BY r2.fecha DESC
+                    LIMIT 1
+                ) AS comentario_reciente
             FROM recomendaciones r
             JOIN productos p ON p.id_producto = r.id_producto
-            JOIN usuarios  u ON u.id_usuario  = r.id_usuario
-            ORDER BY r.puntuacion DESC, r.fecha DESC
-            LIMIT 4
+            LEFT JOIN negocios n ON n.id_negocio = p.id_negocio
+            GROUP BY
+                p.id_producto,
+                p.nombre,
+                p.descripcion,
+                p.precio,
+                p.imagen_url,
+                n.nombre_comercial,
+                p.proveedor
+            ORDER BY rating_promedio DESC, total_reviews DESC, ultima_resena DESC
+            LIMIT 10
             """;
 
         try (Connection c = Database.getConnection();
@@ -130,14 +155,16 @@ public class RecomendacionRepository {
             List<Map<String, Object>> list = new ArrayList<>();
             while (rs.next()) {
                 Map<String, Object> m = new HashMap<>();
-                m.put("id_recomendacion", rs.getInt("id_recomendacion"));
                 m.put("id_producto", rs.getInt("id_producto"));
-                m.put("id_usuario", rs.getInt("id_usuario"));
-                m.put("comentario", rs.getString("comentario"));
-                m.put("puntuacion", rs.getInt("puntuacion"));
-                m.put("fecha_creacion", rs.getTimestamp("fecha_creacion"));
                 m.put("producto", rs.getString("producto"));
-                m.put("usuario", rs.getString("usuario"));
+                m.put("descripcion", rs.getString("descripcion"));
+                m.put("precio", rs.getBigDecimal("precio"));
+                m.put("imagen_url", rs.getString("imagen_url"));
+                m.put("negocio", rs.getString("negocio"));
+                m.put("rating_promedio", rs.getDouble("rating_promedio"));
+                m.put("total_reviews", rs.getInt("total_reviews"));
+                m.put("ultima_resena", rs.getTimestamp("ultima_resena"));
+                m.put("comentario_reciente", rs.getString("comentario_reciente"));
                 list.add(m);
             }
             return list;

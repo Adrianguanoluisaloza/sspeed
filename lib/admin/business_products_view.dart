@@ -60,7 +60,7 @@ class _BusinessProductsViewState extends State<BusinessProductsView> {
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('${p.precio.toStringAsFixed(2)}'),
+                    Text('\$${p.precio.toStringAsFixed(2)}'),
                     IconButton(
                       icon: const Icon(Icons.edit),
                       tooltip: 'Editar',
@@ -150,11 +150,33 @@ class _BusinessProductsViewState extends State<BusinessProductsView> {
       disponible: true,
     );
 
-    await context
-        .read<DatabaseService>()
-        .createProductoParaNegocio(widget.negocioUser.idUsuario, nuevo);
-    if (!mounted) return;
-    setState(_reload);
+    // Muestra un loader modal mientras se crea el producto
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final created = await context
+          .read<DatabaseService>()
+          .createProductoParaNegocio(widget.negocioUser.idUsuario, nuevo);
+      if (mounted) Navigator.of(context).pop();
+      if (!mounted) return;
+      setState(_reload);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(created != null ? 'Producto creado' : 'No se pudo crear el producto'),
+          backgroundColor: created != null ? Colors.green : Colors.red,
+        ),
+      );
+    } catch (e) {
+      if (mounted) Navigator.of(context).pop();
+      messenger.showSnackBar(
+        SnackBar(content: Text('Error al crear producto: $e'), backgroundColor: Colors.red),
+      );
+    }
   }
 
   Future<void> _showEditProductDialog(Producto p) async {
@@ -225,7 +247,8 @@ class _BusinessProductsViewState extends State<BusinessProductsView> {
       fechaCreacion: p.fechaCreacion,
     );
 
-    await context.read<DatabaseService>().updateProducto(updated);
+    final db2 = context.read<DatabaseService>();
+    await db2.updateProducto(updated);
     if (!mounted) return;
     setState(_reload);
   }
@@ -249,7 +272,8 @@ class _BusinessProductsViewState extends State<BusinessProductsView> {
       ),
     );
     if (ok == true) {
-      await context.read<DatabaseService>().deleteProducto(p.idProducto);
+      final db3 = context.read<DatabaseService>();
+      await db3.deleteProducto(p.idProducto);
       if (!mounted) return;
       setState(_reload);
     }

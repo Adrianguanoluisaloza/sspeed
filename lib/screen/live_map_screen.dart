@@ -12,6 +12,7 @@ import '../utils/google_maps_iframe_web.dart'
     if (dart.library.html) '../utils/google_maps_iframe_web.dart';
 import 'package:location/location.dart';
 import 'package:provider/provider.dart';
+import '../routes/app_routes.dart';
 
 import '../models/pedido.dart';
 import '../models/session_state.dart';
@@ -31,6 +32,15 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   GoogleMapController? _mapController;
   StreamSubscription<LocationData>? _locationSubscription;
   Timer? _refreshTimer;
+  bool _autoRefreshEnabled = true;
+  
+  void _startAutoRefreshTimer() {
+    _refreshTimer?.cancel();
+    if (_autoRefreshEnabled) {
+      _refreshTimer = Timer.periodic(const Duration(seconds: 20), (_) => _refreshMarkers());
+    }
+  }
+  Timer? _shortRetryTimer;
   DateTime? _lastLocationUpload;
   bool _isRefreshingMarkers = false;
 
@@ -62,8 +72,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
       await _refreshMarkers();
       if (mounted) {
         setState(() => _isMapReady = true);
-        _refreshTimer ??= Timer.periodic(
-            const Duration(seconds: 20), (_) => _refreshMarkers());
+        _startAutoRefreshTimer();
       }
     } catch (e) {
       if (mounted) {
@@ -245,7 +254,15 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                     BitmapDescriptor.hueOrange),
                 infoWindow: InfoWindow(
                     title: 'Repartidor #${pedido.idDelivery}',
-                    snippet: 'Pedido ${pedido.idPedido}')));
+                    snippet: 'Pedido ${pedido.idPedido}'),
+                onTap: () {
+                  _moveCamera(LatLng(lat, lon), zoom: 16);
+                  Navigator.of(context).pushNamed(
+                    AppRoutes.orderDetail,
+                    arguments: pedido.idPedido,
+                  );
+                },
+                ));
           }
         }
       }
@@ -253,12 +270,19 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
       if (mounted) {
         setState(() {
           _markers = markers;
-          final deliveryCount =
-              markers.length - (_userPosition != null ? 1 : 0);
-          _infoMessage = deliveryCount == 0
-              ? 'Sin repartidores activos.'
-              : 'Mostrando $deliveryCount repartidores.';
+          final deliveryCount = markers.length - (_userPosition != null ? 1 : 0);
+          _infoMessage = deliveryCount == 0 ? 'Sin repartidores activos.' : 'Mostrando $deliveryCount repartidores.';
         });
+        // Si no hay repartidores visibles, agenda un reintento corto (5s)
+        final deliveryCount = markers.length - (_userPosition != null ? 1 : 0);
+        if (deliveryCount == 0) {
+          _shortRetryTimer?.cancel();
+          _shortRetryTimer = Timer(const Duration(seconds: 5), () {
+            if (mounted && !_isRefreshingMarkers) {
+              _refreshMarkers();
+            }
+          });
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -416,48 +440,50 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
 
   Widget _buildMapControls() {
     return Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          FloatingActionButton(
-            heroTag: 'center-map',
-            onPressed: () async {
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        // Center on my location
+        FloatingActionButton(
+          heroTag: 'center-map',
+          onPressed: () async {
+            if (_userPosition != null) {
+              _moveCamera(_userPosition!, zoom: 15);
+            } else {
+              await _fetchCurrentUserLocation();
               if (_userPosition != null) {
                 _moveCamera(_userPosition!, zoom: 15);
-              } else {
-                await _fetchCurrentUserLocation();
-                if (_userPosition != null) {
-                  _moveCamera(_userPosition!, zoom: 15);
-                }
               }
-            },
-            backgroundColor: _userPosition != null
-                ? Theme.of(context).primaryColor
-                : Colors.grey,
-            child: const Icon(Icons.my_location, color: Colors.white),
-          ),
-          const SizedBox(height: 12),
-          FloatingActionButton(
-            heroTag: 'refresh-map',
-            onPressed: _refreshMarkers,
-            backgroundColor: Theme.of(context).colorScheme.secondary,
-            child: const Icon(Icons.refresh, color: Colors.white),
-          ),
-        ]);
+            }
+          },
+          backgroundColor:
+              _userPosition != null ? Theme.of(context).primaryColor : Colors.grey,
+          child: const Icon(Icons.my_location, color: Colors.white),
+        ),
+        const SizedBox(height: 12),
+        // Refresh markers
+        FloatingActionButton(
+          heroTag: 'refresh-map',
+          onPressed: _isRefreshingMarkers ? null : _refreshMarkers,
+          child: const Icon(Icons.refresh),
+        ),
+      ],
+    );
   }
 
   Widget _buildPermissionDeniedView() {
-    final isPermanentlyDenied =
-        _permissionStatus == PermissionStatus.deniedForever;
+    final isPermanentlyDenied = _permissionStatus == PermissionStatus.deniedForever;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.location_off_outlined,
-                size: 96,
-                color: Theme.of(context).colorScheme.primary.withAlpha(179)),
+            Icon(
+              Icons.location_off_outlined,
+              size: 96,
+              color: Theme.of(context).colorScheme.primary.withAlpha(179),
+            ),
             const SizedBox(height: 24),
             Text(
               'Permiso de ubicacion Requerido',
@@ -473,24 +499,22 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                   ? 'Para usar el mapa, debes habilitar los permisos de ubicacion manualmente desde la configuracion de tu dispositivo.'
                   : 'Necesitamos tu permiso para mostrar tu ubicacion y los repartidores cercanos en el mapa.',
               textAlign: TextAlign.center,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyLarge
-                  ?.copyWith(color: Colors.grey[600]),
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: Colors.grey[600],
+                  ),
             ),
             const SizedBox(height: 32),
             ElevatedButton.icon(
               icon: Icon(
-                  isPermanentlyDenied && !kIsWeb ? Icons.settings : Icons.location_on),
+                isPermanentlyDenied && !kIsWeb ? Icons.settings : Icons.location_on,
+              ),
               onPressed: () async {
                 if (isPermanentlyDenied && !kIsWeb) {
                   await _location.requestService();
                 }
                 await _checkAndRequestLocationPermission();
               },
-              label: Text(isPermanentlyDenied
-                  ? 'Abrir configuracion'
-                  : 'Conceder Permiso'),
+              label: Text(isPermanentlyDenied ? 'Abrir configuracion' : 'Conceder Permiso'),
             ),
           ],
         ),
@@ -501,11 +525,11 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   Widget _buildTopInfoBar() {
     final bool hasError = _errorMessage != null;
     final String message = _errorMessage ?? _infoMessage ?? 'Cargando mapa...';
-    final Color bgColor = hasError
-        ? Colors.red.shade400
-        : Colors.black.withAlpha(153); // ~0.6 opacity
-    final IconData icon =
-        hasError ? Icons.warning_amber_rounded : Icons.info_outline_rounded;
+    final Color bgColor =
+        hasError ? Colors.red.shade400 : Colors.black.withAlpha(153); // ~0.6 opacity
+    final IconData icon = hasError
+        ? Icons.warning_amber_rounded
+        : Icons.info_outline_rounded;
 
     return Positioned(
       top: 0,
@@ -517,34 +541,48 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8)
               .copyWith(top: MediaQuery.of(context).viewPadding.top + 8),
           decoration: BoxDecoration(
-              gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
                 Colors.black.withAlpha(128),
-                Colors.transparent
-              ])), // 0.5 opacity
+                Colors.transparent,
+              ],
+            ),
+          ),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-                color: bgColor,
-                borderRadius: BorderRadius.circular(10),
-                boxShadow: [
-                  BoxShadow(
-                      color: Colors.black26,
-                      blurRadius: 5,
-                      offset: Offset(0, 2))
-                ]),
-            child: Row(children: [
-              Icon(icon, color: Colors.white, size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                  child: Text(message,
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13))),
-            ]),
+              color: bgColor,
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: const [
+                BoxShadow(color: Colors.black26, blurRadius: 5, offset: Offset(0, 2)),
+              ],
+            ),
+            child: Row(
+              children: [
+                Icon(icon, color: Colors.white, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    message,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+                if (hasError || message.contains('Sin repartidores') || message.contains('Actualizando'))
+                  TextButton(
+                    onPressed: _refreshMarkers,
+                    child: const Text(
+                      'Reintentar',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),

@@ -234,56 +234,29 @@ class ApiDataSource implements DataSource {
 
   @override
   Future<List<ProductoRankeado>> getRecomendaciones() async {
-    final data = await _get('/recomendaciones');
-    final Map<int, _ProductoRating> acumulados = {};
-
-    for (final item in data.cast<Map<String, dynamic>>()) {
-      final idProducto = _asInt(item['id_producto']);
-      if (idProducto == 0) continue;
-
-      final nombre = (item['producto'] ?? item['nombre'] ?? 'Producto').toString();
-      final rating = _asDouble(item['rating'] ?? item['puntuacion']);
-
-      final acumulado = acumulados.putIfAbsent(idProducto, () => _ProductoRating(nombre));
-      acumulado.add(rating);
+    try {
+      final data = await _get('/recomendaciones/destacadas');
+      return data
+          .cast<Map<String, dynamic>>()
+          .map((item) => ProductoRankeado.fromMap(item))
+          .where((producto) => producto.idProducto > 0)
+          .toList();
+    } on ApiException catch (e) {
+      if (e.statusCode != null && e.statusCode! >= 500) rethrow;
+      debugPrint(
+          '[ApiDataSource] Recomendaciones destacadas no disponibles (${e.statusCode ?? '-'}): ${e.message}');
+      return const <ProductoRankeado>[];
     }
-
-    final recomendados = acumulados.entries
-        .map((entry) => ProductoRankeado(
-              idProducto: entry.key,
-              nombre: entry.value.nombre,
-              ratingPromedio: entry.value.promedio,
-              totalReviews: entry.value.cantidad,
-            ))
-        .toList();
-
-    recomendados.sort((a, b) {
-      final ratingDiff = b.ratingPromedio.compareTo(a.ratingPromedio);
-      if (ratingDiff != 0) return ratingDiff;
-      return b.totalReviews.compareTo(a.totalReviews);
-    });
-
-    return recomendados;
   }
 
   @override
   Future<RecomendacionesProducto> getRecomendacionesPorProducto(int idProducto) async {
-    final data = await _get('/recomendaciones');
-    final List<Recomendacion> resenas = [];
-    double suma = 0;
-
-    for (final item in data.cast<Map<String, dynamic>>()) {
-      if (_asInt(item['id_producto']) != idProducto) continue;
-
-      final recomendacion = Recomendacion.fromMap(item);
-      resenas.add(recomendacion);
-      suma += recomendacion.puntuacion.toDouble();
-    }
-
-    final promedio = resenas.isEmpty ? 0.0 : suma / resenas.length;
-    final resumen = RecomendacionResumen(ratingPromedio: promedio, totalResenas: resenas.length);
-
-    return RecomendacionesProducto(resumen: resumen, recomendaciones: resenas);
+    final response = await _getMap('/productos/$idProducto/recomendaciones');
+    final raw = response['data'];
+    final data = raw is Map<String, dynamic>
+        ? raw
+        : (raw is Map ? raw.cast<String, dynamic>() : const <String, dynamic>{});
+    return RecomendacionesProducto.fromMap(data);
   }
 
   @override
@@ -335,7 +308,8 @@ class ApiDataSource implements DataSource {
   @override
   Future<PedidoDetalle?> getPedidoDetalle(int idPedido) async {
     final data = await _getMap('/pedidos/$idPedido');
-    final pedidoData = data['data'] as Map<String, dynamic>?;
+    // Try to get from 'data' key, otherwise assume the map itself is the pedido data
+    final pedidoData = data['data'] as Map<String, dynamic>? ?? data;
     return pedidoData != null ? PedidoDetalle.fromMap(pedidoData) : null;
   }
 
@@ -506,21 +480,4 @@ class ApiDataSource implements DataSource {
     });
     return response['success'] ?? false;
   }
-}
-
-
-class _ProductoRating {
-  _ProductoRating(this.nombre);
-
-  final String nombre;
-  double _acumulado = 0;
-  int _cantidad = 0;
-
-  void add(double rating) {
-    _acumulado += rating;
-    _cantidad++;
-  }
-
-  double get promedio => _cantidad == 0 ? 0.0 : _acumulado / _cantidad;
-  int get cantidad => _cantidad;
 }

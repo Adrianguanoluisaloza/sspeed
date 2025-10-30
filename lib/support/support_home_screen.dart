@@ -42,6 +42,17 @@ class _SupportHomeScreenState extends State<SupportHomeScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Centro de soporte'),
+        actions: [
+          IconButton(
+            tooltip: 'Cerrar sesion',
+            icon: const Icon(Icons.logout),
+            onPressed: () {
+              context.read<DatabaseService>().setAuthToken(null);
+              Navigator.of(context)
+                  .pushNamedAndRemoveUntil('/login', (route) => false);
+            },
+          ),
+        ],
       ),
       body: RefreshIndicator(
         onRefresh: _handleRefresh,

@@ -61,10 +61,10 @@ public class RecomendacionController {
         }
     }
 
-    public ApiResponse<List<Map<String, Object>>> listarRecomendacionesPrincipales() {
+    public ApiResponse<List<Map<String, Object>>> listarRecomendacionesDestacadas() {
         try {
-            List<Map<String, Object>> recomendaciones = recomendacionRepository.listarPrincipales();
-            return ApiResponse.success(200, "Recomendaciones principales obtenidas", recomendaciones);
+            List<Map<String, Object>> recomendaciones = recomendacionRepository.listarDestacadas();
+            return ApiResponse.success(200, "Recomendaciones destacadas obtenidas", recomendaciones);
         } catch (SQLException e) {
             throw new ApiException(500, "Error al listar recomendaciones", e);
         }

@@ -5,6 +5,12 @@
 
 BEGIN;
 
+-- Vistas y funciones dependientes
+DROP VIEW IF EXISTS vw_admin_producto_top CASCADE;
+DROP VIEW IF EXISTS vw_admin_resumen_diario CASCADE;
+DROP VIEW IF EXISTS vw_delivery_stats CASCADE;
+DROP FUNCTION IF EXISTS fn_admin_dashboard() CASCADE;
+
 -- Drop existing schema (safe order via CASCADE)
 DROP TABLE IF EXISTS chat_mensajes CASCADE;
 DROP TABLE IF EXISTS chat_conversaciones CASCADE;
@@ -56,7 +62,6 @@ CREATE TABLE productos (
   proveedor        VARCHAR(100),
   id_negocio       INT REFERENCES negocios(id_negocio)
 );
-CREATE INDEX IF NOT EXISTS idx_productos_id_negocio ON productos(id_negocio);
 
 -- Recomendaciones
 CREATE TABLE recomendaciones (
@@ -77,7 +82,8 @@ CREATE TABLE ubicaciones (
   longitud         DOUBLE PRECISION NOT NULL,
   direccion        TEXT NOT NULL,
   descripcion      TEXT,
-  activa           BOOLEAN NOT NULL DEFAULT TRUE
+  activa           BOOLEAN NOT NULL DEFAULT TRUE,
+  fecha_registro   TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 -- Pedidos
@@ -90,7 +96,10 @@ CREATE TABLE pedidos (
   total            NUMERIC(10,2) NOT NULL DEFAULT 0,
   metodo_pago      VARCHAR(30) NOT NULL DEFAULT 'efectivo',
   direccion_entrega TEXT,
-  fecha_pedido     TIMESTAMP NOT NULL DEFAULT NOW()
+  fecha_pedido     TIMESTAMP NOT NULL DEFAULT NOW(),
+  fecha_entrega    TIMESTAMP NULL,
+  notas            TEXT,
+  coordenadas_entrega TEXT
 );
 
 -- Detalle Pedido
@@ -159,6 +168,21 @@ INSERT INTO productos (nombre, descripcion, categoria, precio, imagen_url, dispo
   ('Empanadas de Queso','Paquete de 3 unidades','Comida', 3.00, NULL, TRUE, 'Negocio XYZ', (SELECT id_negocio FROM n))
 ON CONFLICT DO NOTHING;
 
+-- Seeds: Recomendaciones iniciales para popular 'destacadas'
+WITH 
+  u_maria AS (SELECT id_usuario AS id FROM usuarios WHERE correo='maria@example.com'),
+  u_carlos AS (SELECT id_usuario AS id FROM usuarios WHERE correo='carlos@example.com'),
+  pr_hamb AS (SELECT id_producto AS id FROM productos WHERE nombre='Hamburguesa Clasica' LIMIT 1),
+  pr_pizza AS (SELECT id_producto AS id FROM productos WHERE nombre='Pizza Margarita' LIMIT 1),
+  pr_papas AS (SELECT id_producto AS id FROM productos WHERE nombre='Papas Fritas' LIMIT 1)
+INSERT INTO recomendaciones (id_producto, id_usuario, puntuacion, comentario)
+VALUES
+  ((SELECT id FROM pr_hamb), (SELECT id FROM u_maria), 5, 'Muy buena, la recomiendo!'),
+  ((SELECT id FROM pr_pizza), (SELECT id FROM u_maria), 4, 'Sabrosa y fresca.'),
+  ((SELECT id FROM pr_papas), (SELECT id FROM u_carlos), 5, 'Crocantes y perfectas para acompanar.'),
+  ((SELECT id FROM pr_hamb), (SELECT id FROM u_carlos), 4, 'Rapida entrega y buen sabor.')
+ON CONFLICT DO NOTHING;
+
 -- Seeds: Ubicaciones para cliente y delivery
 WITH c AS (SELECT id_usuario FROM usuarios WHERE correo='maria@example.com'),
      d AS (SELECT id_usuario FROM usuarios WHERE correo='carlos@example.com')
@@ -190,8 +214,8 @@ WITH c AS (SELECT id_usuario FROM usuarios WHERE correo='maria@example.com'),
        RETURNING id_ubicacion
      ),
      p AS (
-       INSERT INTO pedidos (id_cliente, id_delivery, id_ubicacion, estado, total, metodo_pago, direccion_entrega)
-       SELECT (SELECT id_usuario FROM c), (SELECT id_usuario FROM d), (SELECT id_ubicacion FROM u), 'en camino', 12.00, 'tarjeta', 'Av. Quito 999'
+       INSERT INTO pedidos (id_cliente, id_delivery, id_ubicacion, estado, total, metodo_pago, direccion_entrega, fecha_entrega)
+       SELECT (SELECT id_usuario FROM c), (SELECT id_usuario FROM d), (SELECT id_ubicacion FROM u), 'en camino', 12.00, 'tarjeta', 'Av. Quito 999', NOW()
        RETURNING id_pedido
      )
 INSERT INTO detalle_pedidos (id_pedido, id_producto, cantidad, precio_unitario, subtotal)
@@ -208,5 +232,107 @@ CREATE INDEX IF NOT EXISTS idx_pedidos_cliente ON pedidos(id_cliente);
 CREATE INDEX IF NOT EXISTS idx_pedidos_delivery ON pedidos(id_delivery);
 CREATE INDEX IF NOT EXISTS idx_pedidos_estado ON pedidos(estado);
 CREATE INDEX IF NOT EXISTS idx_ubicaciones_usuario ON ubicaciones(id_usuario);
+CREATE INDEX IF NOT EXISTS idx_ubicaciones_usuario_fecha ON ubicaciones(id_usuario, fecha_registro DESC);
+CREATE INDEX IF NOT EXISTS idx_productos_id_negocio ON productos(id_negocio);
+CREATE INDEX IF NOT EXISTS idx_detalle_pedidos_pedido ON detalle_pedidos(id_pedido);
+CREATE INDEX IF NOT EXISTS idx_chat_conversaciones_delivery ON chat_conversaciones(id_delivery, fecha_creacion DESC);
+CREATE INDEX IF NOT EXISTS idx_chat_conversaciones_soporte ON chat_conversaciones(id_admin_soporte, fecha_creacion DESC);
+
+-- Vistas para dashboards y métricas
+CREATE OR REPLACE VIEW vw_delivery_stats AS
+SELECT
+    u.id_usuario                           AS id_delivery,
+    u.nombre                               AS nombre_delivery,
+    COUNT(*) FILTER (
+        WHERE p.estado = 'entregado'
+          AND p.fecha_entrega::date = CURRENT_DATE
+    )::INT                                 AS pedidos_completados_hoy,
+    COALESCE(SUM(p.total) FILTER (
+        WHERE p.estado = 'entregado'
+          AND p.fecha_entrega::date = CURRENT_DATE
+    ), 0)::NUMERIC(12,2)                   AS total_generado_hoy,
+    AVG(EXTRACT(EPOCH FROM (p.fecha_entrega - p.fecha_pedido))/60.0) FILTER (
+        WHERE p.estado = 'entregado'
+          AND p.fecha_entrega IS NOT NULL
+          AND p.fecha_pedido IS NOT NULL
+    )                                      AS tiempo_promedio_min
+FROM usuarios u
+LEFT JOIN pedidos p ON p.id_delivery = u.id_usuario
+WHERE u.rol IN ('repartidor','delivery')
+GROUP BY u.id_usuario, u.nombre;
+
+CREATE OR REPLACE VIEW vw_admin_resumen_diario AS
+SELECT
+    CURRENT_DATE                                                   AS fecha_reporte,
+    COALESCE(SUM(p.total) FILTER (WHERE p.fecha_pedido::date = CURRENT_DATE), 0)::NUMERIC(12,2) AS ventas_hoy,
+    COALESCE(SUM(p.total), 0)::NUMERIC(12,2)                       AS ventas_totales,
+    COUNT(*) FILTER (WHERE p.estado = 'pendiente')::INT            AS pedidos_pendientes,
+    COUNT(*) FILTER (WHERE p.estado = 'entregado')::INT            AS pedidos_entregados,
+    COUNT(*) FILTER (WHERE p.fecha_pedido::date = CURRENT_DATE)::INT AS pedidos_hoy
+FROM pedidos p;
+
+CREATE OR REPLACE VIEW vw_admin_producto_top AS
+SELECT id_producto, nombre, total_vendido
+FROM (
+    SELECT
+        p.id_producto,
+        p.nombre,
+        COALESCE(SUM(dp.cantidad), 0)::INT AS total_vendido,
+        ROW_NUMBER() OVER (ORDER BY COALESCE(SUM(dp.cantidad),0) DESC, p.nombre) AS rn
+    FROM productos p
+    LEFT JOIN detalle_pedidos dp ON dp.id_producto = p.id_producto
+    GROUP BY p.id_producto, p.nombre
+) t
+WHERE rn = 1;
+
+CREATE OR REPLACE FUNCTION fn_admin_dashboard()
+RETURNS TABLE (
+    ventas_hoy NUMERIC,
+    ventas_totales NUMERIC,
+    pedidos_pendientes INT,
+    pedidos_entregados INT,
+    nuevos_clientes INT,
+    producto_mas_vendido TEXT,
+    producto_mas_vendido_cantidad INT
+)
+LANGUAGE sql
+AS $$
+    WITH ventas AS (
+        SELECT
+            COALESCE(SUM(total) FILTER (WHERE fecha_pedido::date = CURRENT_DATE), 0)::NUMERIC(12,2) AS ventas_hoy,
+            COALESCE(SUM(total), 0)::NUMERIC(12,2) AS ventas_totales
+        FROM pedidos
+    ), pedidos_cte AS (
+        SELECT
+            COUNT(*) FILTER (WHERE estado = 'pendiente')::INT AS pedidos_pendientes,
+            COUNT(*) FILTER (WHERE estado = 'entregado')::INT AS pedidos_entregados
+        FROM pedidos
+    ), usuarios_cte AS (
+        SELECT
+            COUNT(*) FILTER (WHERE fecha_registro::date = CURRENT_DATE)::INT AS nuevos_clientes
+        FROM usuarios
+    ), top_producto AS (
+        SELECT
+            COALESCE(p.nombre, 'N/D') AS producto_mas_vendido,
+            COALESCE(SUM(dp.cantidad), 0)::INT AS producto_mas_vendido_cantidad
+        FROM productos p
+        LEFT JOIN detalle_pedidos dp ON dp.id_producto = p.id_producto
+        GROUP BY p.id_producto, p.nombre
+        ORDER BY SUM(dp.cantidad) DESC NULLS LAST, p.nombre
+        LIMIT 1
+    )
+    SELECT
+        v.ventas_hoy,
+        v.ventas_totales,
+        p.pedidos_pendientes,
+        p.pedidos_entregados,
+        u.nuevos_clientes,
+        COALESCE(tp.producto_mas_vendido, 'N/D') AS producto_mas_vendido,
+        COALESCE(tp.producto_mas_vendido_cantidad, 0) AS producto_mas_vendido_cantidad
+    FROM ventas v
+    CROSS JOIN pedidos_cte p
+    CROSS JOIN usuarios_cte u
+    LEFT JOIN top_producto tp ON TRUE;
+$$;
 
 COMMIT;

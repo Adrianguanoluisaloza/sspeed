@@ -1,0 +1,23 @@
+*** Begin Patch
+*** Update File: lib/support/support_home_screen.dart
+@@
+-    return Scaffold(
+-      appBar: AppBar(
+-        title: const Text('Centro de soporte'),
+-      ),
++    return Scaffold(
++      appBar: AppBar(
++        title: const Text('Centro de soporte'),
++        actions: [
++          IconButton(
++            tooltip: 'Cerrar sesion',
++            icon: const Icon(Icons.logout),
++            onPressed: () {
++              // Limpia el token y vuelve a login
++              context.read<DatabaseService>().setAuthToken(null);
++              Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
++            },
++          ),
++        ],
++      ),
+*** End Patch

@@ -8,6 +8,7 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Map;
 
 import com.google.gson.Gson;
@@ -73,31 +74,55 @@ public class GeminiService {
         }
     }
 
+    /**
+     * Parsea el cuerpo de la respuesta JSON de la API de Gemini de forma segura
+     * utilizando clases POJO para evitar ClassCastException.
+     *
+     * @param jsonBody El string JSON de la respuesta.
+     * @return El texto de la respuesta del bot, o un mensaje de error si no se
+     *         puede parsear.
+     */
     private String parseResponse(String jsonBody) {
         try {
-            Map<?, ?> responseMap = gson.fromJson(jsonBody, Map.class);
-            Object candidatesObj = responseMap.get("candidates");
-            if (candidatesObj instanceof List<?> candidates && !candidates.isEmpty()) {
-                Object firstCandidateObj = candidates.get(0);
-                if (firstCandidateObj instanceof Map<?, ?> firstCandidate) {
-                    Object contentObj = firstCandidate.get("content");
-                    if (contentObj instanceof Map<?, ?> content) {
-                        Object partsObj = content.get("parts");
-                        if (partsObj instanceof List<?> parts && !parts.isEmpty()) {
-                            Object firstPartObj = parts.get(0);
-                            if (firstPartObj instanceof Map<?, ?> firstPart) {
-                                Object textObj = firstPart.get("text");
-                                if (textObj instanceof String text) {
-                                    return text;
-                                }
-                            }
-                        }
+            GeminiResponse response = gson.fromJson(jsonBody, GeminiResponse.class);
+
+            if (response != null && response.candidates != null && !response.candidates.isEmpty()) {
+                Candidate firstCandidate = response.candidates.get(0);
+                if (firstCandidate != null && firstCandidate.content != null && firstCandidate.content.parts != null
+                        && !firstCandidate.content.parts.isEmpty()) {
+                    Part firstPart = firstCandidate.content.parts.get(0);
+                    if (firstPart != null && firstPart.text != null) {
+                        return firstPart.text;
                     }
                 }
             }
-        } catch (IllegalStateException e) {
+        } catch (Exception e) { // Captura JsonSyntaxException y otras posibles excepciones
             System.err.println("Error al parsear la respuesta de Gemini: " + e.getMessage());
         }
         return "No entendí la respuesta. ¿Podrías preguntar de otra forma?";
+    }
+
+    // --- Clases POJO para parsear la respuesta de Gemini ---
+    // Usamos clases internas estáticas porque solo son relevantes para este
+    // servicio.
+
+    @SuppressWarnings("unused") // Los campos son usados por Gson vía reflexión
+    private static class GeminiResponse {
+        List<Candidate> candidates;
+    }
+
+    @SuppressWarnings("unused")
+    private static class Candidate {
+        Content content;
+    }
+
+    @SuppressWarnings("unused")
+    private static class Content {
+        List<Part> parts;
+    }
+
+    @SuppressWarnings("unused")
+    private static class Part {
+        String text;
     }
 }

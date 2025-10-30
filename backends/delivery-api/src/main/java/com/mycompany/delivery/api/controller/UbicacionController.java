@@ -123,7 +123,10 @@ public class UbicacionController {
             if (ubicacion == null || ubicacion.isEmpty()) {
                 throw new ApiException(404, "No se encontró la ubicación de seguimiento para este pedido.");
             }
-            return ApiResponse.success(200, "Ubicación en vivo", Map.of("data", ubicacion));
+            java.util.Map<String, Object> out = new java.util.HashMap<>();
+            out.put("latitud", ubicacion.get("latitud"));
+            out.put("longitud", ubicacion.get("longitud"));
+            return ApiResponse.success(200, "Ubicacion en vivo", out);
         } catch (SQLException e) {
             throw new ApiException(500, "Error al obtener tracking", e);
         }

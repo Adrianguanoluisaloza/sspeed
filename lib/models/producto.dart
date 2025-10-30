@@ -103,12 +103,24 @@ class ProductoRankeado {
   final String nombre;
   final double ratingPromedio;
   final int totalReviews;
+  final double? precio;
+  final String? descripcion;
+  final String? imagenUrl;
+  final String? negocio;
+  final String? comentarioReciente;
+  final DateTime? ultimaResena;
 
   const ProductoRankeado({
     required this.idProducto,
     required this.nombre,
     required this.ratingPromedio,
     required this.totalReviews,
+    this.precio,
+    this.descripcion,
+    this.imagenUrl,
+    this.negocio,
+    this.comentarioReciente,
+    this.ultimaResena,
   });
 
   factory ProductoRankeado.fromMap(Map<String, dynamic> map) {
@@ -124,10 +136,37 @@ class ProductoRankeado {
       return null;
     }
 
+    DateTime? readDate(List<String> keys) {
+      for (final key in keys) {
+        final value = map[key];
+        if (value is DateTime) return value;
+        if (value is String) {
+          final parsed = DateTime.tryParse(value);
+          if (parsed != null) return parsed;
+        }
+      }
+      return null;
+    }
+
+    String? readString(List<String> keys) {
+      for (final key in keys) {
+        final value = map[key];
+        if (value != null) {
+          final text = value.toString();
+          if (text.isNotEmpty) return text;
+        }
+      }
+      return null;
+    }
+
+    double? parsePrecio() {
+      final num? raw = readNumeric(['precio', 'price']);
+      return raw?.toDouble();
+    }
+
     return ProductoRankeado(
       idProducto: (readNumeric(['id_producto', 'idProducto']) ?? 0).toInt(),
-      nombre: (map['nombre'] ?? map['producto'])?.toString() ??
-          'Producto Desconocido',
+      nombre: readString(['nombre', 'producto']) ?? 'Producto',
       ratingPromedio: (readNumeric([
                 'rating_promedio',
                 'ratingPromedio',
@@ -146,6 +185,18 @@ class ProductoRankeado {
               ]) ??
               0)
           .toInt(),
+      precio: parsePrecio(),
+      descripcion: readString(['descripcion', 'description']),
+      imagenUrl: readString(['imagen_url', 'imagenUrl', 'imageUrl']),
+      negocio: readString(['negocio', 'business']),
+      comentarioReciente: readString(['comentario_reciente', 'comentarioReciente', 'latest_comment']),
+      ultimaResena: readDate(['ultima_resena', 'ultimaResena', 'last_review']),
     );
   }
+
+  bool get tieneComentario =>
+      comentarioReciente != null && comentarioReciente!.trim().isNotEmpty;
+
+  String get precioFormateado =>
+      precio != null ? '\$${precio!.toStringAsFixed(2)}' : '';
 }

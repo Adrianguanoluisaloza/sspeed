@@ -155,7 +155,16 @@ public class UbicacionRepository {
         u.setDescripcion(rs.getString("descripcion"));
         u.setDireccion(rs.getString("direccion"));
         u.setActiva(rs.getBoolean("activa"));
-        u.setFechaRegistro(rs.getTimestamp("fecha_registro"));
+        try {
+            java.sql.ResultSetMetaData md = rs.getMetaData();
+            boolean hasFecha = false;
+            for (int i = 1; i <= md.getColumnCount(); i++) {
+                if ("fecha_registro".equalsIgnoreCase(md.getColumnName(i))) { hasFecha = true; break; }
+            }
+            if (hasFecha) {
+                u.setFechaRegistro(rs.getTimestamp("fecha_registro"));
+            }
+        } catch (SQLException ignored) {}
         return u;
     }
 }

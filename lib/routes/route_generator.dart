@@ -16,6 +16,8 @@ import '../screen/tracking_simulation_screen.dart';
 import '../screen/checkout_screen.dart';
 import '../screen/order_success_screen.dart';
 import '../support/support_home_screen.dart';
+import '../screen/product_detail_screen.dart';
+import '../models/producto.dart';
 import 'app_routes.dart';
 
 class RouteGenerator {
@@ -104,6 +106,12 @@ class RouteGenerator {
         final usuario = settings.arguments;
         if (usuario is Usuario) {
           return _slideUp(settings, OrderHistoryScreen(usuario: usuario));
+        }
+        return _redirectToLogin(settings);
+      case AppRoutes.productDetail:
+        final args = settings.arguments;
+        if (args is Map<String, dynamic> && args['producto'] is Producto && args['usuario'] is Usuario) {
+          return _slideUp(settings, ProductDetailScreen(producto: args['producto'] as Producto, usuario: args['usuario'] as Usuario));
         }
         return _redirectToLogin(settings);
       default:

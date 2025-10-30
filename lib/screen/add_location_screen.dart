@@ -3,6 +3,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:location/location.dart';
 import 'package:provider/provider.dart';
 
@@ -11,7 +12,8 @@ import '../models/ubicacion.dart';
 import '../services/database_service.dart';
 
 class AddLocationScreen extends StatefulWidget {
-  const AddLocationScreen({super.key});
+  final Ubicacion? initial;
+  const AddLocationScreen({super.key, this.initial});
 
   @override
   State<AddLocationScreen> createState() => _AddLocationScreenState();
@@ -22,19 +24,48 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
   final Location _locationService = Location();
   final _addressController = TextEditingController();
   final _descriptionController = TextEditingController();
+  final _searchController = TextEditingController(); // New controller for search
 
   LatLng? _currentLatLng;
   bool _isLoading = true;
   String? _errorMessage;
+  Timer? _debounce; // For debouncing map camera movements
 
   @override
   void initState() {
     super.initState();
-    _initLocation();
+    if (widget.initial != null) {
+      _currentLatLng = LatLng(
+        widget.initial!.latitud ?? 0.988,
+        widget.initial!.longitud ?? -79.652,
+      );
+      _addressController.text = widget.initial!.direccion ?? "";
+      _descriptionController.text = widget.initial!.descripcion ?? "";
+      _searchController.text = widget.initial!.direccion ?? ""; // Initialize search with initial address
+      _isLoading = false;
+    } else {
+      _initLocation();
+    }
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _addressController.dispose();
+    _descriptionController.dispose();
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _initLocation() async {
     try {
+      if (kIsWeb) {
+        setState(() {
+          _currentLatLng = const LatLng(0.988, -79.652);
+          _isLoading = false;
+        });
+        return;
+      }
       final serviceEnabled = await _locationService.serviceEnabled();
       if (!serviceEnabled) {
         if (!await _locationService.requestService()) {
@@ -55,6 +86,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
         _currentLatLng = LatLng(locationData.latitude!, locationData.longitude!);
         _isLoading = false;
       });
+      _reverseGeocodeCurrentLocation(); // Get initial address
     } catch (e) {
       setState(() {
         _errorMessage = e.toString();
@@ -62,6 +94,61 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
         _currentLatLng = const LatLng(0.988, -79.652); // Fallback to Esmeraldas
       });
     }
+  }
+
+  Future<void> _searchAddress() async {
+    final query = _searchController.text.trim();
+    if (query.isEmpty) return;
+
+    setState(() { _isLoading = true; });
+    try {
+      final dbService = context.read<DatabaseService>();
+      final result = await dbService.geocodificarDireccion(query);
+
+      if (result != null && result['latitud'] != null && result['longitud'] != null) {
+        final newLatLng = LatLng(result['latitud'], result['longitud']);
+        setState(() {
+          _currentLatLng = newLatLng;
+          _addressController.text = result['direccion'] ?? query;
+          _isLoading = false;
+        });
+        final controller = await _mapController.future;
+        await controller.animateCamera(CameraUpdate.newLatLng(newLatLng));
+      } else {
+        setState(() {
+          _errorMessage = 'No se encontraron resultados para la dirección.';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Error al buscar dirección: $e';
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _reverseGeocodeCurrentLocation() async {
+    if (_currentLatLng == null) return;
+    final dbService = context.read<DatabaseService>();
+    try {
+      // This is a placeholder. Actual reverse geocoding would need a backend endpoint
+      // or a client-side library. For now, we'll just update the address controller
+      // with a generic message or leave it as is if it was manually entered.
+      // If the backend has a reverse geocoding endpoint, it would be called here.
+      // Example: final result = await dbService.reverseGeocodificar(lat: _currentLatLng!.latitude, lon: _currentLatLng!.longitude);
+      // _addressController.text = result['address'];
+    } catch (e) {
+      debugPrint('Error during reverse geocoding: $e');
+    }
+  }
+
+  void _onCameraMove(CameraPosition position) {
+    _currentLatLng = position.target;
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), () {
+      _reverseGeocodeCurrentLocation();
+    });
   }
 
   Future<void> _saveLocation() async {
@@ -80,6 +167,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
     );
 
     try {
+      if (widget.initial?.id != null) { try { await dbService.deleteUbicacion(widget.initial!.id!); } catch (_) {} }
       await dbService.guardarUbicacion(newLocation);
       if (!mounted) return;
       Navigator.of(context).pop(true); // Devuelve true para indicar éxito
@@ -95,7 +183,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Añadir Nueva Ubicación'),
+        title: Text(widget.initial == null ? 'Añadir Ubicación' : 'Editar Ubicación'),
         actions: [
           IconButton(
             icon: const Icon(Icons.save),
@@ -117,17 +205,37 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
                       onMapCreated: (controller) {
                         _mapController.complete(controller);
                       },
-                      onCameraMove: (position) {
-                        _currentLatLng = position.target;
-                      },
-                      myLocationEnabled: true,
-                      myLocationButtonEnabled: true,
+                      onCameraMove: _onCameraMove, // Use the new onCameraMove
+                      myLocationEnabled: !kIsWeb,
+                      myLocationButtonEnabled: !kIsWeb,
                     ),
                     const Center(
                       child: Icon(
                         Icons.location_pin,
                         color: Colors.red,
                         size: 50,
+                      ),
+                    ),
+                    Positioned(
+                      top: 10,
+                      left: 10,
+                      right: 10,
+                      child: Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: TextField(
+                            controller: _searchController,
+                            decoration: InputDecoration(
+                              labelText: 'Buscar dirección',
+                              suffixIcon: IconButton(
+                                icon: const Icon(Icons.search),
+                                onPressed: _searchAddress,
+                              ),
+                              border: const OutlineInputBorder(),
+                            ),
+                            onSubmitted: (_) => _searchAddress(),
+                          ),
+                        ),
                       ),
                     ),
                     Positioned(

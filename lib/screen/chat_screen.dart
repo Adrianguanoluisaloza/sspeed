@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
 import '../models/usuario.dart';
+import '../routes/app_routes.dart';
 
 enum ChatSection {
   cliente,
@@ -302,11 +303,42 @@ class _ChatScreenState extends State<ChatScreen> {
       appBar: AppBar(
         title: Text(_getAppBarTitle()),
         backgroundColor: Colors.blueGrey[900],
+        actions: [
+          if (_detectBotFallback(_messages) && widget.initialSection == ChatSection.ciaBot)
+            IconButton(
+              tooltip: 'Hablar con Soporte',
+              icon: const Icon(Icons.support_agent),
+              onPressed: () {
+                Navigator.of(context).pushNamed(
+                  AppRoutes.supportHome,
+                  arguments: widget.currentUser,
+                );
+              },
+            ),
+        ],
       ),
       body: Container(
         color: Colors.blueGrey[50],
         child: Column(
           children: [
+            if (_detectBotFallback(_messages))
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                color: Colors.amber.shade100,
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline, color: Colors.orange),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'El asistente no esta disponible ahora. Puedes intentar nuevamente o escribir a Soporte.',
+                        style: TextStyle(fontSize: 13),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             Expanded(
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
@@ -319,6 +351,21 @@ class _ChatScreenState extends State<ChatScreen> {
                       },
                     ),
             ),
+            if (_isSending && widget.initialSection == ChatSection.ciaBot)
+              Padding(
+                padding: const EdgeInsets.only(left: 16, right: 16, bottom: 6),
+                child: Row(
+                  children: const [
+                    SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    SizedBox(width: 8),
+                    Text('CIA Bot está escribiendo...', style: TextStyle(fontSize: 12, color: Colors.black54)),
+                  ],
+                ),
+              ),
             if (_error != null)
               Container(
                 padding: const EdgeInsets.all(8),

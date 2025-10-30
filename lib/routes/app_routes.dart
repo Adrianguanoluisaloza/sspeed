@@ -12,6 +12,7 @@ class AppRoutes {
   static const editProfile = '/profile/edit';
   static const trackingSimulation = '/tracking/simulation';
   static const checkout = '/checkout';
-  static const checkoutAddress = '/checkout/address'; // RUTA AÑADIDA
+  static const checkoutAddress = '/checkout/address';
   static const orderSuccess = '/order_success';
+  static const productDetail = '/products/detail';
 }

@@ -5,10 +5,9 @@ import 'package:shimmer/shimmer.dart';
 
 import '../models/producto.dart';
 import '../models/usuario.dart';
-import '../services/database_service.dart';
 import '../screen/product_detail_screen.dart';
+import '../services/database_service.dart';
 
-// CORRECCIÓN: El widget ahora requiere el usuario para la navegación
 class RecomendacionesCarousel extends StatelessWidget {
   final Usuario usuario;
   const RecomendacionesCarousel({super.key, required this.usuario});
@@ -30,15 +29,15 @@ class RecomendacionesCarousel extends StatelessWidget {
           itemCount: recomendaciones.length,
           itemBuilder: (context, index, realIndex) {
             final rec = recomendaciones[index];
-            // Se pasa el usuario a la tarjeta
             return RecommendationCard(productoRankeado: rec, usuario: usuario);
           },
           options: CarouselOptions(
-            height: 180,
+            height: 220,
             enlargeCenterPage: true,
+            enableInfiniteScroll: recomendaciones.length > 1,
             autoPlay: recomendaciones.length > 1,
             autoPlayInterval: const Duration(seconds: 6),
-            viewportFraction: 0.8,
+            viewportFraction: 0.78,
           ),
         );
       },
@@ -48,57 +47,183 @@ class RecomendacionesCarousel extends StatelessWidget {
 
 class RecommendationCard extends StatelessWidget {
   final ProductoRankeado productoRankeado;
-  final Usuario usuario; // Se recibe el usuario
-  const RecommendationCard({super.key, required this.productoRankeado, required this.usuario});
+  final Usuario usuario;
+  const RecommendationCard({
+    super.key,
+    required this.productoRankeado,
+    required this.usuario,
+  });
 
-  // CORRECCIÓN: Se implementa la lógica del botón
   Future<void> _navigateToProduct(BuildContext context) async {
     final dbService = context.read<DatabaseService>();
     final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
 
     try {
-      final fullProduct = await dbService.getProductoById(productoRankeado.idProducto);
-      
+      final fullProduct =
+          await dbService.getProductoById(productoRankeado.idProducto);
       if (!context.mounted) return;
 
       if (fullProduct != null) {
-        navigator.push(MaterialPageRoute(
-          builder: (context) => ProductDetailScreen(producto: fullProduct, usuario: usuario),
-        ));
+        navigator.push(
+          MaterialPageRoute(
+            builder: (context) =>
+                ProductDetailScreen(producto: fullProduct, usuario: usuario),
+          ),
+        );
       } else {
-        messenger.showSnackBar(const SnackBar(content: Text('Producto no encontrado.'), backgroundColor: Colors.orange));
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Producto no encontrado'),
+            backgroundColor: Colors.orange,
+          ),
+        );
       }
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Error al cargar el producto: $e'), backgroundColor: Colors.red));
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Error al cargar el producto: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final comentario = productoRankeado.comentarioReciente;
+
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(productoRankeado.nombre, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16), maxLines: 2, overflow: TextOverflow.ellipsis),
-            const Spacer(),
-            Row(
-              children: [
-                Icon(Icons.star, color: Colors.amber, size: 20),
-                const SizedBox(width: 4),
-                Text(productoRankeado.ratingPromedio.toStringAsFixed(1), style: const TextStyle(fontWeight: FontWeight.bold)),
-                Text(' (${productoRankeado.totalReviews} reseñas)', style: const TextStyle(color: Colors.grey, fontSize: 12)),
-              ],
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(onPressed: () => _navigateToProduct(context), child: const Text('Ver Producto')),
-            ),
-          ],
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => _navigateToProduct(context),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _RecommendationImage(url: productoRankeado.imagenUrl),
+              const SizedBox(height: 12),
+              if ((productoRankeado.negocio ?? '').isNotEmpty)
+                Text(
+                  productoRankeado.negocio!,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              Text(((productoRankeado.nombre.isNotEmpty ? productoRankeado.nombre : 'Producto')).trim(),
+                style: theme.textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w700),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 6),
+              if (productoRankeado.precio != null)
+                Text(
+                  productoRankeado.precioFormateado,
+                  style: theme.textTheme.titleSmall
+                      ?.copyWith(fontWeight: FontWeight.bold),
+                ),
+              if (productoRankeado.descripcion != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    productoRankeado.descripcion!,
+                    style: theme.textTheme.bodySmall,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  const Icon(Icons.star, color: Colors.amber, size: 20),
+                  const SizedBox(width: 4),
+                  Text(
+                    productoRankeado.ratingPromedio.toStringAsFixed(1),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    '${productoRankeado.totalReviews} resenas',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: theme.hintColor),
+                  ),
+                ],
+                ),
+              if (comentario != null && comentario.trim().isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    '"$comentario"',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontStyle: FontStyle.italic,
+                      color: theme.hintColor,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              const SizedBox(height: 12),
+              Row(children: [Expanded(child: FilledButton.icon(onPressed: () => _navigateToProduct(context), icon: const Icon(Icons.info_outline), label: const Text('Ver detalles'))), const SizedBox(width: 8), Expanded(child: OutlinedButton.icon(onPressed: () => _navigateToProduct(context), icon: const Icon(Icons.reviews_outlined, size: 18), label: const Text('Reseñas')))],)
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RecommendationImage extends StatelessWidget {
+  final String? url;
+  const _RecommendationImage({required this.url});
+
+  @override
+  Widget build(BuildContext context) {
+    final borderRadius = BorderRadius.circular(14);
+    if (url == null || url!.isEmpty) {
+      return Container(
+        height: 90,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          borderRadius: borderRadius,
+          gradient: LinearGradient(
+            colors: [
+              Theme.of(context).colorScheme.primary.withAlpha(38),
+              Theme.of(context).colorScheme.primary.withAlpha(13),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: const Icon(Icons.fastfood, size: 36, color: Colors.black54),
+      );
+    }
+
+    return ClipRRect(
+      borderRadius: borderRadius,
+      child: Image.network(
+        url!,
+        height: 90,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => Container(
+          height: 90,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            borderRadius: borderRadius,
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          ),
+          child: const Icon(Icons.fastfood, size: 36, color: Colors.black54),
         ),
       ),
     );
@@ -113,12 +238,19 @@ class RecommendationsLoading extends StatelessWidget {
       baseColor: Colors.grey.shade300,
       highlightColor: Colors.grey.shade100,
       child: SizedBox(
-        height: 180,
+        height: 220,
         child: ListView.builder(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           itemCount: 3,
-          itemBuilder: (c, i) => const SizedBox(width: 280, child: Card()),
+          itemBuilder: (context, index) => Container(
+            width: 260,
+            margin: const EdgeInsets.only(right: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+            ),
+          ),
         ),
       ),
     );
