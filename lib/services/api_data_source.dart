@@ -418,7 +418,7 @@ class ApiDataSource implements DataSource {
 
   @override
   Future<bool> updateRepartidorLocation(int idRepartidor, double lat, double lon) async {
-    final response = await _put('/delivery/$idRepartidor/ubicacion', {'latitud': lat, 'longitud': lon});
+    final response = await _put('/ubicaciones/repartidor/$idRepartidor', {'latitud': lat, 'longitud': lon});
     return response['success'] ?? false;
   }
 

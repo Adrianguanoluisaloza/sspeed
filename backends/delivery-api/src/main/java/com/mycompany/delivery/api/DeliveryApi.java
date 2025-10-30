@@ -338,6 +338,77 @@ public class DeliveryApi {
         });
 
         // --- CHAT BOT ---
+        // Conversaciones del usuario
+        app.get("/chat/conversaciones/{idUsuario}", ctx -> {
+            var idUsuario = parseId(ctx.pathParam("idUsuario"));
+            var conversaciones = CHAT_REPOSITORY.listarConversacionesPorUsuario(idUsuario);
+            handleResponse(ctx, ApiResponse.success(200, "Conversaciones", conversaciones));
+        });
+
+        // Iniciar una conversacion (pedido o libre)
+        app.post("/chat/iniciar", ctx -> {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> body = (Map<String, Object>) ctx.bodyAsClass(Map.class);
+
+            Integer idCliente = null, idDelivery = null, idAdminSoporte = null, idPedido = null;
+            Object v;
+            v = body.get("idCliente");
+            if (v != null) { if (v instanceof Number n) idCliente = n.intValue(); else try { idCliente = Integer.parseInt(v.toString()); } catch (Exception ignored) {} }
+            v = body.get("idDelivery");
+            if (v != null) { if (v instanceof Number n) idDelivery = n.intValue(); else try { idDelivery = Integer.parseInt(v.toString()); } catch (Exception ignored) {} }
+            v = body.get("idAdminSoporte");
+            if (v != null) { if (v instanceof Number n) idAdminSoporte = n.intValue(); else try { idAdminSoporte = Integer.parseInt(v.toString()); } catch (Exception ignored) {} }
+            v = body.get("idPedido");
+            if (v != null) { if (v instanceof Number n) idPedido = n.intValue(); else try { idPedido = Integer.parseInt(v.toString()); } catch (Exception ignored) {} }
+
+            if (idCliente == null || idCliente <= 0) {
+                throw new ApiException(400, "El campo 'idCliente' es obligatorio");
+            }
+
+            long idConversacion;
+            if (idPedido != null && idPedido > 0) {
+                idConversacion = idPedido.longValue();
+                CHAT_REPOSITORY.ensureConversation(idConversacion, idCliente, idDelivery, idAdminSoporte, idPedido);
+            } else {
+                idConversacion = CHAT_REPOSITORY.ensureConversationForUser(idCliente);
+                if (idDelivery != null || idAdminSoporte != null) {
+                    CHAT_REPOSITORY.ensureConversation(idConversacion, idCliente, idDelivery, idAdminSoporte, null);
+                }
+            }
+
+            Map<String, Object> result = Map.of("id_conversacion", idConversacion);
+            handleResponse(ctx, ApiResponse.success(201, "Conversacion iniciada", result));
+        });
+
+        // Enviar mensaje (no bot)
+        app.post("/chat/mensajes", ctx -> {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> body = (Map<String, Object>) ctx.bodyAsClass(Map.class);
+            Integer idConversacion = null, idRemitente = null, idDestinatario = null;
+            Object v;
+            v = body.get("idConversacion");
+            if (v != null) { if (v instanceof Number n) idConversacion = n.intValue(); else try { idConversacion = Integer.parseInt(v.toString()); } catch (Exception ignored) {} }
+            v = body.get("idRemitente");
+            if (v != null) { if (v instanceof Number n) idRemitente = n.intValue(); else try { idRemitente = Integer.parseInt(v.toString()); } catch (Exception ignored) {} }
+            v = body.get("idDestinatario");
+            if (v != null) { if (v instanceof Number n) idDestinatario = n.intValue(); else try { idDestinatario = Integer.parseInt(v.toString()); } catch (Exception ignored) {} }
+
+            String mensaje = Objects.toString(body.get("mensaje"), "").trim();
+
+            if (idConversacion == null || idConversacion <= 0) {
+                throw new ApiException(400, "El campo 'idConversacion' es obligatorio");
+            }
+            if (idRemitente == null || idRemitente <= 0) {
+                throw new ApiException(400, "El campo 'idRemitente' es obligatorio");
+            }
+            if (mensaje.isBlank()) {
+                throw new ApiException(400, "El campo 'mensaje' es obligatorio");
+            }
+
+            var inserted = CHAT_REPOSITORY.insertMensaje(idConversacion.longValue(), idRemitente, idDestinatario, mensaje);
+            handleResponse(ctx, ApiResponse.success(201, "Mensaje enviado", inserted));
+        });
+
         app.get("/chat/conversaciones/{id}/mensajes", ctx -> {
             var idConversacion = parseId(ctx.pathParam("id"));
             var mensajes = CHAT_REPOSITORY.listarMensajes(idConversacion);
