@@ -408,6 +408,10 @@ public class DeliveryApi {
             var idPedido = parseId(ctx.pathParam("idPedido"));
             handleResponse(ctx, UBICACION_CONTROLLER.obtenerUbicacionTracking(idPedido));
         });
+        app.get("/tracking/pedido/{idPedido}/ruta", ctx -> {
+            var idPedido = parseId(ctx.pathParam("idPedido"));
+            handleResponse(ctx, UBICACION_CONTROLLER.obtenerRutaTracking(idPedido));
+        });
         app.put("/ubicaciones/repartidor/{idRepartidor}", ctx -> {
             var idRepartidor = parseId(ctx.pathParam("idRepartidor"));
             var body = ctx.bodyAsClass(Payloads.UbicacionRequest.class);

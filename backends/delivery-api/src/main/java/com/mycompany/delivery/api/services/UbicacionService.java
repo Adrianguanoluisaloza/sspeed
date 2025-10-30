@@ -1,6 +1,7 @@
 package com.mycompany.delivery.api.services;
 
 import com.mycompany.delivery.api.config.UbicacionUpdateRequest;
+import com.mycompany.delivery.api.model.TrackingEvento;
 import com.mycompany.delivery.api.model.Ubicacion;
 import com.mycompany.delivery.api.repository.UbicacionRepository;
 import com.mycompany.delivery.api.util.ApiException;
@@ -68,6 +69,7 @@ public class UbicacionService {
             if (!updated) {
                 repo.insertarUbicacionLive(idRepartidor, latitud, longitud);
             }
+            repo.registrarEventoTracking(idRepartidor, latitud, longitud);
         } catch (SQLException e) {
             throw new ApiException(500, "Error actualizando ubicación del repartidor", e);
         }
@@ -102,6 +104,13 @@ public class UbicacionService {
 
     public java.util.Optional<Map<String, Double>> obtenerUbicacionTracking(int idPedido) throws SQLException {
         return repo.obtenerUbicacionTracking(idPedido);
+    }
+
+    public List<TrackingEvento> obtenerRutaPedido(int idPedido) throws SQLException {
+        if (idPedido <= 0) {
+            throw new ApiException(400, "El identificador del pedido es inválido");
+        }
+        return repo.obtenerRutaPedido(idPedido);
     }
 
 }

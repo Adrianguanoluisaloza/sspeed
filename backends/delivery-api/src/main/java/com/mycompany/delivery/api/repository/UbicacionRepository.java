@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import com.mycompany.delivery.api.config.Database;
+import com.mycompany.delivery.api.model.TrackingEvento;
 import com.mycompany.delivery.api.model.Ubicacion;
 
 public class UbicacionRepository {
@@ -79,6 +80,25 @@ public class UbicacionRepository {
         }
     }
 
+    public void registrarEventoTracking(int idDelivery, double latitud, double longitud) throws SQLException {
+        String sql = """
+            INSERT INTO tracking_eventos (id_pedido, orden, latitud, longitud, descripcion)
+            SELECT p.id_pedido,
+                   COALESCE((SELECT MAX(te.orden) + 1 FROM tracking_eventos te WHERE te.id_pedido = p.id_pedido), 1) AS orden,
+                   ?, ?, 'Actualización automática'
+            FROM pedidos p
+            WHERE p.id_delivery = ?
+              AND p.estado NOT IN ('entregado', 'cancelado')
+        """;
+        try (Connection conn = Database.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setDouble(1, latitud);
+            stmt.setDouble(2, longitud);
+            stmt.setInt(3, idDelivery);
+            stmt.executeUpdate();
+        }
+    }
+
     public Optional<Map<String, Double>> obtenerUbicacionTracking(int idPedido) throws SQLException {
         String sql = """
             SELECT u.latitud, u.longitud FROM ubicaciones u
@@ -95,6 +115,33 @@ public class UbicacionRepository {
             }
         }
         return Optional.empty();
+    }
+
+    public List<TrackingEvento> obtenerRutaPedido(int idPedido) throws SQLException {
+        List<TrackingEvento> lista = new ArrayList<>();
+        String sql = """
+            SELECT id_pedido, orden, latitud, longitud, descripcion, fecha_evento
+            FROM tracking_eventos
+            WHERE id_pedido = ?
+            ORDER BY orden ASC, fecha_evento ASC, id_evento ASC
+        """;
+        try (Connection conn = Database.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, idPedido);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    TrackingEvento evento = new TrackingEvento();
+                    evento.setIdPedido(rs.getInt("id_pedido"));
+                    evento.setOrden(rs.getInt("orden"));
+                    evento.setLatitud(rs.getDouble("latitud"));
+                    evento.setLongitud(rs.getDouble("longitud"));
+                    evento.setDescripcion(rs.getString("descripcion"));
+                    evento.setFechaEvento(rs.getTimestamp("fecha_evento"));
+                    lista.add(evento);
+                }
+            }
+        }
+        return lista;
     }
 
     // ===============================

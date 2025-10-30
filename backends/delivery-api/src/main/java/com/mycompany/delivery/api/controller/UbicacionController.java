@@ -3,7 +3,9 @@ package com.mycompany.delivery.api.controller;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
+import com.mycompany.delivery.api.model.TrackingEvento;
 import com.mycompany.delivery.api.model.Ubicacion;
 import com.mycompany.delivery.api.services.UbicacionService;
 import com.mycompany.delivery.api.util.ApiException;
@@ -129,6 +131,21 @@ public class UbicacionController {
             return ApiResponse.success(200, "Ubicacion en vivo", out);
         } catch (SQLException e) {
             throw new ApiException(500, "Error al obtener tracking", e);
+        }
+    }
+
+    public ApiResponse<List<Map<String, Object>>> obtenerRutaTracking(int idPedido) {
+        try {
+            var eventos = service.obtenerRutaPedido(idPedido);
+            var payload = eventos.stream()
+                    .map(TrackingEvento::toMap)
+                    .collect(Collectors.toList());
+            if (payload.isEmpty()) {
+                throw new ApiException(404, "No hay puntos de ruta registrados para este pedido.");
+            }
+            return ApiResponse.success(200, "Ruta de seguimiento", payload);
+        } catch (SQLException e) {
+            throw new ApiException(500, "Error al obtener la ruta de tracking", e);
         }
     }
 }

@@ -15,6 +15,7 @@ DROP FUNCTION IF EXISTS fn_admin_dashboard() CASCADE;
 DROP TABLE IF EXISTS chat_mensajes CASCADE;
 DROP TABLE IF EXISTS chat_conversaciones CASCADE;
 DROP TABLE IF EXISTS detalle_pedidos CASCADE;
+DROP TABLE IF EXISTS tracking_eventos CASCADE;
 DROP TABLE IF EXISTS pedidos CASCADE;
 DROP TABLE IF EXISTS ubicaciones CASCADE;
 DROP TABLE IF EXISTS recomendaciones CASCADE;
@@ -112,6 +113,20 @@ CREATE TABLE detalle_pedidos (
   subtotal         NUMERIC(10,2) NOT NULL CHECK (subtotal >= 0)
 );
 
+-- Historial de tracking para simular rutas del repartidor
+CREATE TABLE tracking_eventos (
+  id_evento     SERIAL PRIMARY KEY,
+  id_pedido     INT NOT NULL REFERENCES pedidos(id_pedido) ON DELETE CASCADE,
+  orden         INT NOT NULL DEFAULT 1,
+  latitud       DOUBLE PRECISION NOT NULL,
+  longitud      DOUBLE PRECISION NOT NULL,
+  descripcion   TEXT,
+  fecha_evento  TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_tracking_eventos_pedido
+  ON tracking_eventos(id_pedido, orden, fecha_evento);
+
 -- Chat: Conversaciones y Mensajes
 CREATE TABLE chat_conversaciones (
   id_conversacion  BIGINT PRIMARY KEY,
@@ -191,19 +206,13 @@ SELECT (SELECT id_usuario FROM c), 0.988, -79.652, 'Av. Quito 999', 'Casa de Mar
 UNION ALL
 SELECT (SELECT id_usuario FROM d), 0.990, -79.655, 'Calle Falsa 123', 'Posicion de Carlos', TRUE;
 
--- Ubicaciones reales de Esmeraldas para delivery (tracking)
+-- Ubicación inicial del repartidor para el tracking en vivo
 WITH d AS (SELECT id_usuario FROM usuarios WHERE correo='carlos@example.com')
-INSERT INTO ubicaciones (id_usuario, latitud, longitud, direccion, descripcion, activa) VALUES
-((SELECT id_usuario FROM d), 0.970362, -79.652557, 'Punto 1', 'LIVE_TRACKING', TRUE),
-((SELECT id_usuario FROM d), 0.970524, -79.655029, 'Punto 2', 'LIVE_TRACKING', TRUE),
-((SELECT id_usuario FROM d), 0.976980, -79.654840, 'Punto 3', 'LIVE_TRACKING', TRUE),
-((SELECT id_usuario FROM d), 0.988033, -79.659094, 'Punto 4', 'LIVE_TRACKING', TRUE),
-((SELECT id_usuario FROM d), 0.988458, -79.659789, 'Punto 5', 'LIVE_TRACKING', TRUE),
-((SELECT id_usuario FROM d), 0.983438, -79.655182, 'Punto 6', 'LIVE_TRACKING', TRUE),
-((SELECT id_usuario FROM d), 0.984854, -79.657457, 'Punto 7', 'LIVE_TRACKING', TRUE),
-((SELECT id_usuario FROM d), 0.978510, -79.658961, 'Punto 8', 'LIVE_TRACKING', TRUE),
-((SELECT id_usuario FROM d), 0.977286, -79.660390, 'Punto 9', 'LIVE_TRACKING', TRUE),
-((SELECT id_usuario FROM d), 0.959480, -79.657965, 'Punto 10', 'LIVE_TRACKING', TRUE);
+INSERT INTO ubicaciones (id_usuario, latitud, longitud, direccion, descripcion, activa)
+VALUES ((SELECT id_usuario FROM d), 0.970362, -79.652557, 'Base de salida del repartidor', 'LIVE_TRACKING', TRUE)
+ON CONFLICT (id_usuario, descripcion)
+WHERE (descripcion = 'LIVE_TRACKING')
+DO UPDATE SET latitud = EXCLUDED.latitud, longitud = EXCLUDED.longitud, fecha_registro = NOW();
 
 -- Seeds: Pedido de prueba con detalle (cliente -> delivery)
 WITH c AS (SELECT id_usuario FROM usuarios WHERE correo='maria@example.com'),
@@ -221,11 +230,50 @@ WITH c AS (SELECT id_usuario FROM usuarios WHERE correo='maria@example.com'),
 INSERT INTO detalle_pedidos (id_pedido, id_producto, cantidad, precio_unitario, subtotal)
 SELECT (SELECT id_pedido FROM p), id_producto, 1, precio, precio FROM productos LIMIT 1;
 
--- Seeds: Conversacion Bot para cliente
-WITH c AS (SELECT id_usuario FROM usuarios WHERE correo='maria@example.com')
-INSERT INTO chat_conversaciones (id_conversacion, id_pedido, id_cliente, id_delivery, id_admin_soporte, activa)
-VALUES (EXTRACT(EPOCH FROM NOW())::BIGINT * 1000 + 1, NULL, (SELECT id_usuario FROM c), NULL, NULL, TRUE)
-ON CONFLICT DO NOTHING;
+-- Historial simulado de tracking asociado al pedido anterior
+WITH pedido_actual AS (
+  SELECT id_pedido
+  FROM pedidos
+  WHERE id_cliente = (SELECT id_usuario FROM usuarios WHERE correo='maria@example.com')
+    AND id_delivery = (SELECT id_usuario FROM usuarios WHERE correo='carlos@example.com')
+  ORDER BY id_pedido DESC
+  LIMIT 1
+), puntos AS (
+  SELECT 1 AS orden, 0.970362::DOUBLE PRECISION AS latitud, -79.652557::DOUBLE PRECISION AS longitud,
+         'Inicio en restaurante'::TEXT AS descripcion, NOW() - INTERVAL '15 minutes' AS fecha_evento
+  UNION ALL SELECT 2, 0.972900, -79.654900, 'Retiro del pedido', NOW() - INTERVAL '12 minutes'
+  UNION ALL SELECT 3, 0.978120, -79.655900, 'En camino por Av. Libertad', NOW() - INTERVAL '9 minutes'
+  UNION ALL SELECT 4, 0.983438, -79.655182, 'Cruce principal', NOW() - INTERVAL '6 minutes'
+  UNION ALL SELECT 5, 0.984854, -79.657457, 'Cerca del destino', NOW() - INTERVAL '3 minutes'
+  UNION ALL SELECT 6, 0.988033, -79.659094, 'Entrega en puerta', NOW()
+)
+INSERT INTO tracking_eventos (id_pedido, orden, latitud, longitud, descripcion, fecha_evento)
+SELECT pa.id_pedido, pt.orden, pt.latitud, pt.longitud, pt.descripcion, pt.fecha_evento
+FROM pedido_actual pa
+JOIN puntos pt ON TRUE;
+
+-- Conversación base con el asistente virtual para pruebas del chat bot
+WITH cliente AS (SELECT id_usuario FROM usuarios WHERE correo='maria@example.com'),
+     bot AS (SELECT id_usuario FROM usuarios WHERE correo='chatbot@system.local'),
+     conversacion AS (
+       INSERT INTO chat_conversaciones (id_conversacion, id_pedido, id_cliente, id_delivery, id_admin_soporte, activa)
+       VALUES (1000001, NULL, (SELECT id_usuario FROM cliente), NULL, NULL, TRUE)
+       ON CONFLICT (id_conversacion) DO UPDATE SET activa = TRUE
+       RETURNING id_conversacion
+     ),
+     conv_id AS (
+       SELECT id_conversacion FROM conversacion
+       UNION
+       SELECT 1000001 WHERE NOT EXISTS (SELECT 1 FROM conversacion)
+     )
+INSERT INTO chat_mensajes (id_conversacion, id_remitente, id_destinatario, mensaje, fecha_envio)
+VALUES
+  ((SELECT id_conversacion FROM conv_id), (SELECT id_usuario FROM cliente), (SELECT id_usuario FROM bot),
+   'Hola, ¿cuánto falta para mi pedido?', NOW() - INTERVAL '4 minutes'),
+  ((SELECT id_conversacion FROM conv_id), (SELECT id_usuario FROM bot), (SELECT id_usuario FROM cliente),
+   '¡Hola! Tu pedido ya salió y llegará en menos de 15 minutos.', NOW() - INTERVAL '3 minutes'),
+  ((SELECT id_conversacion FROM conv_id), (SELECT id_usuario FROM cliente), (SELECT id_usuario FROM bot),
+   'Perfecto, gracias por la información.', NOW() - INTERVAL '2 minutes');
 
 -- Indexes (performance)
 CREATE INDEX IF NOT EXISTS idx_pedidos_cliente ON pedidos(id_cliente);
