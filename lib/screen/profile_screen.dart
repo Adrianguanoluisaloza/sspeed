@@ -7,6 +7,7 @@ import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:location/location.dart';
+import 'package:flutter_application_2/screen/main_navigator.dart';
 
 import '../models/ubicacion.dart';
 import '../models/usuario.dart';
@@ -97,7 +98,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         break;
       }
     }
-    selected ??= _cachedUbicaciones.isNotEmpty ? _cachedUbicaciones.first : null;
+    selected ??=
+        _cachedUbicaciones.isNotEmpty ? _cachedUbicaciones.first : null;
     if (selected != null) {
       _focusOnLocation(selected);
     }
@@ -185,8 +187,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (!mounted) return;
       final desiredCenter = _mapCenter ?? fallbackCenter;
       final markersChanged = !_sameMarkers(markers);
-      final centerChanged =
-          desiredCenter != null && (_mapCenter == null || _mapCenter != desiredCenter);
+      final centerChanged = desiredCenter != null &&
+          (_mapCenter == null || _mapCenter != desiredCenter);
 
       if (markersChanged || centerChanged) {
         setState(() {
@@ -230,9 +232,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             snippet: ubicacion.direccion,
           ),
           icon: BitmapDescriptor.defaultMarkerWithHue(
-            isDefault
-                ? BitmapDescriptor.hueAzure
-                : BitmapDescriptor.hueRose,
+            isDefault ? BitmapDescriptor.hueAzure : BitmapDescriptor.hueRose,
           ),
         ),
       );
@@ -305,8 +305,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
     }
 
-    final center =
-        _mapCenter ?? _firstValidLatLng(ubicaciones) ?? const LatLng(0.988, -79.652);
+    final center = _mapCenter ??
+        _firstValidLatLng(ubicaciones) ??
+        const LatLng(0.988, -79.652);
     final markers =
         _mapMarkers.isNotEmpty ? _mapMarkers : _createMarkers(ubicaciones);
 
@@ -406,6 +407,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
               ),
             ),
+            // MEJORA: Se añade un menú exclusivo para administradores.
+            if (widget.usuario.rol == 'admin') ...[
+              const SizedBox(height: 24),
+              Text('Herramientas de Administrador',
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(color: Colors.grey[600])),
+              const SizedBox(height: 8),
+              Card(
+                elevation: 2,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  children: [
+                    _buildMenuOption(
+                      context,
+                      icon: Icons.bar_chart,
+                      color: Colors.purple,
+                      title: 'Ver Estadísticas',
+                      subtitle: 'Dashboard de ventas y pedidos',
+                      onTap: () {
+                        // MEJORA: Navega a la primera pestaña (home) donde está el dashboard.
+                        // Esto requiere que el MainNavigator maneje el cambio de índice.
+                        final mainNavigatorState = context
+                            .findAncestorStateOfType<MainNavigatorState>();
+                        mainNavigatorState?.onItemTapped(0);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 24),
             Text('Mis ubicaciones',
                 style: theme.textTheme.titleLarge
@@ -663,10 +696,3 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 }
-
-
-
-
-
-
-

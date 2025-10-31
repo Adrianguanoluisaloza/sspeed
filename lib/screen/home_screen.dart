@@ -6,7 +6,6 @@ import 'package:provider/provider.dart';
 import '../models/cart_model.dart';
 import '../models/producto.dart';
 import '../models/usuario.dart';
-import '../routes/app_routes.dart';
 import 'live_map_screen.dart';
 import 'profile_screen.dart';
 import '../services/database_service.dart';
@@ -27,6 +26,7 @@ class _HomeScreenState extends State<HomeScreen> {
   late Future<List<Producto>> _productosFuture;
   late Future<List<ProductoRankeado>> _recommendationsFuture;
   late Future<List<Map<String, dynamic>>> _repartidoresLocationFuture;
+  late Future<Map<String, dynamic>> _adminStatsFuture;
   late DatabaseService _databaseService;
 
   final TextEditingController _searchController = TextEditingController();
@@ -56,7 +56,16 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadProducts();
     _loadRecommendations();
     _loadRepartidoresLocation();
+    if (widget.usuario.rol == 'admin') {
+      _loadAdminStats();
+    }
     _searchController.addListener(_onSearchChanged);
+  }
+
+  void _loadAdminStats() {
+    setState(() {
+      _adminStatsFuture = _databaseService.getAdminStats();
+    });
   }
 
   @override
@@ -98,13 +107,21 @@ class _HomeScreenState extends State<HomeScreen> {
       return _databaseService.getRepartidoresLocation(deliveryIds);
     }
 
-    setState(() => _repartidoresLocationFuture = fetchLocations());
+    setState(() {
+      _repartidoresLocationFuture = fetchLocations();
+    });
     _repartidoresRefreshTimer?.cancel();
     _repartidoresRefreshTimer = Timer.periodic(
       const Duration(
           seconds:
               30), // MEJORA: Se ajusta el tiempo de refresco a 30 segundos.
-      (_) => setState(() => _repartidoresLocationFuture = fetchLocations()),
+      (_) {
+        if (mounted) {
+          setState(() {
+            _repartidoresLocationFuture = fetchLocations();
+          });
+        }
+      },
     );
   }
 
@@ -133,19 +150,49 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildProductosTab() {
     if (widget.usuario.rol == 'admin') {
-      return Center(
-        child: ElevatedButton.icon(
-          icon: const Icon(Icons.settings),
-          label: const Text('Gestion de productos'),
-          onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const AdminProductosScreen()),
-            );
-          },
+      // Para admin, muestra el dashboard y luego el resto.
+      // CORRECCIÓN: Se corrige el error "setState() callback argument returned a Future".
+      // Las operaciones asíncronas (await) se realizan antes de llamar a setState.
+      return RefreshIndicator(
+        onRefresh: () async {
+          await _databaseService.getProductos(
+              query: _searchController.text.trim(),
+              categoria: _selectedCategory == 'Todos' ? '' : _selectedCategory);
+          await _databaseService.getAdminStats();
+          if (mounted) setState(() {});
+        },
+        child: CustomScrollView(
+          slivers: <Widget>[
+            SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildAdminDashboard(), // Dashboard primero
+                  _buildSearchBar(),
+                  if (!_hasQuery) ...[
+                    _buildRecommendationsCarousel(),
+                    _buildLiveTrackingCard(),
+                    const SizedBox(height: 12),
+                  ],
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    child: Text(
+                      'Nuestro Menu',
+                      style:
+                          TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  _buildCategoryList(),
+                ],
+              ),
+            ),
+            _buildProductsGrid(),
+          ],
         ),
       );
     }
 
+    // Para otros usuarios, muestra la vista normal.
     return RefreshIndicator(
       onRefresh: () async => _loadProducts(),
       child: CustomScrollView(
@@ -173,6 +220,110 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           _buildProductsGrid(),
         ],
+      ),
+    );
+  }
+
+  Widget _buildAdminDashboard() {
+    return FutureBuilder<Map<String, dynamic>>(
+      future: _adminStatsFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+              child: Padding(
+            padding: EdgeInsets.all(32.0),
+            child: CircularProgressIndicator(),
+          ));
+        }
+        if (snapshot.hasError) {
+          return Center(
+              child: Text('Error al cargar estadísticas: ${snapshot.error}'));
+        }
+        final stats = snapshot.data ?? {};
+        final pedidosHoy = stats['pedidos_hoy'] ?? 0;
+        final ingresosHoy = (stats['ingresos_hoy'] as num?)?.toDouble() ?? 0.0;
+        final clientesNuevos = stats['clientes_nuevos_mes'] ?? 0;
+
+        return Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Dashboard de Administrador',
+                style: Theme.of(context)
+                    .textTheme
+                    .headlineSmall
+                    ?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 24),
+              GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: 2,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                children: [
+                  _buildStatCard('Pedidos Hoy', pedidosHoy.toString(),
+                      Icons.receipt_long, Colors.blue),
+                  _buildStatCard(
+                      'Ingresos Hoy',
+                      '\$${ingresosHoy.toStringAsFixed(2)}',
+                      Icons.attach_money,
+                      Colors.green),
+                  _buildStatCard(
+                      'Clientes Nuevos (Mes)',
+                      clientesNuevos.toString(),
+                      Icons.person_add,
+                      Colors.orange),
+                ],
+              ),
+              const SizedBox(height: 32),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.settings_applications),
+                label: const Text('Gestionar Productos'),
+                onPressed: () async {
+                  await Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => const AdminProductosScreen()));
+                  _loadAdminStats(); // Refrescar stats al volver
+                },
+                style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16)),
+              ),
+              const SizedBox(height: 16),
+              const Divider(),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildStatCard(
+      String title, String value, IconData icon, Color color) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 32, color: color),
+            const Spacer(),
+            Text(title,
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+            const SizedBox(height: 4),
+            Text(
+              value,
+              style: Theme.of(context)
+                  .textTheme
+                  .headlineSmall
+                  ?.copyWith(fontWeight: FontWeight.bold, color: color),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -489,18 +640,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   : _selectedIndex == 2
                       ? _buildPerfilTab()
                       : Container())
-          : Center(
-              child: ElevatedButton.icon(
-                icon: const Icon(Icons.settings),
-                label: const Text('Gestion de productos'),
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                        builder: (_) => const AdminProductosScreen()),
-                  );
-                },
-              ),
-            ),
+          : Container(),
     );
   }
 }
@@ -626,7 +766,7 @@ class InfoMessage extends StatelessWidget {
             style: Theme.of(context)
                 .textTheme
                 .titleMedium
-                ?.copyWith(color: Colors.grey[600])),
+                ?.copyWith(color: Colors.grey[600]))
       ]));
 }
 

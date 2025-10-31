@@ -50,7 +50,7 @@ class ApiDataSource implements DataSource {
     return headers;
   }
 
-  static const Duration _timeout = Duration(seconds: 15);
+  static const Duration _timeout = Duration(seconds: 30);
 
   bool _looksLikeJson(String? body) {
     if (body == null) return false;

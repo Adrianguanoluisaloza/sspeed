@@ -10,11 +10,11 @@ class MainNavigator extends StatefulWidget {
   const MainNavigator({super.key, required this.usuario});
 
   @override
-  State<MainNavigator> createState() => _MainNavigatorState();
+  State<MainNavigator> createState() => MainNavigatorState();
 }
 
-class _MainNavigatorState extends State<MainNavigator> {
-  int _selectedIndex = 0;
+class MainNavigatorState extends State<MainNavigator> {
+  int selectedIndex = 0;
   late final List<Widget> _widgetOptions;
 
   @override
@@ -27,9 +27,9 @@ class _MainNavigatorState extends State<MainNavigator> {
     ];
   }
 
-  void _onItemTapped(int index) {
+  void onItemTapped(int index) {
     setState(() {
-      _selectedIndex = index;
+      selectedIndex = index;
     });
   }
 
@@ -41,10 +41,10 @@ class _MainNavigatorState extends State<MainNavigator> {
       body: Stack(
         children: [
           IndexedStack(
-            index: _selectedIndex,
+            index: selectedIndex,
             children: _widgetOptions,
           ),
-          if (_selectedIndex == 0)
+          if (selectedIndex == 0)
             Positioned(
               bottom: 32,
               right: 24,
@@ -100,8 +100,8 @@ class _MainNavigatorState extends State<MainNavigator> {
               label: 'Perfil',
             ),
           ],
-          currentIndex: _selectedIndex,
-          onTap: _onItemTapped,
+          currentIndex: selectedIndex,
+          onTap: onItemTapped,
           backgroundColor: Colors.transparent,
           elevation: 0,
           type: BottomNavigationBarType.fixed,

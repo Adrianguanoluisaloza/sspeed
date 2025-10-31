@@ -35,7 +35,6 @@ class RouteGenerator {
             const Usuario(idUsuario: 0, nombre: '', correo: '', rol: 'cliente');
         final role = usuario.rol.trim().toLowerCase();
         switch (role) {
-          case 'admin':
           case 'negocio':
             return _fade(settings, AdminHomeScreen(adminUser: usuario));
           case 'delivery':
@@ -43,6 +42,7 @@ class RouteGenerator {
             return _fade(settings, DeliveryHomeScreen(deliveryUser: usuario));
           case 'soporte':
             return _fade(settings, SupportHomeScreen(supportUser: usuario));
+          case 'admin': // CORRECCIÓN: El admin ahora usa el MainNavigator por defecto.
           default:
             return _fade(settings, MainNavigator(usuario: usuario));
         }
