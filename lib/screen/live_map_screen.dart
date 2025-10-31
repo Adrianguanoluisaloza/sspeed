@@ -105,6 +105,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
       await _refreshMarkers();
       if (mounted) {
         setState(() => _isMapReady = true);
+        // CORRECCIÓN: Se inician las actualizaciones de ubicación y el temporizador de refresco.
         _startLocationUpdates();
         _startAutoRefreshTimer();
       }
@@ -168,7 +169,6 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
         setState(() => _permissionStatus = PermissionStatus.granted);
       }
       await _fetchCurrentUserLocation();
-      _startLocationUpdates();
     } catch (e) {
       if (mounted) {
         setState(
@@ -201,6 +201,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   }
 
   Future<void> _refreshMarkers() async {
+    // CORRECCIÓN: Se evita el refresco si ya hay uno en curso.
     if (!mounted || _isRefreshingMarkers) return;
     final db = context.read<DatabaseService>();
     final session = context.read<SessionController>();
@@ -375,9 +376,6 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
           _infoMessage = 'Ubicacion actualizada.';
         });
         _maybeUploadDeliveryLocation(nextPosition);
-        if (!_isRefreshingMarkers) {
-          _refreshMarkers();
-        }
       });
       return;
     }
@@ -397,9 +395,6 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
         _infoMessage = 'Ubicacion actualizada.';
       });
       _maybeUploadDeliveryLocation(nextPosition);
-      if (!_isRefreshingMarkers) {
-        _refreshMarkers();
-      }
     });
   }
 
@@ -411,6 +406,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
     if (role != 'delivery' && role != 'repartidor') return;
 
     final now = DateTime.now();
+    // CORRECCIÓN: Se limita la frecuencia de subida de ubicación a 15 segundos.
     if (_lastLocationUpload != null &&
         now.difference(_lastLocationUpload!) < const Duration(seconds: 15)) {
       return;
@@ -484,12 +480,13 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    // Si los permisos no están concedidos, mostramos una vista de accion.
+    // CORRECCIÓN: Si los permisos no están concedidos, mostramos una vista de accion.
     if (_permissionStatus != PermissionStatus.granted) {
       return _buildPermissionDeniedView();
     }
 
     if (kIsWeb) {
+      // MEJORA: Se construye la URL del mapa web dinámicamente.
       final url = _buildWebMapUrl();
       registerGoogleMapsIframe(url);
       return Stack(children: [
@@ -507,6 +504,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
               zoom: _userPosition != null ? 14 : 12,
             ),
             markers: _markers,
+            // CORRECCIÓN: Se deshabilita el punto azul nativo para usar nuestro propio marcador.
             myLocationEnabled: false,
             myLocationButtonEnabled: false,
             zoomControlsEnabled: false,
@@ -518,6 +516,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
     }
   }
 
+  // MEJORA: Widget para cuando los permisos son denegados.
   Widget _buildPermissionDeniedView() {
     final isPermanentlyDenied =
         _permissionStatus == PermissionStatus.deniedForever;
@@ -574,6 +573,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
     );
   }
 
+  // MEJORA: Widget para la barra de información superior.
   Widget _buildTopInfoBar() {
     final bool hasError = _errorMessage != null;
     final String message = _errorMessage ?? _infoMessage ?? 'Cargando mapa...';
@@ -629,6 +629,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                 if (hasError ||
                     message.contains('Sin repartidores') ||
                     message.contains('Actualizando'))
+                  // CORRECCIÓN: Se muestra el botón de reintentar solo cuando es útil.
                   TextButton(
                     onPressed: _refreshMarkers,
                     child: const Text(

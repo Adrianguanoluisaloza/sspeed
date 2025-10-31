@@ -34,6 +34,11 @@ class DatabaseService implements DataSource {
   Future<Usuario?> updateUsuario(Usuario usuario) =>
       _dataSource.updateUsuario(usuario);
 
+  // --- Métodos de Usuario (añadido) ---
+  @override
+  Future<Usuario?> getUsuarioById(int idUsuario) =>
+      _dataSource.getUsuarioById(idUsuario);
+
   // --- Métodos del Cliente ---
   @override
   Future<List<Producto>> getProductos({String? query, String? categoria}) =>

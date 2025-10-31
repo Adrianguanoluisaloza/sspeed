@@ -41,7 +41,10 @@ class ApiDataSource implements DataSource {
 
   Map<String, String> get _jsonHeaders {
     final headers = {'Content-Type': 'application/json; charset=UTF-8'};
-    if (_token != null) {
+    // CORRECCIÓN: Se añade la cabecera para evitar la página de advertencia de Ngrok.
+    headers['ngrok-skip-browser-warning'] = 'true';
+
+    if (_token != null && _token!.isNotEmpty) {
       headers['Authorization'] = 'Bearer $_token';
     }
     return headers;
@@ -260,6 +263,13 @@ class ApiDataSource implements DataSource {
     }
 
     return null;
+  }
+
+  @override
+  Future<Usuario?> getUsuarioById(int idUsuario) async {
+    final data = await _getMap('/usuarios/$idUsuario');
+    final rawUser = data['usuario'] ?? data['user'] ?? data['data'] ?? data;
+    return rawUser is Map<String, dynamic> ? Usuario.fromMap(rawUser) : null;
   }
 
   @override
@@ -677,8 +687,7 @@ class ApiDataSource implements DataSource {
     }
 
     if (idConversacion <= 0) {
-      throw const ApiException(
-          'Conversacion no valida para enviar mensajes.');
+      throw const ApiException('Conversacion no valida para enviar mensajes.');
     }
 
     return _post(

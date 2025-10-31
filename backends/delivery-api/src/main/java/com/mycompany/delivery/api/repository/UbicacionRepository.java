@@ -201,20 +201,10 @@ public class UbicacionRepository {
         u.setDescripcion(rs.getString("descripcion"));
         u.setDireccion(rs.getString("direccion"));
         u.setActiva(rs.getBoolean("activa"));
-        try {
-            java.sql.ResultSetMetaData md = rs.getMetaData();
-            boolean hasFecha = false;
-            for (int i = 1; i <= md.getColumnCount(); i++) {
-                if ("fecha_registro".equalsIgnoreCase(md.getColumnName(i))) {
-                    hasFecha = true;
-                    break;
-                }
-            }
-            if (hasFecha) {
-                u.setFechaRegistro(rs.getTimestamp("fecha_registro"));
-            }
-        } catch (SQLException ignored) {
-        }
+        // MEJORA: Se lee la fecha de registro directamente.
+        // La tabla 'ubicaciones' siempre tiene esta columna, por lo que el try-catch
+        // que ignoraba errores no es necesario y podría ocultar problemas.
+        u.setFechaRegistro(rs.getTimestamp("fecha_registro"));
         return u;
     }
 

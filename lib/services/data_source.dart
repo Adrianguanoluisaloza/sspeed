@@ -20,6 +20,8 @@ abstract class DataSource {
       String name, String email, String password, String phone, String rol);
   Future<Usuario?> updateUsuario(Usuario usuario);
 
+  Future<Usuario?> getUsuarioById(int idUsuario);
+
   // --- Métodos del Cliente ---
   Future<List<Producto>> getProductos({String? query, String? categoria});
   Future<Producto?> getProductoById(int id); // MÉTODO AÑADIDO

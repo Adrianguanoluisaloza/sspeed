@@ -1,4 +1,4 @@
-﻿package com.mycompany.delivery.api.controller;
+package com.mycompany.delivery.api.controller;
 
 import java.sql.SQLException;
 import java.util.List;
