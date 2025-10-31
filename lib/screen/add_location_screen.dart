@@ -25,15 +25,13 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
   final Completer<GoogleMapController> _mapController = Completer();
   final Location _locationService = Location();
   final _addressController = TextEditingController();
-  final _descriptionController = TextEditingController();
-  final _searchController = TextEditingController(); // New controller for search
 
   static const LatLng _fallbackCenter = LatLng(0.988, -79.652);
 
   LatLng? _currentLatLng;
   bool _isLoading = true;
   String? _errorMessage;
-  Timer? _debounce; // For debouncing map camera movements
+  bool _myLocationAllowed = false;
 
   @override
   void initState() {
@@ -43,10 +41,14 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
         widget.initial!.latitud ?? 0.988,
         widget.initial!.longitud ?? -79.652,
       );
-      _addressController.text = widget.initial!.direccion ?? "";
-      _descriptionController.text = widget.initial!.descripcion ?? "";
-      _searchController.text = widget.initial!.direccion ?? ""; // Initialize search with initial address
+      _addressController.text = widget.initial!.direccion ?? '';
       _isLoading = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final target = _currentLatLng;
+        if (target != null) {
+          _reverseGeocodeLatLng(target);
+        }
+      });
     } else {
       _currentLatLng = _fallbackCenter;
       _initLocation();
@@ -55,10 +57,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
 
   @override
   void dispose() {
-    _debounce?.cancel();
     _addressController.dispose();
-    _descriptionController.dispose();
-    _searchController.dispose();
     super.dispose();
   }
 
@@ -73,9 +72,16 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
         // Obtener ubicacion real del navegador si es posible; fallback a centro conocido
         final pos = await webgeo.getCurrentPosition();
         if (!mounted) return;
+        if (pos != null) {
+          await _updateSelectedLocation(LatLng(pos.lat, pos.lng),
+              animateCamera: false);
+        } else {
+          await _updateSelectedLocation(_fallbackCenter,
+              animateCamera: false);
+        }
+        if (!mounted) return;
         setState(() {
-          _currentLatLng =
-              pos != null ? LatLng(pos.lat, pos.lng) : _fallbackCenter;
+          _myLocationAllowed = false;
           _isLoading = false;
         });
         return;
@@ -96,83 +102,56 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
       }
 
       final locationData = await _locationService.getLocation();
+      final latLng = LatLng(locationData.latitude!, locationData.longitude!);
+      await _updateSelectedLocation(latLng, animateCamera: false);
       if (!mounted) return;
       setState(() {
-        _currentLatLng =
-            LatLng(locationData.latitude!, locationData.longitude!);
+        _myLocationAllowed = true;
         _isLoading = false;
       });
-      await _reverseGeocodeCurrentLocation(); // Obtener direccion inicial
     } catch (e) {
       if (!mounted) return;
+      await _updateSelectedLocation(_fallbackCenter, animateCamera: false);
       setState(() {
         _errorMessage = e.toString();
         _isLoading = false;
-        _currentLatLng = _fallbackCenter; // Fallback to Esmeraldas
+        _myLocationAllowed = false;
       });
     }
   }
 
-  Future<void> _searchAddress() async {
-    final query = _searchController.text.trim();
-    if (query.isEmpty) return;
-
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+  Future<void> _reverseGeocodeLatLng(LatLng target) async {
     try {
-      final dbService = context.read<DatabaseService>();
-      final result = await dbService.geocodificarDireccion(query);
-
-      if (result != null && result['latitud'] != null && result['longitud'] != null) {
-        final newLatLng = LatLng(result['latitud'], result['longitud']);
-        setState(() {
-          _currentLatLng = newLatLng;
-          _addressController.text = result['direccion'] ?? query;
-          _isLoading = false;
-          _errorMessage = null;
-        });
-        final controller = await _mapController.future;
-        await controller.animateCamera(CameraUpdate.newLatLng(newLatLng));
-      } else {
-        setState(() {
-          _errorMessage = 'No se encontraron resultados para la direccion.';
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Error al buscar direccion: $e';
-        _isLoading = false;
-      });
-    }
-  }
-
-  Future<void> _reverseGeocodeCurrentLocation() async {
-    if (_currentLatLng == null) return;
-    try {
-      final lat = _currentLatLng!.latitude.toStringAsFixed(6);
-      final lon = _currentLatLng!.longitude.toStringAsFixed(6);
-      if (_addressController.text.trim().isEmpty) {
-        _addressController.text = 'Lat: $lat, Lon: $lon';
-        _searchController.text = _addressController.text;
-      }
+      final lat = target.latitude.toStringAsFixed(6);
+      final lon = target.longitude.toStringAsFixed(6);
+      _addressController.text = 'Lat: $lat, Lon: $lon';
     } catch (e) {
       debugPrint('Error durante reverse geocoding: $e');
     }
   }
 
-  void _onCameraMove(CameraPosition position) {
-    _currentLatLng = position.target;
-    if (_debounce?.isActive ?? false) _debounce!.cancel();
-    _debounce = Timer(const Duration(milliseconds: 500), () {
-      _reverseGeocodeCurrentLocation();
+  Future<void> _updateSelectedLocation(LatLng target,
+      {bool animateCamera = true}) async {
+    setState(() {
+      _currentLatLng = target;
     });
+    await _reverseGeocodeLatLng(target);
+
+    if (animateCamera && _mapController.isCompleted) {
+      final controller = await _mapController.future;
+      await controller.animateCamera(CameraUpdate.newLatLng(target));
+    }
   }
 
   Future<void> _saveLocation() async {
-    if (_currentLatLng == null) return;
+    if (_currentLatLng == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Selecciona un punto en el mapa antes de guardar.'),
+        ),
+      );
+      return;
+    }
 
     final dbService = context.read<DatabaseService>();
     final session = context.read<SessionController>();
@@ -181,8 +160,8 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
       idUsuario: session.usuario!.idUsuario,
       latitud: _currentLatLng!.latitude,
       longitud: _currentLatLng!.longitude,
+      descripcion: '',
       direccion: _addressController.text.trim(),
-      descripcion: _descriptionController.text.trim(),
       activa: true,
     );
 
@@ -232,71 +211,56 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
                     zoom: 16,
                   ),
                   onMapCreated: (controller) {
-                    _mapController.complete(controller);
+                    if (!_mapController.isCompleted) {
+                      _mapController.complete(controller);
+                    }
                   },
-                  onCameraMove: _onCameraMove,
-                  myLocationEnabled: !kIsWeb,
-                  myLocationButtonEnabled: !kIsWeb,
-                ),
-                const Center(
-                  child: Icon(
-                    Icons.location_pin,
-                    color: Colors.red,
-                    size: 50,
-                  ),
-                ),
-                Positioned(
-                  top: 10,
-                  left: 10,
-                  right: 10,
-                  child: Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: TextField(
-                        controller: _searchController,
-                        decoration: InputDecoration(
-                          labelText: 'Buscar direccion',
-                          suffixIcon: IconButton(
-                            icon: const Icon(Icons.search),
-                            onPressed: _searchAddress,
+                  myLocationEnabled: !kIsWeb && _myLocationAllowed,
+                  myLocationButtonEnabled: !kIsWeb && _myLocationAllowed,
+                  zoomControlsEnabled: false,
+                  mapToolbarEnabled: true,
+                  markers: _currentLatLng != null
+                      ? {
+                          Marker(
+                            markerId: const MarkerId('selected_location'),
+                            position: _currentLatLng!,
+                            draggable: false,
                           ),
-                          border: const OutlineInputBorder(),
-                        ),
-                        onSubmitted: (_) => _searchAddress(),
-                      ),
-                    ),
-                  ),
+                        }
+                      : {},
+                  onTap: (pos) => _updateSelectedLocation(pos),
                 ),
                 Positioned(
-                  bottom: 20,
-                  left: 20,
-                  right: 20,
+                  bottom: 24,
+                  left: 16,
+                  right: 16,
                   child: Card(
+                    elevation: 3,
                     child: Padding(
-                      padding: const EdgeInsets.all(16.0),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          TextField(
-                            controller: _descriptionController,
-                            decoration: const InputDecoration(
-                              labelText: 'Descripcion (Ej: Casa, Oficina)',
-                              border: OutlineInputBorder(),
+                          const Text(
+                            'Coordenadas seleccionadas',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
-                          const SizedBox(height: 10),
-                          TextField(
-                            controller: _addressController,
-                            decoration: const InputDecoration(
-                              labelText: 'Direccion / Referencia',
-                              border: OutlineInputBorder(),
-                            ),
-                            maxLines: 2,
+                          const SizedBox(height: 6),
+                          Text(
+                            _addressController.text,
+                            style: theme.textTheme.bodyMedium,
                           ),
-                          const SizedBox(height: 10),
-                          ElevatedButton(
-                            onPressed: _saveLocation,
-                            child: const Text('Guardar ubicacion'),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Toca el mapa para ajustar la ubicacion.',
+                            style: theme.textTheme.bodySmall
+                                ?.copyWith(color: Colors.grey[600]),
                           ),
                         ],
                       ),

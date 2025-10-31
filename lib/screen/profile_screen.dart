@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:location/location.dart';
 
 import '../models/ubicacion.dart';
 import '../models/usuario.dart';
@@ -25,17 +26,22 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final Completer<GoogleMapController> _mapController = Completer();
+  final Location _locationService = Location();
   LatLng? _mapCenter;
   Set<Marker> _mapMarkers = <Marker>{};
   List<Ubicacion> _cachedUbicaciones = const [];
   Future<List<Ubicacion>>? _ubicacionesFuture;
   int? _defaultLocationId;
+  bool _myLocationAllowed = false;
 
   @override
   void initState() {
     super.initState();
     _loadLocations();
     _loadDefaultLocation();
+    if (!kIsWeb) {
+      _initLocationPermission();
+    }
   }
 
   void _loadLocations() {
@@ -43,6 +49,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _ubicacionesFuture = Provider.of<DatabaseService>(context, listen: false)
           .getUbicaciones(widget.usuario.idUsuario);
     });
+  }
+
+  Future<void> _initLocationPermission() async {
+    try {
+      var serviceEnabled = await _locationService.serviceEnabled();
+      if (!serviceEnabled) {
+        serviceEnabled = await _locationService.requestService();
+        if (!serviceEnabled) return;
+      }
+      var permission = await _locationService.hasPermission();
+      if (permission == PermissionStatus.denied) {
+        permission = await _locationService.requestPermission();
+      }
+      final permissionName = permission.toString();
+      final granted = permission == PermissionStatus.granted ||
+          permissionName == 'PermissionStatus.grantedLimited';
+      if (!mounted) return;
+      if (granted) {
+        setState(() => _myLocationAllowed = true);
+      }
+    } catch (e) {
+      debugPrint('Location permission error: $e');
+    }
   }
 
   Future<void> _loadDefaultLocation() async {
@@ -291,14 +320,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: GoogleMap(
           initialCameraPosition: CameraPosition(target: center, zoom: 13),
           markers: markers,
+          padding: const EdgeInsets.only(bottom: 16, right: 8),
           onMapCreated: (controller) {
             if (!_mapController.isCompleted) {
               _mapController.complete(controller);
             }
           },
-          liteModeEnabled: true,
-          myLocationButtonEnabled: false,
+          liteModeEnabled: kIsWeb,
+          myLocationEnabled: !kIsWeb && _myLocationAllowed,
+          myLocationButtonEnabled: !kIsWeb && _myLocationAllowed,
           zoomControlsEnabled: false,
+          mapToolbarEnabled: !kIsWeb,
+          compassEnabled: !kIsWeb,
         ),
       ),
     );
