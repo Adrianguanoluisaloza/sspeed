@@ -49,10 +49,25 @@ class ApiDataSource implements DataSource {
 
   static const Duration _timeout = Duration(seconds: 15);
 
+  bool _looksLikeJson(String? body) {
+    if (body == null) return false;
+    final trimmed = body.trimLeft();
+    return trimmed.startsWith('{') || trimmed.startsWith('[');
+  }
+
   Future<Map<String, dynamic>> _parseMapResponse(http.Response response) async {
-    final raw = response.bodyBytes.isEmpty
-        ? null
-        : jsonDecode(utf8.decode(response.bodyBytes));
+    final bodyString =
+        response.bodyBytes.isEmpty ? null : utf8.decode(response.bodyBytes);
+
+    if (bodyString != null && !_looksLikeJson(bodyString)) {
+      debugPrint('   <- Response [${response.statusCode}]: $bodyString');
+      throw ApiException(
+        'Respuesta inesperada del servidor (${response.statusCode}).',
+        statusCode: response.statusCode,
+      );
+    }
+
+    final raw = bodyString == null ? null : jsonDecode(bodyString);
     debugPrint('   <- Response [${response.statusCode}]: $raw');
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
@@ -76,9 +91,18 @@ class ApiDataSource implements DataSource {
   }
 
   Future<List<dynamic>> _parseListResponse(http.Response response) async {
-    final raw = response.bodyBytes.isEmpty
-        ? []
-        : jsonDecode(utf8.decode(response.bodyBytes));
+    final bodyString =
+        response.bodyBytes.isEmpty ? null : utf8.decode(response.bodyBytes);
+
+    if (bodyString != null && !_looksLikeJson(bodyString)) {
+      debugPrint('   <- Response [${response.statusCode}]: $bodyString');
+      throw ApiException(
+        'Respuesta inesperada del servidor (${response.statusCode}).',
+        statusCode: response.statusCode,
+      );
+    }
+
+    final raw = bodyString == null ? [] : jsonDecode(bodyString);
     debugPrint('   <- Response [${response.statusCode}]: (list)');
 
     if (response.statusCode >= 200 && response.statusCode < 300) {

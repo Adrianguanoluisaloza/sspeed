@@ -55,6 +55,35 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
 
   Set<Marker> _markers = <Marker>{};
 
+  void _fitCameraToMarkers(Set<Marker> markers) {
+    if (_mapController == null || markers.isEmpty) return;
+    final positions = markers.map((m) => m.position).toList();
+    if (positions.isEmpty) return;
+    if (positions.length == 1) {
+      _mapController!.animateCamera(CameraUpdate.newCameraPosition(
+        CameraPosition(target: positions.first, zoom: 15),
+      ));
+      return;
+    }
+    double minLat = positions.first.latitude;
+    double maxLat = positions.first.latitude;
+    double minLon = positions.first.longitude;
+    double maxLon = positions.first.longitude;
+    for (final position in positions.skip(1)) {
+      minLat = math.min(minLat, position.latitude);
+      maxLat = math.max(maxLat, position.latitude);
+      minLon = math.min(minLon, position.longitude);
+      maxLon = math.max(maxLon, position.longitude);
+    }
+    final bounds = LatLngBounds(
+      southwest: LatLng(minLat, minLon),
+      northeast: LatLng(maxLat, maxLon),
+    );
+    _mapController!.animateCamera(
+      CameraUpdate.newLatLngBounds(bounds, 72),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -278,6 +307,13 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
               ? 'Sin repartidores activos.'
               : 'Mostrando $deliveryCount repartidores.';
         });
+        if (markers.isNotEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              _fitCameraToMarkers(markers);
+            }
+          });
+        }
         // Si no hay repartidores visibles, agenda un reintento corto (5s)
         final deliveryCount = markers.length - (_userPosition != null ? 1 : 0);
         if (deliveryCount == 0) {
