@@ -206,6 +206,11 @@ public class DeliveryApi {
             handleResponse(ctx, PRODUCTO_CONTROLLER.deleteProducto(id));
         });
 
+        // --- CATEGORIAS ---
+        app.get("/categorias", ctx -> {
+            handleResponse(ctx, PRODUCTO_CONTROLLER.obtenerCategorias());
+        });
+
         // --- NEGOCIOS (usa usuarios con rol admin como "negocio" por compatibilidad
         // con el esquema guía) ---
         app.get("/admin/negocios", ctx -> {

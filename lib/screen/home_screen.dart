@@ -7,11 +7,9 @@ import '../models/cart_model.dart';
 import '../models/producto.dart';
 import '../models/usuario.dart';
 import 'live_map_screen.dart';
-import 'profile_screen.dart';
 import '../services/database_service.dart';
 import 'widgets/login_required_dialog.dart';
 import 'product_detail_screen.dart';
-import 'admin_productos_screen.dart';
 import 'cart_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -26,7 +24,6 @@ class _HomeScreenState extends State<HomeScreen> {
   late Future<List<Producto>> _productosFuture;
   late Future<List<ProductoRankeado>> _recommendationsFuture;
   late Future<List<Map<String, dynamic>>> _repartidoresLocationFuture;
-  late Future<Map<String, dynamic>> _adminStatsFuture;
   late DatabaseService _databaseService;
 
   final TextEditingController _searchController = TextEditingController();
@@ -56,17 +53,9 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadProducts();
     _loadRecommendations();
     _loadRepartidoresLocation();
-    if (widget.usuario.rol == 'admin') {
-      _loadAdminStats();
-    }
     _searchController.addListener(_onSearchChanged);
   }
 
-  void _loadAdminStats() {
-    setState(() {
-      _adminStatsFuture = _databaseService.getAdminStats();
-    });
-  }
 
   @override
   void dispose() {
@@ -125,6 +114,58 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: TextField(
+        controller: _searchController,
+        textInputAction: TextInputAction.search,
+        decoration: InputDecoration(
+          hintText: 'Buscar productos...',
+          prefixIcon: const Icon(Icons.search),
+          suffixIcon: _hasQuery
+              ? IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () {
+                    _searchController.clear();
+                    FocusScope.of(context).unfocus();
+                    _loadProducts();
+                  },
+                )
+              : null,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+          filled: true,
+          fillColor: Colors.grey.shade100,
+        ),
+        onSubmitted: (_) => _loadProducts(),
+      ),
+    );
+  }
+
+  Widget _buildCategoryList() {
+    return SizedBox(
+      height: 44,
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        scrollDirection: Axis.horizontal,
+        itemBuilder: (context, index) {
+          final category = _categories[index];
+          final isSelected = category == _selectedCategory;
+          return ChoiceChip(
+            label: Text(category),
+            selected: isSelected,
+            onSelected: (_) {
+              setState(() => _selectedCategory = category);
+              _loadProducts();
+            },
+          );
+        },
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemCount: _categories.length,
+      ),
+    );
+  }
+
   void _onSearchChanged() {
     final hasQuery = _searchController.text.trim().isNotEmpty;
     if (_hasQuery != hasQuery) {
@@ -146,234 +187,34 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  final int _selectedIndex = 0;
-
   Widget _buildProductosTab() {
-    if (widget.usuario.rol == 'admin') {
-      // Para admin, muestra el dashboard y luego el resto.
-      // CORRECCIÓN: Se corrige el error "setState() callback argument returned a Future".
-      // Las operaciones asíncronas (await) se realizan antes de llamar a setState.
-      return RefreshIndicator(
-        onRefresh: () async {
-          await _databaseService.getProductos(
-              query: _searchController.text.trim(),
-              categoria: _selectedCategory == 'Todos' ? '' : _selectedCategory);
-          await _databaseService.getAdminStats();
-          if (mounted) setState(() {});
-        },
-        child: CustomScrollView(
-          slivers: <Widget>[
-            SliverToBoxAdapter(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildAdminDashboard(), // Dashboard primero
-                  _buildSearchBar(),
-                  if (!_hasQuery) ...[
-                    _buildRecommendationsCarousel(),
-                    _buildLiveTrackingCard(),
-                    const SizedBox(height: 12),
-                  ],
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-                    child: Text(
-                      'Nuestro Menu',
-                      style:
-                          TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  _buildCategoryList(),
-                ],
-              ),
-            ),
-            _buildProductsGrid(),
-          ],
-        ),
-      );
-    }
-
-    // Para otros usuarios, muestra la vista normal.
-    return RefreshIndicator(
-      onRefresh: () async => _loadProducts(),
-      child: CustomScrollView(
-        slivers: <Widget>[
-          SliverToBoxAdapter(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildSearchBar(),
-                if (!_hasQuery) ...[
-                  _buildRecommendationsCarousel(),
-                  _buildLiveTrackingCard(),
-                  const SizedBox(height: 12),
-                ],
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  child: Text(
-                    'Nuestro Menu',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                  ),
-                ),
-                _buildCategoryList(),
-              ],
-            ),
-          ),
-          _buildProductsGrid(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAdminDashboard() {
-    return FutureBuilder<Map<String, dynamic>>(
-      future: _adminStatsFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-              child: Padding(
-            padding: EdgeInsets.all(32.0),
-            child: CircularProgressIndicator(),
-          ));
-        }
-        if (snapshot.hasError) {
-          return Center(
-              child: Text('Error al cargar estadísticas: ${snapshot.error}'));
-        }
-        final stats = snapshot.data ?? {};
-        final pedidosHoy = stats['pedidos_hoy'] ?? 0;
-        final ingresosHoy = (stats['ingresos_hoy'] as num?)?.toDouble() ?? 0.0;
-        final clientesNuevos = stats['clientes_nuevos_mes'] ?? 0;
-
-        return Padding(
-          padding: const EdgeInsets.all(16),
+  return RefreshIndicator(
+    onRefresh: () async {
+      await _productosFuture;
+      _loadProducts();
+    },
+    child: CustomScrollView(
+      slivers: <Widget>[
+        SliverToBoxAdapter(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Dashboard de Administrador',
-                style: Theme.of(context)
-                    .textTheme
-                    .headlineSmall
-                    ?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 24),
-              GridView.count(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: 2,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                children: [
-                  _buildStatCard('Pedidos Hoy', pedidosHoy.toString(),
-                      Icons.receipt_long, Colors.blue),
-                  _buildStatCard(
-                      'Ingresos Hoy',
-                      '\$${ingresosHoy.toStringAsFixed(2)}',
-                      Icons.attach_money,
-                      Colors.green),
-                  _buildStatCard(
-                      'Clientes Nuevos (Mes)',
-                      clientesNuevos.toString(),
-                      Icons.person_add,
-                      Colors.orange),
-                ],
-              ),
-              const SizedBox(height: 32),
-              ElevatedButton.icon(
-                icon: const Icon(Icons.settings_applications),
-                label: const Text('Gestionar Productos'),
-                onPressed: () async {
-                  await Navigator.of(context).push(MaterialPageRoute(
-                      builder: (_) => const AdminProductosScreen()));
-                  _loadAdminStats(); // Refrescar stats al volver
-                },
-                style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16)),
-              ),
+              _buildSearchBar(),
+              if (!_hasQuery) ...[
+                _buildRecommendationsCarousel(),
+                const SizedBox(height: 16),
+                _buildLiveTrackingCard(),
+              ],
               const SizedBox(height: 16),
-              const Divider(),
+              _buildCategoryList(),
             ],
           ),
-        );
-      },
-    );
-  }
-
-  Widget _buildStatCard(
-      String title, String value, IconData icon, Color color) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, size: 32, color: color),
-            const Spacer(),
-            Text(title,
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
-            const SizedBox(height: 4),
-            Text(
-              value,
-              style: Theme.of(context)
-                  .textTheme
-                  .headlineSmall
-                  ?.copyWith(fontWeight: FontWeight.bold, color: color),
-            ),
-          ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildMapaTab() => const LiveMapScreen();
-  Widget _buildPerfilTab() => ProfileScreen(usuario: widget.usuario);
-
-  // Eliminado metodo no referenciado
-
-  Widget _buildSearchBar() => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-        child: TextField(
-          controller: _searchController,
-          decoration: InputDecoration(
-            hintText: 'Buscar pizzas, hamburguesas...',
-            prefixIcon: const Icon(Icons.search),
-            suffixIcon: _searchController.text.isNotEmpty
-                ? IconButton(
-                    icon: const Icon(Icons.clear),
-                    onPressed: () => _searchController.clear())
-                : null,
-          ),
-        ),
-      );
-
-  Widget _buildCategoryList() => SizedBox(
-        height: 50,
-        child: ListView.builder(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          itemCount: _categories.length,
-          itemBuilder: (context, index) {
-            final category = _categories[index];
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4.0),
-              child: ChoiceChip(
-                label: Text(category),
-                selected: category == _selectedCategory,
-                onSelected: (selected) {
-                  if (selected) {
-                    setState(() => _selectedCategory = category);
-                    _loadProducts();
-                  }
-                },
-              ),
-            );
-          },
-        ),
-      );
-
+        _buildProductsGrid(),
+      ],
+    ),
+  );
+}
   Widget _buildProductsGrid() => FutureBuilder<List<Producto>>(
         future: _productosFuture,
         builder: (context, snapshot) {
@@ -632,15 +473,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: isCliente
-          ? (_selectedIndex == 0
-              ? _buildProductosTab()
-              : _selectedIndex == 1
-                  ? _buildMapaTab()
-                  : _selectedIndex == 2
-                      ? _buildPerfilTab()
-                      : Container())
-          : Container(),
+      body: isCliente ? _buildProductosTab() : Container(),
     );
   }
 }
@@ -786,3 +619,5 @@ class ProductsGridLoading extends StatelessWidget {
         itemBuilder: (c, i) => const Card(),
       );
 }
+
+

@@ -6,10 +6,12 @@ import com.mycompany.delivery.api.util.ApiException;
 import com.mycompany.delivery.api.util.ApiResponse;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.Optional;
 
 /**
- * Maneja la lógica de productos y devuelve respuestas consistentes para el frontend.
+ * Maneja la lógica de productos y devuelve respuestas consistentes para el
+ * frontend.
  */
 public class ProductoController {
 
@@ -118,6 +120,21 @@ public class ProductoController {
         }
         if (producto.getDescripcion() == null) {
             producto.setDescripcion("");
+        }
+    }
+
+    /**
+     * Obtiene una lista de todas las categorías de productos únicas.
+     *
+     * @return Una respuesta de API con la lista de categorías.
+     */
+    public ApiResponse<List<String>> obtenerCategorias() {
+        try {
+            List<String> categorias = repo.listarTodosLosProductos().stream().map(Producto::getCategoria).distinct()
+                    .sorted().collect(Collectors.toList());
+            return ApiResponse.success(200, "Categorías obtenidas", categorias);
+        } catch (SQLException e) {
+            throw new ApiException(500, "No se pudieron obtener las categorías", e);
         }
     }
 }

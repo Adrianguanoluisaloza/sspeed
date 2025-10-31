@@ -25,6 +25,7 @@ abstract class DataSource {
   // --- Métodos del Cliente ---
   Future<List<Producto>> getProductos({String? query, String? categoria});
   Future<Producto?> getProductoById(int id); // MÉTODO AÑADIDO
+  Future<List<String>> getCategorias();
   Future<List<Ubicacion>> getUbicaciones(int idUsuario);
   Future<void> guardarUbicacion(Ubicacion ubicacion);
   Future<Map<String, dynamic>?> geocodificarDireccion(String direccion);

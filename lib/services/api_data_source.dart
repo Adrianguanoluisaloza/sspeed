@@ -351,6 +351,12 @@ class ApiDataSource implements DataSource {
   }
 
   @override
+  Future<List<String>> getCategorias() async {
+    final data = await _get('/categorias');
+    return data.cast<String>();
+  }
+
+  @override
   Future<List<ProductoRankeado>> getRecomendaciones() async {
     try {
       // CORRECCIÓN: El endpoint devuelve un mapa {'data': [...]}, no una lista directa.

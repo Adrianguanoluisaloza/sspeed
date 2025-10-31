@@ -7,7 +7,6 @@ import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:location/location.dart';
-import 'package:flutter_application_2/screen/main_navigator.dart';
 
 import '../models/ubicacion.dart';
 import '../models/usuario.dart';
@@ -407,7 +406,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
               ),
             ),
-            // MEJORA: Se añade un menú exclusivo para administradores.
+            // MEJORA: Se anade un menu exclusivo para administradores.
             if (widget.usuario.rol == 'admin') ...[
               const SizedBox(height: 24),
               Text('Herramientas de Administrador',
@@ -425,14 +424,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       context,
                       icon: Icons.bar_chart,
                       color: Colors.purple,
-                      title: 'Ver Estadísticas',
+                      title: 'Ver estadisticas',
                       subtitle: 'Dashboard de ventas y pedidos',
                       onTap: () {
-                        // MEJORA: Navega a la primera pestaña (home) donde está el dashboard.
-                        // Esto requiere que el MainNavigator maneje el cambio de índice.
-                        final mainNavigatorState = context
-                            .findAncestorStateOfType<MainNavigatorState>();
-                        mainNavigatorState?.onItemTapped(0);
+                        Navigator.of(context).pushNamed(
+                          AppRoutes.adminHome,
+                          arguments: widget.usuario,
+                        );
                       },
                     ),
                   ],
@@ -696,3 +694,4 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 }
+
