@@ -18,8 +18,8 @@ class ApiSettings {
     // === ¡IMPORTANTE! ===
     // REEMPLAZA ESTA URL CON TU URL ACTUAL DE NGROK CADA VEZ QUE LA INICIES.
     // O déjala en blanco para usar la lógica de localhost/10.0.2.2.
-    const String ngrokUrl = 'https://https://martyrly-transnatural-sonya.ngrok-free.dev'; // <--- ¡TU URL DE NGROK AQUÍ!
-    //https://https://martyrly-transnatural-sonya.ngrok-free.dev
+    const String ngrokUrl = 'https://feyly-electrotropic-obdulia.ngrok-free.dev'; // <--- ¡TU URL DE NGROK AQUÍ!
+
     if (ngrokUrl.isNotEmpty) {
       // Si se proporciona una URL de Ngrok, úsala directamente.
       return ApiSettings(baseUrl: ngrokUrl);
@@ -39,7 +39,8 @@ class ApiSettings {
 
   // Configuración para el entorno de PRODUCCIÓN (tu dominio real)
   static const ApiSettings production = ApiSettings(
-    baseUrl: 'https://api.tu-dominio-produccion.com', // ¡REEMPLAZA CON TU URL REAL DE PRODUCCIÓN!
+    baseUrl:
+        'https://api.tu-dominio-produccion.com', // ¡REEMPLAZA CON TU URL REAL DE PRODUCCIÓN!
   );
 }
 
@@ -49,20 +50,21 @@ class AppConfig {
 
   // --- CONFIGURACIÓN PRINCIPAL ---
   static const String _envString =
-  String.fromEnvironment('APP_ENV', defaultValue: 'development');
+      String.fromEnvironment('APP_ENV', defaultValue: 'development');
 
   static const String _compileTimeBaseUrl =
-  String.fromEnvironment('API_BASE_URL', defaultValue: '');
+      String.fromEnvironment('API_BASE_URL', defaultValue: '');
 
   static final Environment _currentEnvironment =
-  _envString.toLowerCase() == 'production'
-      ? Environment.production
-      : Environment.development;
+      _envString.toLowerCase() == 'production'
+          ? Environment.production
+          : Environment.development;
 
   // -----------------------------
 
   static final Map<Environment, ApiSettings> _settings = {
-    Environment.development: ApiSettings.forDevelopment(), // Usará la Ngrok URL si está definida
+    Environment.development:
+        ApiSettings.forDevelopment(), // Usará la Ngrok URL si está definida
     Environment.production: ApiSettings.production,
   };
 
@@ -71,7 +73,7 @@ class AppConfig {
   /// Permite sobrescribir la URL base manualmente en tiempo de ejecución.
   static void overrideBaseUrl(String? baseUrl) {
     _runtimeOverrideBaseUrl =
-    (baseUrl != null && baseUrl.trim().isNotEmpty) ? baseUrl.trim() : null;
+        (baseUrl != null && baseUrl.trim().isNotEmpty) ? baseUrl.trim() : null;
   }
 
   /// Devuelve la URL base que la aplicación debe usar.

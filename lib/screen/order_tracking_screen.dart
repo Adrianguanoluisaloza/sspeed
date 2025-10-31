@@ -60,9 +60,10 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
         setState(() => _errorMessage = 'No se pudo encontrar el pedido.');
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(
             () => _errorMessage = 'Error al cargar el estado: ${e.toString()}');
+      }
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);

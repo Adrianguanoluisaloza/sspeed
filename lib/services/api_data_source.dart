@@ -353,7 +353,11 @@ class ApiDataSource implements DataSource {
   @override
   Future<List<ProductoRankeado>> getRecomendaciones() async {
     try {
-      final data = await _get('/recomendaciones/destacadas');
+      // CORRECCIÓN: El endpoint devuelve un mapa {'data': [...]}, no una lista directa.
+      final response = await _getMap('/recomendaciones/destacadas');
+      final data = response['data'];
+      if (data is! List) return [];
+
       return data
           .cast<Map<String, dynamic>>()
           .map((item) => ProductoRankeado.fromMap(item))
