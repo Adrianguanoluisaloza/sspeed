@@ -18,7 +18,7 @@ class ApiSettings {
     // === ¡IMPORTANTE! ===
     // REEMPLAZA ESTA URL CON TU URL ACTUAL DE NGROK CADA VEZ QUE LA INICIES.
     // O déjala en blanco para usar la lógica de localhost/10.0.2.2.
-    const String ngrokUrl = ''; // <--- ¡TU URL DE NGROK AQUÍ!
+    const String ngrokUrl = 'https://https://martyrly-transnatural-sonya.ngrok-free.dev'; // <--- ¡TU URL DE NGROK AQUÍ!
     //https://https://martyrly-transnatural-sonya.ngrok-free.dev
     if (ngrokUrl.isNotEmpty) {
       // Si se proporciona una URL de Ngrok, úsala directamente.

@@ -245,14 +245,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
       }
 
       final markers = <Marker>{};
-      if (_userPosition != null) {
-        markers.add(Marker(
-            markerId: const MarkerId('user'),
-            position: _userPosition!,
-            icon: BitmapDescriptor.defaultMarkerWithHue(
-                BitmapDescriptor.hueAzure),
-            infoWindow: const InfoWindow(title: 'Estas aqui')));
-      }
+      // MEJORA: Se elimina el marcador de usuario personalizado. Ahora se usará el punto azul nativo de Google Maps.
 
       // OPTIMIZACIÓN: En lugar de hacer una llamada a la API por cada pedido,
       // agrupamos por repartidor para reducir las llamadas de red.
@@ -504,10 +497,15 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
               zoom: _userPosition != null ? 14 : 12,
             ),
             markers: _markers,
-            // CORRECCIÓN: Se deshabilita el punto azul nativo para usar nuestro propio marcador.
-            myLocationEnabled: false,
-            myLocationButtonEnabled: false,
-            zoomControlsEnabled: false,
+            // MEJORA: Se habilitan los controles predeterminados del mapa para una mejor experiencia de usuario.
+            myLocationEnabled:
+                true, // Muestra el punto azul de la ubicación del usuario.
+            myLocationButtonEnabled:
+                true, // Muestra el botón para centrar en el usuario.
+            zoomControlsEnabled: true, // Muestra los botones de zoom (+/-).
+            compassEnabled: true, // Muestra la brújula.
+            mapToolbarEnabled:
+                true, // Muestra la barra de herramientas al tocar un marcador.
             onMapCreated: (controller) => _mapController = controller,
           ),
           _buildTopInfoBar(),

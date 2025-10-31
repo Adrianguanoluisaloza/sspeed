@@ -68,8 +68,7 @@ public class UbicacionService {
         // 'LIVE_TRACKING' para que el endpoint de tracking pueda encontrarla.
         try {
             boolean updated = repo.actualizarUbicacionLive(idRepartidor, latitud, longitud);
-            if (!updated) {
-                // Si no se actualizó ninguna fila (porque no existía una entrada
+            if (!updated) { // Si no se actualizó ninguna fila (porque no existía una entrada
                 // 'LIVE_TRACKING'),
                 // se inserta una nueva.
                 repo.insertarUbicacionLive(idRepartidor, latitud, longitud);
@@ -118,9 +117,9 @@ public class UbicacionService {
         }
         return repo.obtenerRutaPedido(idPedido);
     }
-    
 
-    // CORRECCIÓN: Método faltante para obtener ubicaciones de múltiples repartidores
+    // CORRECCIÓN: Método faltante para obtener ubicaciones de múltiples
+    // repartidores
     public List<Map<String, Object>> obtenerUbicacionesDeRepartidores(List<Integer> repartidorIds) {
         try {
             return repo.obtenerUbicacionesDeRepartidores(repartidorIds);
@@ -129,6 +128,3 @@ public class UbicacionService {
         }
     }
 }
-
-
-

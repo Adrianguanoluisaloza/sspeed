@@ -161,7 +161,30 @@ public class PedidoRepository {
             stmt.setInt(2, idPedido);
             return stmt.executeUpdate() > 0;
         }
+    
+        }
+    
+
+    public Optional<Pedido> obtenerPedidoMasRecientePorCliente(int idCliente) throws SQLException {
+        String sql = """
+                SELECT * FROM pedidos
+                WHERE id_cliente = ?
+                  AND estado NOT IN ('entregado', 'cancelado')
+                ORDER BY fecha_pedido DESC
+                LIMIT 1
+                """;
+        try (Connection conn = Database.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, idCliente);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return Optional.of(mapRowToPedido(rs));
+                }
+            }
+        }
+        return Optional.empty();
     }
+
+  
 
     private Pedido mapRowToPedido(ResultSet rs) throws SQLException {
         Pedido p = new Pedido();

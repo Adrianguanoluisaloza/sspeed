@@ -8,6 +8,7 @@ import com.mycompany.delivery.api.model.*;
 import com.mycompany.delivery.api.payloads.Payloads;
 import com.mycompany.delivery.api.payloads.Payloads.PedidoPayload;
 import com.mycompany.delivery.api.repository.ChatRepository;
+import com.mycompany.delivery.api.repository.PedidoRepository;
 import com.mycompany.delivery.api.repository.DashboardDAO;
 import com.mycompany.delivery.api.util.ApiException;
 import com.mycompany.delivery.api.services.GeminiService;
@@ -25,6 +26,7 @@ import java.util.*;
 
 import static com.mycompany.delivery.api.payloads.Payloads.*;
 import com.mycompany.delivery.api.payloads.Payloads.UbicacionesRequest;
+import com.mycompany.delivery.api.util.ChatBotResponder;
 import static com.mycompany.delivery.api.util.UbicacionValidator.*;
 
 /**
@@ -41,6 +43,8 @@ public class DeliveryApi {
     private static final DashboardDAO DASHBOARD_DAO = new DashboardDAO();
     private static final ChatRepository CHAT_REPOSITORY = new ChatRepository();
     private static final GeminiService GEMINI_SERVICE = new GeminiService();
+    private static final ChatBotResponder CHATBOT_RESPONDER = new ChatBotResponder(GEMINI_SERVICE,
+            new PedidoRepository());
 
     public static void main(String[] args) {
         // Cargar variables de entorno
@@ -570,7 +574,7 @@ public class DeliveryApi {
             List<Map<String, Object>> history = CHAT_REPOSITORY.listarMensajes(idConversacion);
 
             // 4. Generar la respuesta del bot
-            String botReply = GEMINI_SERVICE.generateReply(req.mensaje, history, req.idRemitente);
+            String botReply = CHATBOT_RESPONDER.generateReply(req.mensaje, history, req.idRemitente);
 
             // 5. Guardar la respuesta del bot usando el usuario del bot
             try {
@@ -584,8 +588,7 @@ public class DeliveryApi {
             // historial
             Map<String, Object> result = Map.of(
                     "id_conversacion", idConversacion,
-                    "bot_reply", botReply
-            );
+                    "bot_reply", botReply);
             handleResponse(ctx, ApiResponse.success(201, "Respuesta generada", result));
         });
     }
