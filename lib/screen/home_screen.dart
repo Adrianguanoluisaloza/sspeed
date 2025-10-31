@@ -247,7 +247,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
         final recommendations = snapshot.data!;
         return SizedBox(
-          height: 230, // Aumentamos la altura para el nuevo diseño
+          height: 250, // Aumentamos la altura para el nuevo diseño
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -302,12 +302,29 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               Padding(
                 padding: const EdgeInsets.all(10.0),
-                child: Text(
-                  producto.nombre,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      producto.nombre,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(Icons.star, color: Colors.amber, size: 16),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${producto.ratingPromedio.toStringAsFixed(1)} (${producto.totalReviews})',
+                          style: TextStyle(
+                              fontSize: 12, color: Colors.grey.shade700),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ],
