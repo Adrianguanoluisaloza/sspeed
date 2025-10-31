@@ -98,8 +98,9 @@ class _LoginScreenState extends State<LoginScreen>
         switch (normalizedRole) {
           case 'admin':
           case 'negocio':
+            // CORRECCIÓN: Se redirige al admin al MainNavigator para que pueda ver el mapa.
             navigator.pushNamedAndRemoveUntil(
-              AppRoutes.adminHome,
+              AppRoutes.mainNavigator,
               (route) => false,
               arguments: user,
             );

@@ -122,26 +122,10 @@ public class DeliveryApi {
             ctx.attribute("id_usuario", usuario.getIdUsuario());
         });
 
-        // --- NUEVO MIDDLEWARE PARA ENDPOINT DE ADMIN ---
-        app.before("/tracking/repartidores/ubicaciones", ctx -> {
-            String authHeader = ctx.header("Authorization");
-            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-                ctx.status(401).json(ApiResponse.error(401, "Token de autenticación requerido"));
-                return;
-            }
-            String token = authHeader.substring(7);
-            Usuario usuario = USUARIO_CONTROLLER.validarToken(token);
-            if (usuario == null) {
-                ctx.status(401).json(ApiResponse.error(401, "Token inválido"));
-                return;
-            }
-            // La única diferencia es que aquí validamos que el rol sea 'admin'.
-            if (!"admin".equalsIgnoreCase(usuario.getRol())) {
-                ctx.status(403).json(ApiResponse.error(403, "Acceso solo para administradores"));
-                return;
-            }
-            ctx.attribute("admin_user", usuario); // Guardamos el usuario admin en el contexto
-        });
+        // CORRECCIÓN: Se elimina el middleware de admin de este endpoint.
+        // Ahora, cualquier usuario autenticado puede solicitar las ubicaciones de los
+        // repartidores,
+        // lo que permite que el mapa en la app móvil funcione para todos los roles.
 
         // --- MANEJO DE EXCEPCIONES ---
         app.exception(ApiException.class, (ex, ctx) -> {

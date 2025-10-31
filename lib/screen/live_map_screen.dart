@@ -500,6 +500,9 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
             // MEJORA: Se habilitan los controles predeterminados del mapa para una mejor experiencia de usuario.
             myLocationEnabled:
                 true, // Muestra el punto azul de la ubicación del usuario.
+            // CORRECCIÓN: Se desactiva el modo ligero para restaurar la interactividad completa del mapa (zoom/pan con gestos, etc.).
+            liteModeEnabled:
+                false, // Estaba en `!kIsWeb`. Se cambia a `false` para tener el mapa completo.
             myLocationButtonEnabled:
                 true, // Muestra el botón para centrar en el usuario.
             zoomControlsEnabled: true, // Muestra los botones de zoom (+/-).

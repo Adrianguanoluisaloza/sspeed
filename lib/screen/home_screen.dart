@@ -1,5 +1,6 @@
 ﻿import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 
 import '../models/cart_model.dart';
@@ -25,12 +26,14 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late Future<List<Producto>> _productosFuture;
   late Future<List<ProductoRankeado>> _recommendationsFuture;
+  late Future<List<Map<String, dynamic>>> _repartidoresLocationFuture;
   late DatabaseService _databaseService;
 
   final TextEditingController _searchController = TextEditingController();
   String _selectedCategory = "Todos";
   bool _hasQuery = false;
   Timer? _debounce;
+  Timer? _repartidoresRefreshTimer;
 
   final List<String> _categories = const [
     'Todos',
@@ -52,7 +55,17 @@ class _HomeScreenState extends State<HomeScreen> {
     _databaseService = Provider.of<DatabaseService>(context, listen: false);
     _loadProducts();
     _loadRecommendations();
+    _loadRepartidoresLocation();
     _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _repartidoresRefreshTimer?.cancel();
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    super.dispose();
   }
 
   void _loadRecommendations() {
@@ -67,6 +80,32 @@ class _HomeScreenState extends State<HomeScreen> {
       _productosFuture = _databaseService.getProductos(
           query: query, categoria: categoryFilter);
     });
+  }
+
+  void _loadRepartidoresLocation() {
+    // CORRECCIÓN: Ahora primero obtenemos los pedidos 'en camino' para saber qué repartidores buscar.
+    // Esto soluciona el problema de que los marcadores de repartidor no aparecían.
+    Future<List<Map<String, dynamic>>> fetchLocations() async {
+      final pedidosEnCamino =
+          await _databaseService.getPedidosPorEstado('en camino');
+      final deliveryIds = pedidosEnCamino
+          .where((p) => p.idDelivery != null)
+          .map((p) => p.idDelivery!)
+          .toSet()
+          .toList();
+
+      if (deliveryIds.isEmpty) return [];
+      return _databaseService.getRepartidoresLocation(deliveryIds);
+    }
+
+    setState(() => _repartidoresLocationFuture = fetchLocations());
+    _repartidoresRefreshTimer?.cancel();
+    _repartidoresRefreshTimer = Timer.periodic(
+      const Duration(
+          seconds:
+              30), // MEJORA: Se ajusta el tiempo de refresco a 30 segundos.
+      (_) => setState(() => _repartidoresLocationFuture = fetchLocations()),
+    );
   }
 
   void _onSearchChanged() {
@@ -118,6 +157,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 _buildSearchBar(),
                 if (!_hasQuery) ...[
                   _buildRecommendationsCarousel(),
+                  _buildLiveTrackingCard(),
                   const SizedBox(height: 12),
                 ],
                 const Padding(
@@ -262,6 +302,93 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildLiveTrackingCard() {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _repartidoresLocationFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            (snapshot.data == null || snapshot.data!.isEmpty)) {
+          return const SizedBox
+              .shrink(); // No mostrar nada mientras carga inicialmente
+        }
+
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const SizedBox
+              .shrink(); // No mostrar la tarjeta si no hay repartidores
+        }
+
+        final locations = snapshot.data!;
+        final markers = locations
+            .map((loc) {
+              final lat = (loc['latitud'] as num?)?.toDouble();
+              final lon = (loc['longitud'] as num?)?.toDouble();
+              if (lat == null || lon == null) return null;
+
+              return Marker(
+                markerId: MarkerId('repartidor_${loc['id_repartidor']}'),
+                position: LatLng(lat, lon),
+                icon: BitmapDescriptor.defaultMarkerWithHue(
+                    BitmapDescriptor.hueOrange),
+              );
+            })
+            .whereType<Marker>()
+            .toSet();
+
+        if (markers.isEmpty) return const SizedBox.shrink();
+
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: Card(
+            clipBehavior: Clip.antiAlias,
+            elevation: 3,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: InkWell(
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const LiveMapScreen()),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    height: 150,
+                    child: GoogleMap(
+                      initialCameraPosition: CameraPosition(
+                        target: markers.first.position,
+                        zoom: 13,
+                      ),
+                      markers: markers,
+                      liteModeEnabled:
+                          true, // Modo ligero para mejor rendimiento
+                      myLocationButtonEnabled: false,
+                      zoomControlsEnabled: false,
+                      mapToolbarEnabled: false,
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.delivery_dining,
+                            color: Colors.deepOrange),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${markers.length} repartidor(es) en camino',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildRecommendationCard(ProductoRankeado producto) {
     return GestureDetector(
       // CORRECCIÓN: Se reutiliza el método de navegación que ya funciona en el resto de la app.
@@ -336,7 +463,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isCliente = widget.usuario.rol == 'cliente';
+    // CORRECCIÓN: Se permite que el rol 'admin' también vea la interfaz de cliente.
+    final isCliente =
+        widget.usuario.rol == 'cliente' || widget.usuario.rol == 'admin';
     return Scaffold(
       appBar: AppBar(
         title: Text('Hola, ${widget.usuario.nombre.split(' ').first}'),
