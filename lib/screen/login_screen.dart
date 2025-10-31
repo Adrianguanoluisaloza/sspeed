@@ -120,12 +120,13 @@ class _LoginScreenState extends State<LoginScreen>
             break;
           default:
             navigator.pushNamedAndRemoveUntil(
+              // CORRECCIÓN: Se navega al MainNavigator para clientes, que contiene la barra de navegación inferior.
+              // Esto soluciona el problema del carrusel faltante y el cierre de sesión al cambiar de vista.
               AppRoutes.mainNavigator,
               (route) => false,
               arguments: user,
             );
         }
-
       } else {
         messenger.showSnackBar(
           const SnackBar(
@@ -430,4 +431,3 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 }
-

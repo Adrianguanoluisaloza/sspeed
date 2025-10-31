@@ -12,6 +12,7 @@ import '../services/database_service.dart';
 import 'widgets/login_required_dialog.dart';
 import 'product_detail_screen.dart';
 import 'admin_productos_screen.dart';
+import 'cart_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final Usuario usuario;
@@ -81,7 +82,11 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!widget.usuario.isAuthenticated) {
       showLoginRequiredDialog(context);
     } else {
-      Navigator.of(context).pushNamed(AppRoutes.checkout);
+      // CORRECCIÓN: Se navega a la pantalla del carrito en lugar de directamente al checkout.
+      // Esto evita el crash de la app, ya que la pantalla del carrito es el paso previo
+      // donde el usuario puede revisar su pedido antes de seleccionar la dirección.
+      Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => CartScreen(usuario: widget.usuario)));
     }
   }
 
@@ -259,10 +264,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildRecommendationCard(ProductoRankeado producto) {
     return GestureDetector(
-      onTap: () => Navigator.of(context).pushNamed(
-        AppRoutes.productDetail,
-        arguments: producto.idProducto,
-      ),
+      // CORRECCIÓN: Se reutiliza el método de navegación que ya funciona en el resto de la app.
+      // Se crea un objeto 'Producto' a partir de 'ProductoRankeado' y se pasa directamente.
+      // Esto asegura que la pantalla de detalles siempre reciba los datos correctos.
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ProductDetailScreen(
+              producto: producto.toProducto(), // Conversión directa
+              usuario: widget.usuario,
+            ),
+          ),
+        );
+      },
       child: Container(
         width: 160,
         margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),

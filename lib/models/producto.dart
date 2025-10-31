@@ -123,6 +123,19 @@ class ProductoRankeado {
     this.ultimaResena,
   });
 
+  /// Convierte este objeto a un [Producto] estándar para la pantalla de detalles.
+  Producto toProducto() {
+    return Producto(
+      idProducto: idProducto,
+      nombre: nombre,
+      precio: precio ?? 0.0,
+      descripcion: descripcion,
+      imagenUrl: imagenUrl,
+      // Los demás campos pueden ser nulos o tener valores por defecto
+      // ya que la pantalla de detalles no los necesita de forma crítica.
+    );
+  }
+
   factory ProductoRankeado.fromMap(Map<String, dynamic> map) {
     num? readNumeric(List<String> keys) {
       for (final key in keys) {
@@ -189,7 +202,8 @@ class ProductoRankeado {
       descripcion: readString(['descripcion', 'description']),
       imagenUrl: readString(['imagen_url', 'imagenUrl', 'imageUrl']),
       negocio: readString(['negocio', 'business']),
-      comentarioReciente: readString(['comentario_reciente', 'comentarioReciente', 'latest_comment']),
+      comentarioReciente: readString(
+          ['comentario_reciente', 'comentarioReciente', 'latest_comment']),
       ultimaResena: readDate(['ultima_resena', 'ultimaResena', 'last_review']),
     );
   }
