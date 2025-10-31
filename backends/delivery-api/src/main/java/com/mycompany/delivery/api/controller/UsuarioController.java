@@ -1,4 +1,4 @@
-package com.mycompany.delivery.api.controller;
+﻿package com.mycompany.delivery.api.controller;
 
 import java.sql.SQLException;
 import java.util.List;
@@ -10,8 +10,8 @@ import com.mycompany.delivery.api.util.ApiException;
 import com.mycompany.delivery.api.util.ApiResponse;
 
 /**
- * Controlador REST para la gestión de usuarios.
- * Contiene autenticación, registro, edición, listado y eliminación.
+ * Controlador REST para la gestion de usuarios.
+ * Contiene autenticacion, registro, edicion, listado y eliminacion.
  */
 public class UsuarioController {
 
@@ -19,13 +19,13 @@ public class UsuarioController {
 
         /**
          * Valida el token JWT y devuelve el usuario autenticado.
-         * Simulación: decodifica el token y busca el usuario por id.
-         * Reemplaza por tu lógica real de validación JWT.
+         * Simulacion: decodifica el token y busca el usuario por id.
+         * Reemplaza por tu logica real de validacion JWT.
          */
         public Usuario validarToken(String token) {
-            // Simulación: el token es el id_usuario en texto
+            // Simulacion: el token es el id_usuario en texto
             try {
-                int idUsuario = Integer.parseInt(token); // Reemplaza por decodificación JWT real
+                int idUsuario = Integer.parseInt(token); // Reemplaza por decodificacion JWT real
                 Optional<Usuario> usuarioOpt = repo.obtenerPorId(idUsuario);
                 if (usuarioOpt.isEmpty()) {
                     throw new ApiException(401, "Usuario no encontrado para el token");
@@ -42,7 +42,7 @@ public class UsuarioController {
                 }
                 return usuario;
             } catch (NumberFormatException e) {
-                throw new ApiException(401, "Token inválido");
+                throw new ApiException(401, "Token invalido");
             } catch (ApiException e) {
                 throw e;
             } catch (SQLException e) {
@@ -54,7 +54,7 @@ public class UsuarioController {
     // ===========================
     public ApiResponse<java.util.Map<String, Object>> login(String correo, String contrasena) {
         if (correo == null || correo.isBlank() || contrasena == null || contrasena.isBlank()) {
-            throw new ApiException(400, "Correo y contraseña son obligatorios");
+            throw new ApiException(400, "Correo y contrasena son obligatorios");
         }
         try {
             Optional<Usuario> usuarioOpt = repo.autenticar(correo, contrasena);
@@ -62,10 +62,10 @@ public class UsuarioController {
                 throw new ApiException(401, "Credenciales incorrectas");
             }
             Usuario usuario = usuarioOpt.get();
-            // El token es el idUsuario. Se añade al mapa del usuario.
+            // El token es el idUsuario. Se anade al mapa del usuario.
             java.util.Map<String, Object> userMap = usuario.toMap();
-            userMap.put("token", String.valueOf(usuario.getIdUsuario())); // Simulación JWT
-            return ApiResponse.success(200, "Inicio de sesión exitoso", userMap);
+            userMap.put("token", String.valueOf(usuario.getIdUsuario())); // Simulacion JWT
+            return ApiResponse.success(200, "Inicio de sesion exitoso", userMap);
         } catch (SQLException e) {
             throw new ApiException(500, "Error al autenticar usuario", e);
         }
@@ -80,16 +80,20 @@ public class UsuarioController {
             throw new ApiException(400, "El correo es obligatorio");
         }
         if (usuario.getContrasena() == null || usuario.getContrasena().isBlank()) {
-            throw new ApiException(400, "La contraseña es obligatoria");
+            throw new ApiException(400, "La contrasena es obligatoria");
         }
         try {
+            String correoNormalizado = usuario.getCorreo().trim().toLowerCase();
+            usuario.setCorreo(correoNormalizado);
+
+            if (repo.existeCorreo(correoNormalizado)) {
+                throw new ApiException(409, "El correo ya esta registrado");
+            }
+
             boolean creado = repo.registrar(usuario);
             if (!creado) throw new ApiException(500, "No se pudo registrar el usuario");
             return ApiResponse.created("Usuario registrado correctamente");
         } catch (SQLException e) {
-            if (e.getMessage().contains("duplicate key")) {
-                throw new ApiException(409, "El correo ya está registrado", e);
-            }
             throw new ApiException(500, "Error interno al registrar el usuario", e);
         }
     }
@@ -110,7 +114,7 @@ public class UsuarioController {
     // OBTENER POR ID
     // ===========================
     public ApiResponse<Usuario> obtenerPorId(int idUsuario) {
-        if (idUsuario <= 0) throw new ApiException(400, "ID de usuario inválido");
+        if (idUsuario <= 0) throw new ApiException(400, "ID de usuario invalido");
         try {
             Optional<Usuario> usuario = repo.obtenerPorId(idUsuario);
             if (usuario.isEmpty()) throw new ApiException(404, "Usuario no encontrado");
@@ -125,7 +129,7 @@ public class UsuarioController {
     // ===========================
     public ApiResponse<Void> actualizarUsuario(Usuario usuario) {
         if (usuario == null || usuario.getIdUsuario() <= 0) {
-            throw new ApiException(400, "Datos de usuario inválidos");
+            throw new ApiException(400, "Datos de usuario invalidos");
         }
         try {
             boolean actualizado = repo.actualizar(usuario);
@@ -140,7 +144,7 @@ public class UsuarioController {
     // ELIMINAR USUARIO
     // ===========================
     public ApiResponse<Void> eliminarUsuario(int idUsuario) {
-        if (idUsuario <= 0) throw new ApiException(400, "ID de usuario inválido");
+        if (idUsuario <= 0) throw new ApiException(400, "ID de usuario invalido");
         try {
             boolean eliminado = repo.eliminar(idUsuario);
             if (!eliminado) throw new ApiException(404, "Usuario no encontrado para eliminar");
@@ -150,3 +154,9 @@ public class UsuarioController {
         }
     }
 }
+
+
+
+
+
+

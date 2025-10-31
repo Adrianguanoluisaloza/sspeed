@@ -1,4 +1,4 @@
-package com.mycompany.delivery.api.repository;
+﻿package com.mycompany.delivery.api.repository;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -15,7 +15,7 @@ import com.mycompany.delivery.api.model.Usuario;
 
 /**
  * Repositorio que maneja las operaciones CRUD de los usuarios. Implementa
- * autenticación, registro y actualización con cifrado seguro.
+ * autenticacion, registro y actualizacion con cifrado seguro.
  */
 public class UsuarioRepository {
 
@@ -23,7 +23,7 @@ public class UsuarioRepository {
     // AUTENTICAR (LOGIN)
     // ===============================
     public Optional<Usuario> autenticar(String correo, String contrasenaIngresada) throws SQLException {
-        String sql = "SELECT * FROM usuarios WHERE correo = ?";
+        String sql = "SELECT * FROM usuarios WHERE LOWER(correo) = LOWER(?)";
         try (Connection conn = Database.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setString(1, correo);
@@ -37,13 +37,11 @@ public class UsuarioRepository {
                         return Optional.empty();
                     }
 
-                    // ✅ Si la contraseña ya está hasheada (BCrypt)
                     if (hashActual.startsWith("$2")) {
                         if (BCrypt.checkpw(contrasenaIngresada, hashActual)) {
                             return Optional.of(usuario);
                         }
                     } else {
-                        // ⚠️ Si está en texto plano, la convertimos a hash y la guardamos
                         if (hashActual.equals(contrasenaIngresada)) {
                             String nuevoHash = BCrypt.hashpw(contrasenaIngresada, BCrypt.gensalt());
                             actualizarContrasenaHash(usuario.getIdUsuario(), nuevoHash);
@@ -69,6 +67,17 @@ public class UsuarioRepository {
     // ===============================
     // REGISTRAR NUEVO USUARIO
     // ===============================
+    public boolean existeCorreo(String correo) throws SQLException {
+        String sql = "SELECT 1 FROM usuarios WHERE LOWER(correo) = LOWER(?) LIMIT 1";
+        try (Connection conn = Database.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, correo);
+            try (ResultSet rs = stmt.executeQuery()) {
+                return rs.next();
+            }
+        }
+    }
+
     public boolean registrar(Usuario usuario) throws SQLException {
         String sql = """
                     INSERT INTO usuarios (nombre, correo, contrasena, telefono, rol, activo, fecha_registro)
@@ -77,17 +86,23 @@ public class UsuarioRepository {
 
         try (Connection conn = Database.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-            stmt.setString(1, usuario.getNombre());
-            stmt.setString(2, usuario.getCorreo());
+            String nombre = usuario.getNombre() != null ? usuario.getNombre().trim() : null;
+            String correoNormalizado = usuario.getCorreo() != null
+                    ? usuario.getCorreo().trim().toLowerCase()
+                    : null;
+            String telefono = usuario.getTelefono() != null ? usuario.getTelefono().trim() : null;
+            String rol = usuario.getRol() != null ? usuario.getRol().trim().toLowerCase() : null;
 
-            // MEJORA: Hashear la contraseña en la capa de aplicación para mayor robustez.
-            // Esto evita la dependencia del trigger de la base de datos y previene el doble
-            // hasheo.
+            usuario.setCorreo(correoNormalizado);
+
+            stmt.setString(1, nombre);
+            stmt.setString(2, correoNormalizado);
+
             String contrasenaPlana = usuario.getContrasena();
             String hash = BCrypt.hashpw(contrasenaPlana, BCrypt.gensalt());
             stmt.setString(3, hash);
-            stmt.setString(4, usuario.getTelefono());
-            stmt.setString(5, usuario.getRol());
+            stmt.setString(4, telefono);
+            stmt.setString(5, rol);
             return stmt.executeUpdate() > 0;
         }
     }
@@ -140,8 +155,8 @@ public class UsuarioRepository {
             stmt.setString(2, usuario.getCorreo());
             stmt.setString(3, usuario.getTelefono());
 
-            // MEJORA: Lógica de hasheo inteligente para la actualización.
-            // Si la contraseña que llega no parece un hash, la hasheamos.
+            // MEJORA: Logica de hasheo inteligente para la actualizacion.
+            // Si la contrasena que llega no parece un hash, la hasheamos.
             // Si ya es un hash, la pasamos directamente para evitar el doble hasheo.
             String contrasena = usuario.getContrasena();
             if (contrasena != null && !contrasena.isBlank() && !contrasena.startsWith("$2")) {
@@ -169,7 +184,7 @@ public class UsuarioRepository {
     }
 
     // ===============================
-    // MAPEO RESULTSET → OBJETO
+    // MAPEO RESULTSET A OBJETO
     // ===============================
     private Usuario mapRow(ResultSet rs) throws SQLException {
         Usuario u = new Usuario();
@@ -180,9 +195,13 @@ public class UsuarioRepository {
         u.setTelefono(rs.getString("telefono"));
         u.setRol(rs.getString("rol"));
         u.setActivo(rs.getBoolean("activo"));
-        // No incluir la contraseña en el mapeo por defecto por seguridad.
-        // Se puede añadir un método específico si se necesita explícitamente.
+        // No incluir la contrasena en el mapeo por defecto por seguridad.
+        // Se puede anadir un metodo especifico si se necesita explicitamente.
         return u;
     }
 
 }
+
+
+
+

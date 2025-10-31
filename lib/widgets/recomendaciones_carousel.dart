@@ -32,12 +32,12 @@ class RecomendacionesCarousel extends StatelessWidget {
             return RecommendationCard(productoRankeado: rec, usuario: usuario);
           },
           options: CarouselOptions(
-            height: 200,
+            height: 190,
             enlargeCenterPage: true,
             enableInfiniteScroll: recomendaciones.length > 1,
             autoPlay: recomendaciones.length > 1,
             autoPlayInterval: const Duration(seconds: 6),
-            viewportFraction: 0.78,
+            viewportFraction: 0.82,
           ),
         );
       },
@@ -114,7 +114,7 @@ class RecommendationCard extends StatelessWidget {
                 children: [
                   _RecommendationImage(
                     url: productoRankeado.imagenUrl,
-                    size: 86,
+                    size: 74,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -168,7 +168,7 @@ class RecommendationCard extends StatelessWidget {
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              '${productoRankeado.totalReviews} reseñas',
+                              '${productoRankeado.totalReviews} resenas',
                               style: theme.textTheme.bodySmall
                                   ?.copyWith(color: theme.hintColor),
                             ),
@@ -197,20 +197,22 @@ class RecommendationCard extends StatelessWidget {
               const SizedBox(height: 12),
               Row(
                 children: [
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: () =>
-                          _navigateToProduct(context, openReviews: false),
-                      icon: const Icon(Icons.info_outline),
-                      label: const Text('Ver producto'),
-                    ),
+                  Icon(
+                    Icons.touch_app_outlined,
+                    size: 18,
+                    color: theme.colorScheme.outline,
                   ),
-                  const SizedBox(width: 8),
-                  IconButton.filledTonal(
-                    tooltip: 'Ver reseñas',
-                    onPressed: () =>
-                        _navigateToProduct(context, openReviews: true),
-                    icon: const Icon(Icons.reviews_outlined),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Toca para ver mas detalles',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: theme.colorScheme.outline,
+                        fontStyle: FontStyle.italic,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ],
               ),
@@ -225,7 +227,7 @@ class RecommendationCard extends StatelessWidget {
 class _RecommendationImage extends StatelessWidget {
   final String? url;
   final double size;
-  const _RecommendationImage({required this.url, this.size = 96});
+  const _RecommendationImage({required this.url, this.size = 76});
 
   @override
   Widget build(BuildContext context) {

@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
@@ -95,11 +95,21 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final TextEditingController _searchController = TextEditingController();
   String _selectedCategory = "Todos";
+  bool _hasQuery = false;
   Timer? _debounce;
 
   final List<String> _categories = const [
-    'Todos', 'Pizzas', 'Hamburguesas', 'Acompañamientos', 'Bebidas',
-    'Postres', 'Ensaladas', 'Pastas', 'Mexicana', 'Japonesa', 'Mariscos',
+    'Todos',
+    'Pizzas',
+    'Hamburguesas',
+    'Acompanamientos',
+    'Bebidas',
+    'Postres',
+    'Ensaladas',
+    'Pastas',
+    'Mexicana',
+    'Japonesa',
+    'Mariscos',
   ];
 
   @override
@@ -110,7 +120,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _searchController.addListener(_onSearchChanged);
   }
 
-  // Eliminado método no referenciado
+  // Eliminado metodo no referenciado
 
   void _loadData() => _loadProducts();
 
@@ -123,8 +133,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onSearchChanged() {
+    final hasQuery = _searchController.text.trim().isNotEmpty;
+    if (_hasQuery != hasQuery) {
+      setState(() => _hasQuery = hasQuery);
+    }
     if (_debounce?.isActive ?? false) _debounce!.cancel();
-    _debounce = Timer(const Duration(milliseconds: 500), _loadProducts);
+    _debounce = Timer(const Duration(milliseconds: 350), _loadProducts);
   }
 
   void _handleCartTap() {
@@ -138,12 +152,11 @@ class _HomeScreenState extends State<HomeScreen> {
   final int _selectedIndex = 0;
 
   Widget _buildProductosTab() {
-    // Si es admin, mostrar botón de gestión de productos
     if (widget.usuario.rol == 'admin') {
       return Center(
         child: ElevatedButton.icon(
           icon: const Icon(Icons.settings),
-          label: const Text('Gestión de productos'),
+          label: const Text('Gestion de productos'),
           onPressed: () {
             Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const AdminProductosScreen()),
@@ -152,7 +165,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       );
     }
-    // Si no es admin, mostrar el menú normal
+
     return RefreshIndicator(
       onRefresh: () async => _loadData(),
       child: CustomScrollView(
@@ -162,10 +175,16 @@ class _HomeScreenState extends State<HomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildSearchBar(),
-                RecomendacionesCarousel(usuario: widget.usuario),
+                if (!_hasQuery) ...[
+                  RecomendacionesCarousel(usuario: widget.usuario),
+                  const SizedBox(height: 12),
+                ],
                 const Padding(
                   padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  child: Text('Nuestro Menú', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                  child: Text(
+                    'Nuestro Menu',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  ),
                 ),
                 _buildCategoryList(),
               ],
@@ -180,7 +199,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildMapaTab() => const LiveMapScreen();
   Widget _buildPerfilTab() => ProfileScreen(usuario: widget.usuario);
 
-  // Eliminado método no referenciado
+  // Eliminado metodo no referenciado
 
   @override
   Widget build(BuildContext context) {
@@ -209,7 +228,7 @@ class _HomeScreenState extends State<HomeScreen> {
           : Center(
               child: ElevatedButton.icon(
                 icon: const Icon(Icons.settings),
-                label: const Text('Gestión de productos'),
+                label: const Text('Gestion de productos'),
                 onPressed: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const AdminProductosScreen()),
@@ -263,7 +282,7 @@ class ProductCard extends StatelessWidget {
               child: ElevatedButton(
                 onPressed: !usuario.isAuthenticated ? () => showLoginRequiredDialog(context) : () {
                   cart.addToCart(producto);
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${producto.nombre} añadido al carrito.'), backgroundColor: Colors.green, duration: const Duration(seconds: 1)));
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${producto.nombre} anadido al carrito.'), backgroundColor: Colors.green, duration: const Duration(seconds: 1)));
                 },
                 style: ElevatedButton.styleFrom(
                   shape: const CircleBorder(),
@@ -326,3 +345,6 @@ class ProductsGridLoading extends StatelessWidget {
       )
   );
 }
+
+
+

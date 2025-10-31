@@ -1,7 +1,11 @@
-﻿import 'package:flutter/material.dart';
+﻿import 'dart:async';
+
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_speed_dial/flutter_speed_dial.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../models/ubicacion.dart';
 import '../models/usuario.dart';
@@ -20,6 +24,10 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  final Completer<GoogleMapController> _mapController = Completer();
+  LatLng? _mapCenter;
+  Set<Marker> _mapMarkers = <Marker>{};
+  List<Ubicacion> _cachedUbicaciones = const [];
   Future<List<Ubicacion>>? _ubicacionesFuture;
   int? _defaultLocationId;
 
@@ -53,6 +61,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() {
       _defaultLocationId = idUbicacion;
     });
+    Ubicacion? selected;
+    for (final ubicacion in _cachedUbicaciones) {
+      if (ubicacion.id == idUbicacion) {
+        selected = ubicacion;
+        break;
+      }
+    }
+    selected ??= _cachedUbicaciones.isNotEmpty ? _cachedUbicaciones.first : null;
+    if (selected != null) {
+      _focusOnLocation(selected);
+    }
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
           content: Text('Ubicacion marcada como predeterminada'),
@@ -129,6 +148,162 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  void _syncMapData(List<Ubicacion> ubicaciones) {
+    final markers = _createMarkers(ubicaciones);
+    final fallbackCenter = _firstValidLatLng(ubicaciones);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final desiredCenter = _mapCenter ?? fallbackCenter;
+      final markersChanged = !_sameMarkers(markers);
+      final centerChanged =
+          desiredCenter != null && (_mapCenter == null || _mapCenter != desiredCenter);
+
+      if (markersChanged || centerChanged) {
+        setState(() {
+          if (markersChanged) {
+            _mapMarkers = markers;
+          }
+          if (centerChanged) {
+            _mapCenter = desiredCenter;
+          }
+        });
+      }
+
+      if (centerChanged && _mapController.isCompleted) {
+        final controller = await _mapController.future;
+        controller.animateCamera(
+          CameraUpdate.newCameraPosition(
+            CameraPosition(target: desiredCenter, zoom: 14),
+          ),
+        );
+      }
+    });
+
+    _cachedUbicaciones = ubicaciones;
+  }
+
+  Set<Marker> _createMarkers(List<Ubicacion> ubicaciones) {
+    final markers = <Marker>{};
+    for (final ubicacion in ubicaciones) {
+      final target = _toLatLng(ubicacion);
+      if (target == null) continue;
+      final isDefault =
+          _defaultLocationId != null && ubicacion.id == _defaultLocationId;
+      markers.add(
+        Marker(
+          markerId: MarkerId('ubicacion_${ubicacion.id ?? target.hashCode}'),
+          position: target,
+          infoWindow: InfoWindow(
+            title: ubicacion.descripcion?.isNotEmpty == true
+                ? ubicacion.descripcion
+                : 'Ubicacion guardada',
+            snippet: ubicacion.direccion,
+          ),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            isDefault
+                ? BitmapDescriptor.hueAzure
+                : BitmapDescriptor.hueRose,
+          ),
+        ),
+      );
+    }
+    return markers;
+  }
+
+  LatLng? _firstValidLatLng(List<Ubicacion> ubicaciones) {
+    for (final ubicacion in ubicaciones) {
+      final target = _toLatLng(ubicacion);
+      if (target != null) {
+        return target;
+      }
+    }
+    return null;
+  }
+
+  bool _sameMarkers(Set<Marker> other) {
+    if (other.length != _mapMarkers.length) return false;
+    for (final marker in other) {
+      final match = _mapMarkers.where((m) => m.markerId == marker.markerId);
+      if (match.isEmpty) return false;
+      final current = match.first;
+      if (current.position.latitude != marker.position.latitude ||
+          current.position.longitude != marker.position.longitude) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  LatLng? _toLatLng(Ubicacion ubicacion) {
+    if (ubicacion.latitud == null || ubicacion.longitud == null) return null;
+    return LatLng(ubicacion.latitud!, ubicacion.longitud!);
+  }
+
+  Future<void> _focusOnLocation(Ubicacion ubicacion) async {
+    final target = _toLatLng(ubicacion);
+    if (target == null) return;
+    setState(() => _mapCenter = target);
+    if (_mapController.isCompleted) {
+      final controller = await _mapController.future;
+      controller.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(target: target, zoom: 15),
+        ),
+      );
+    }
+  }
+
+  Widget _buildLocationsMap(List<Ubicacion> ubicaciones) {
+    if (kIsWeb) {
+      return Card(
+        margin: const EdgeInsets.only(top: 12, bottom: 16),
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Row(
+            children: const [
+              Icon(Icons.map_outlined, size: 36, color: Colors.grey),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'El mapa interactivo esta disponible desde la app movil.',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final center =
+        _mapCenter ?? _firstValidLatLng(ubicaciones) ?? const LatLng(0.988, -79.652);
+    final markers =
+        _mapMarkers.isNotEmpty ? _mapMarkers : _createMarkers(ubicaciones);
+
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 12),
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      clipBehavior: Clip.antiAlias,
+      child: SizedBox(
+        height: 220,
+        child: GoogleMap(
+          initialCameraPosition: CameraPosition(target: center, zoom: 13),
+          markers: markers,
+          onMapCreated: (controller) {
+            if (!_mapController.isCompleted) {
+              _mapController.complete(controller);
+            }
+          },
+          liteModeEnabled: true,
+          myLocationButtonEnabled: false,
+          zoomControlsEnabled: false,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -156,13 +331,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ?.copyWith(color: Colors.grey[600])),
             const SizedBox(height: 8),
             Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               child: Column(
                 children: [
                   _buildMenuOption(
                     context,
-                    icon: Icons.edit_outlined,
+                    icon: Icons.person_outline,
                     color: Colors.blueAccent,
-                    title: 'Editar Perfil',
+                    title: 'Editar perfil',
                     subtitle: 'Actualiza tu nombre y correo',
                     onTap: () => Navigator.of(context).pushNamed(
                       AppRoutes.editProfile,
@@ -186,7 +365,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     context,
                     icon: Icons.chat_bubble_outline,
                     color: Colors.teal,
-                    title: 'Mis Chats',
+                    title: 'Mis chats',
                     subtitle: 'Revisa tus conversaciones y chats con el bot',
                     onTap: () =>
                         Navigator.of(context).pushNamed(AppRoutes.chatHome),
@@ -198,7 +377,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Text('Mis ubicaciones',
                 style: theme.textTheme.titleLarge
                     ?.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
             FutureBuilder<List<Ubicacion>>(
               future: _ubicacionesFuture,
               builder: (context, snapshot) {
@@ -222,10 +400,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   );
                 }
                 final ubicaciones = snapshot.data!;
+                _syncMapData(ubicaciones);
                 return Column(
-                  children: ubicaciones
-                      .map((u) => _buildLocationCard(context, u))
-                      .toList(),
+                  children: [
+                    _buildLocationsMap(ubicaciones),
+                    ...ubicaciones.map((u) => _buildLocationCard(context, u)),
+                  ],
                 );
               },
             ),
@@ -250,7 +430,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           children: [
             Expanded(
               child: Text(
-                ubicacion.descripcion ?? 'Ubicacion guardada',
+                ubicacion.descripcion?.isNotEmpty == true
+                    ? ubicacion.descripcion!
+                    : 'Ubicacion guardada',
                 style: theme.textTheme.titleMedium
                     ?.copyWith(fontWeight: FontWeight.bold),
               ),
@@ -268,9 +450,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),
+        onTap: () => _focusOnLocation(ubicacion),
         trailing: PopupMenuButton<String>(
           onSelected: (value) {
-            if (value == 'edit') {
+            if (value == 'map') {
+              _focusOnLocation(ubicacion);
+            } else if (value == 'edit') {
               Navigator.of(context)
                   .push<bool>(
                 MaterialPageRoute(
@@ -287,9 +472,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             }
           },
           itemBuilder: (context) => [
+            const PopupMenuItem(value: 'map', child: Text('Ver en mapa')),
             const PopupMenuItem(value: 'edit', child: Text('Editar')),
             const PopupMenuItem(
-                value: 'default', child: Text('Marcar predeterminada')),
+                value: 'default', child: Text('Marcar como predeterminada')),
             const PopupMenuItem(value: 'delete', child: Text('Eliminar')),
           ],
         ),
@@ -408,7 +594,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Text(title,
                 style:
                     const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
             Text(message,
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey[600])),
@@ -430,7 +615,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Text(title,
                 style:
                     const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
             Text(message,
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey[600])),
@@ -446,4 +630,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 }
+
+
+
+
+
+
 

@@ -1,180 +1,241 @@
-package com.mycompany.delivery.api.services;
+﻿package com.mycompany.delivery.api.services;
 
-import chat.dim.protocol.Content;
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import io.github.cdimascio.dotenv.Dotenv;
+
+import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-// *** CAMBIOS DE IMPORTACIÓN ***
-import com.google.ai.client.generativeai.GenerativeModel;
-import com.google.ai.client.generativeai.java.ChatFutures; // Para chat
-import com.google.ai.client.generativeai.type.Content;
-import com.google.ai.client.generativeai.type.GenerateContentResponse;
-import com.google.ai.client.generativeai.type.Part;
-import com.google.ai.client.generativeai.type.ClientException; // SDK correcto
-
-import io.github.cdimascio.dotenv.Dotenv;
-import jakarta.servlet.http.Part;
-import java.util.concurrent.ExecutionException; // Necesario para la llamada
-
 /**
- * Servicio de integración con la API de Gemini utilizando el SDK oficial
- * {@code com.google.ai.client.generativeai}.
+ * Servicio ligero que consume la API de Gemini (Generative Language) v1
+ * empleando {@link java.net.http.HttpClient}.  Se construye payload compatible
+ * con el formato expected por el endpoint /v1/models/:generateContent.
  */
-public class GeminiService implements AutoCloseable { // No necesita AutoCloseable
+public final class GeminiService {
 
     private static final String DEFAULT_MODEL_NAME = "gemini-1.5-flash-001";
     private static final String FALLBACK_MESSAGE =
-            "Lo siento, mi cerebro (IA) no está disponible en este momento. Por favor, contacta a soporte.";
+            "Lo siento, mi cerebro (IA) no esta disponible en este momento. Por favor, contacta a soporte.";
 
-    // *** CAMBIO: El modelo se instancia con el nombre y la API key ***
-    private final GenerativeModel model;
-    private final String apiKey; // Guardamos la key
+    private static final Gson GSON = new Gson();
+    private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(10))
+            .build();
+
+    private final String apiKey;
+    private final String modelName;
 
     public GeminiService() {
         this.apiKey = resolveApiKey();
-        if (this.apiKey == null || this.apiKey.isBlank()) {
-            System.err.println("[ERROR] La variable de entorno GEMINI_API_KEY no está configurada.");
-            this.model = null; // No se puede inicializar
-        } else {
-            // Inicializa el modelo (pero el chat se maneja de otra forma)
-            // Dejamos model nulo por ahora y lo creamos por solicitud
-             this.model = null; // Ver nota abajo
-        }
-    }
-    
-    // ... (Tu método resolveApiKey() se queda igual) ...
-    private String resolveApiKey() {
-        // ... tu código existente está bien ...
-        String key = System.getenv("GEMINI_API_KEY");
-         if (key != null && !key.isBlank()) {
-             return key;
-         }
-         key = System.getProperty("GEMINI_API_KEY");
-         if (key != null && !key.isBlank()) {
-             return key;
-         }
-         try {
-             Dotenv dotenv = Dotenv.configure()
-                     .directory("../delivery-api")
-                     .ignoreIfMalformed()
-                     .ignoreIfMissing()
-                     .load();
-             key = dotenv.get("GEMINI_API_KEY");
-             if (key != null && !key.isBlank()) {
-                 return key;
-             }
-         } catch (Exception ignored) {
-         }
-         return null;
+        this.modelName = resolveModelName();
     }
 
-    public String generateReply(String prompt, List<Map<String, Object>> history, int currentUserId) {
-        if (apiKey == null) { // Comprueba si la API key se cargó
+    /**
+     * Genera una respuesta a partir del prompt y la conversacion previa.
+     *
+     * @param prompt         Mensaje actual del usuario.
+     * @param history        Historial de mensajes (cada elemento debe contener al menos
+     *                       las claves "id_remitente" y "mensaje").
+     * @param currentUserId  Identificador del usuario actual (para determinar su rol).
+     * @return Texto devuelto por Gemini o un mensaje alternativo si no fue posible.
+     */
+    public String generateReply(String prompt,
+                                List<Map<String, Object>> history,
+                                int currentUserId) {
+        if (apiKey == null || apiKey.isBlank()) {
             return FALLBACK_MESSAGE;
         }
 
-        List<Content> historyContents = new ArrayList<>();
+        final String safePrompt = prompt == null ? "" : prompt.trim();
+        if (safePrompt.isEmpty()) {
+            return "Podrias indicarme tu consulta?";
+        }
 
-        // Mensaje de contexto para mantener el rol del asistente.
-        historyContents.add(buildContent("user",
-                "Eres CIA Bot, un asistente virtual amigable y servicial para una app de delivery de comida. "
-                        + "Tu objetivo es ayudar a los usuarios con sus dudas sobre pedidos, la app, o simplemente "
-                        + "conversar de forma amena. Sé breve y directo."));
-        historyContents.add(buildContent("model", "Entendido. Estoy listo para ayudar."));
+        try {
+            JsonObject requestPayload = buildPayload(safePrompt, history, currentUserId);
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(String.format(
+                            "https://generativelanguage.googleapis.com/v1/models/%s:generateContent?key=%s",
+                            modelName, apiKey)))
+                    .header("Content-Type", "application/json")
+                    .timeout(Duration.ofSeconds(30))
+                    .POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(requestPayload)))
+                    .build();
 
-        // Historial de conversación.
-        if (history != null) {
-            for (Map<String, Object> msg : history) {
-                // ... (Tu lógica de historial está bien) ...
-                if (msg == null) continue;
-                Object remitenteObj = msg.get("id_remitente");
-                Object mensajeObj = msg.get("mensaje");
-                if (mensajeObj == null) continue;
-                int idRemitente = remitenteObj instanceof Number ? ((Number) remitenteObj).intValue() : -1;
-                String role = (idRemitente == currentUserId) ? "user" : "model";
-                String texto = mensajeObj.toString();
-                if (texto != null && !texto.isBlank()) {
-                    historyContents.add(buildContent(role, texto));
+            HttpResponse<String> response = HTTP_CLIENT.send(
+                    request,
+                    HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() != 200) {
+                System.err.printf("Gemini API error %d: %s%n",
+                        response.statusCode(), response.body());
+                return FALLBACK_MESSAGE;
+            }
+
+            return extractReply(response.body());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            System.err.println("Gemini interrumpido: " + e.getMessage());
+            return FALLBACK_MESSAGE;
+        } catch (IOException e) {
+            System.err.println("Error al conectarse con Gemini: " + e.getMessage());
+            return FALLBACK_MESSAGE;
+        } catch (Exception e) {
+            System.err.println("Error inesperado al procesar respuesta de Gemini: " + e.getMessage());
+            return FALLBACK_MESSAGE;
+        }
+    }
+
+    private JsonObject buildPayload(String prompt,
+                                    List<Map<String, Object>> history,
+                                    int currentUserId) {
+        JsonArray contents = new JsonArray();
+
+        contents.add(content("user",
+                "Eres CIA Bot, un asistente virtual amigable y servicial para una app de delivery. "
+                        + "Ayuda con pedidos, dudas de la app y conversa de manera cordial y breve."));
+        contents.add(content("model", "Entendido, listo para ayudar."));
+
+        if (history != null && !history.isEmpty()) {
+            int start = Math.max(0, history.size() - 12);
+            for (int i = start; i < history.size(); i++) {
+                Map<String, Object> message = history.get(i);
+                if (message == null) {
+                    continue;
+                }
+                Object textObj = message.get("mensaje");
+                if (textObj == null) {
+                    continue;
+                }
+                String text = textObj.toString();
+                if (text.isBlank()) {
+                    continue;
+                }
+                int senderId = -1;
+                Object senderObj = message.get("id_remitente");
+                if (senderObj instanceof Number number) {
+                    senderId = number.intValue();
+                }
+                String role = (senderId == currentUserId) ? "user" : "model";
+                contents.add(content(role, text));
+            }
+        }
+
+        contents.add(content("user", prompt));
+
+        JsonObject request = new JsonObject();
+        request.add("contents", contents);
+        return request;
+    }
+
+    private JsonObject content(String role, String text) {
+        JsonObject content = new JsonObject();
+        content.addProperty("role", role);
+        JsonArray parts = new JsonArray();
+        JsonObject part = new JsonObject();
+        part.addProperty("text", text);
+        parts.add(part);
+        content.add("parts", parts);
+        return content;
+    }
+
+    private String extractReply(String body) {
+        JsonObject json = GSON.fromJson(body, JsonObject.class);
+        JsonArray candidates = json != null ? json.getAsJsonArray("candidates") : null;
+        if (candidates == null || candidates.isEmpty()) {
+            return FALLBACK_MESSAGE;
+        }
+
+        JsonObject candidate = candidates.get(0).getAsJsonObject();
+        JsonObject content = candidate.getAsJsonObject("content");
+        if (content == null) {
+            return FALLBACK_MESSAGE;
+        }
+
+        JsonArray parts = content.getAsJsonArray("parts");
+        if (parts == null) {
+            return FALLBACK_MESSAGE;
+        }
+
+        List<String> fragments = new ArrayList<>();
+        for (JsonElement partEl : parts) {
+            if (!partEl.isJsonObject()) {
+                continue;
+            }
+            JsonObject part = partEl.getAsJsonObject();
+            JsonElement textEl = part.get("text");
+            if (textEl != null && !textEl.isJsonNull()) {
+                String fragment = textEl.getAsString();
+                if (!fragment.isBlank()) {
+                    fragments.add(fragment.trim());
                 }
             }
         }
-        
-        // *** CAMBIO: El SDK maneja el historial y el prompt de forma diferente ***
-        // El SDK oficial de Java maneja el chat con un objeto "ChatFutures"
-        
-        try {
-            String modelName = resolveModelName();
-            
-            // 1. Crea la instancia del modelo AQUÍ
-            GenerativeModel chatModel = new GenerativeModel(modelName, apiKey);
-            
-            // 2. Inicia una sesión de chat y le pasas el historial
-            ChatFutures chat = chatModel.startChat(historyContents);
 
-            // 3. Envía el nuevo mensaje (prompt)
-            String safePrompt = prompt == null ? "" : prompt;
-            
-            // El SDK nuevo es asíncrono, usamos .get() para esperar la respuesta
-            GenerateContentResponse response = chat.sendMessage(safePrompt).get(); 
-
-            // 4. Obtiene el texto de la respuesta
-            String reply = response.getText();
-            
-            if (reply == null || reply.isBlank()) {
-                return "No entendí la respuesta. ¿Podrías preguntar de otra forma?";
-            }
-            return reply;
-            
-        } catch (ClientException e) {
-            System.err.println("Error en la API de Gemini: " + e.getMessage());
-            // Este es el error que estabas viendo (404)
-            return "Tuve un problema para procesar tu solicitud. Inténtalo de nuevo.";
-        } catch (ExecutionException | InterruptedException e) {
-             System.err.println("Error en la llamada asíncrona de Gemini: " + e.getMessage());
-            return "No pude conectarme para generar una respuesta. Revisa tu conexión.";
-        } catch (Exception e) {
-            System.err.println("Excepción inesperada al llamar a la API de Gemini: " + e.getMessage());
-            return "No pude conectarme para generar una respuesta. Revisa tu conexión.";
+        if (fragments.isEmpty()) {
+            return FALLBACK_MESSAGE;
         }
+        return String.join("\n", fragments);
     }
 
-    // ... (Tu método buildContent() se queda igual) ...
-    private Content buildContent(String role, String text) {
-        return Content.builder()
-                .role(role)
-                .parts(List.of(Part.fromText(text)))
-                .build();
+    private String resolveApiKey() {
+        String key = System.getenv("GEMINI_API_KEY");
+        if (key != null && !key.isBlank()) {
+            return key.trim();
+        }
+        key = System.getProperty("GEMINI_API_KEY");
+        if (key != null && !key.isBlank()) {
+            return key.trim();
+        }
+        try {
+            Dotenv dotenv = Dotenv.configure()
+                    .directory("../delivery-api")
+                    .ignoreIfMalformed()
+                    .ignoreIfMissing()
+                    .load();
+            key = dotenv.get("GEMINI_API_KEY");
+            if (key != null && !key.isBlank()) {
+                return key.trim();
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
     }
-    
-    // ... (Tu método resolveModelName() se queda igual) ...
+
     private String resolveModelName() {
-         // ... tu código existente está bien ...
         String model = System.getenv("GEMINI_MODEL");
-         if (model != null && !model.isBlank()) {
-             return model;
-         }
-         model = System.getProperty("GEMINI_MODEL");
-         if (model != null && !model.isBlank()) {
-             return model;
-         }
-         try {
-             Dotenv dotenv = Dotenv.configure()
-                     .directory("../delivery-api")
-                     .ignoreIfMalformed()
-                     .ignoreIfMissing()
-                     .load();
-             model = dotenv.get("GEMINI_MODEL");
-             if (model != null && !model.isBlank()) {
-                 return model;
-             }
-         } catch (Exception ignored) {
-         }
-         return DEFAULT_MODEL_NAME;
-    }
-
-    @Override
-    public void close() {
-        // El nuevo SDK no requiere un .close()
+        if (model != null && !model.isBlank()) {
+            return model.trim();
+        }
+        model = System.getProperty("GEMINI_MODEL");
+        if (model != null && !model.isBlank()) {
+            return model.trim();
+        }
+        try {
+            Dotenv dotenv = Dotenv.configure()
+                    .directory("../delivery-api")
+                    .ignoreIfMalformed()
+                    .ignoreIfMissing()
+                    .load();
+            model = dotenv.get("GEMINI_MODEL");
+            if (model != null && !model.isBlank()) {
+                return model.trim();
+            }
+        } catch (Exception ignored) {
+        }
+        return DEFAULT_MODEL_NAME;
     }
 }
+
+
+

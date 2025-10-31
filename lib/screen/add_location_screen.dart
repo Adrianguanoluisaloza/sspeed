@@ -1,4 +1,4 @@
-
+﻿
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -28,6 +28,8 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
   final _descriptionController = TextEditingController();
   final _searchController = TextEditingController(); // New controller for search
 
+  static const LatLng _fallbackCenter = LatLng(0.988, -79.652);
+
   LatLng? _currentLatLng;
   bool _isLoading = true;
   String? _errorMessage;
@@ -46,6 +48,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
       _searchController.text = widget.initial!.direccion ?? ""; // Initialize search with initial address
       _isLoading = false;
     } else {
+      _currentLatLng = _fallbackCenter;
       _initLocation();
     }
   }
@@ -60,14 +63,19 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
   }
 
   Future<void> _initLocation() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
     try {
       if (kIsWeb) {
         // Obtener ubicacion real del navegador si es posible; fallback a centro conocido
         final pos = await webgeo.getCurrentPosition();
+        if (!mounted) return;
         setState(() {
-          _currentLatLng = pos != null
-              ? LatLng(pos.lat, pos.lng)
-              : const LatLng(0.988, -79.652);
+          _currentLatLng =
+              pos != null ? LatLng(pos.lat, pos.lng) : _fallbackCenter;
           _isLoading = false;
         });
         return;
@@ -75,7 +83,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
       final serviceEnabled = await _locationService.serviceEnabled();
       if (!serviceEnabled) {
         if (!await _locationService.requestService()) {
-          throw Exception('El servicio de ubicación está deshabilitado.');
+          throw Exception('El servicio de ubicacion esta deshabilitado.');
         }
       }
 
@@ -83,21 +91,24 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
       if (permission == PermissionStatus.denied) {
         permission = await _locationService.requestPermission();
         if (permission != PermissionStatus.granted) {
-          throw Exception('Permiso de ubicación denegado.');
+          throw Exception('Permiso de ubicacion denegado.');
         }
       }
-      
+
       final locationData = await _locationService.getLocation();
+      if (!mounted) return;
       setState(() {
-        _currentLatLng = LatLng(locationData.latitude!, locationData.longitude!);
+        _currentLatLng =
+            LatLng(locationData.latitude!, locationData.longitude!);
         _isLoading = false;
       });
-      await _reverseGeocodeCurrentLocation(); // Obtener dirección inicial
+      await _reverseGeocodeCurrentLocation(); // Obtener direccion inicial
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _errorMessage = e.toString();
         _isLoading = false;
-        _currentLatLng = const LatLng(0.988, -79.652); // Fallback to Esmeraldas
+        _currentLatLng = _fallbackCenter; // Fallback to Esmeraldas
       });
     }
   }
@@ -106,7 +117,10 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
     final query = _searchController.text.trim();
     if (query.isEmpty) return;
 
-    setState(() { _isLoading = true; });
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
     try {
       final dbService = context.read<DatabaseService>();
       final result = await dbService.geocodificarDireccion(query);
@@ -117,18 +131,19 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
           _currentLatLng = newLatLng;
           _addressController.text = result['direccion'] ?? query;
           _isLoading = false;
+          _errorMessage = null;
         });
         final controller = await _mapController.future;
         await controller.animateCamera(CameraUpdate.newLatLng(newLatLng));
       } else {
         setState(() {
-          _errorMessage = 'No se encontraron resultados para la dirección.';
+          _errorMessage = 'No se encontraron resultados para la direccion.';
           _isLoading = false;
         });
       }
     } catch (e) {
       setState(() {
-        _errorMessage = 'Error al buscar dirección: $e';
+        _errorMessage = 'Error al buscar direccion: $e';
         _isLoading = false;
       });
     }
@@ -175,20 +190,21 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
       if (widget.initial?.id != null) { try { await dbService.deleteUbicacion(widget.initial!.id!); } catch (_) {} }
       await dbService.guardarUbicacion(newLocation);
       if (!mounted) return;
-      Navigator.of(context).pop(true); // Devuelve true para indicar éxito
+      Navigator.of(context).pop(true); // Devuelve true para indicar exito
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al guardar la ubicación: $e')),
+        SnackBar(content: Text('Error al guardar la ubicacion: $e')),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.initial == null ? 'Añadir Ubicación' : 'Editar Ubicación'),
+        title: Text(widget.initial == null ? 'Anadir Ubicacion' : 'Editar Ubicacion'),
         actions: [
           IconButton(
             icon: const Icon(Icons.save),
@@ -196,92 +212,129 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _errorMessage != null
-              ? Center(child: Text(_errorMessage!))
-              : Stack(
-                  children: [
-                    GoogleMap(
-                      initialCameraPosition: CameraPosition(
-                        target: _currentLatLng!,
-                        zoom: 16,
+      body: _currentLatLng == null
+          ? Center(
+              child: _errorMessage != null
+                  ? Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Text(
+                        _errorMessage!,
+                        textAlign: TextAlign.center,
                       ),
-                      onMapCreated: (controller) {
-                        _mapController.complete(controller);
-                      },
-                      onCameraMove: _onCameraMove, // Use the new onCameraMove
-                      myLocationEnabled: !kIsWeb,
-                      myLocationButtonEnabled: !kIsWeb,
-                    ),
-                    const Center(
-                      child: Icon(
-                        Icons.location_pin,
-                        color: Colors.red,
-                        size: 50,
-                      ),
-                    ),
-                    Positioned(
-                      top: 10,
-                      left: 10,
-                      right: 10,
-                      child: Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: TextField(
-                            controller: _searchController,
-                            decoration: InputDecoration(
-                              labelText: 'Buscar dirección',
-                              suffixIcon: IconButton(
-                                icon: const Icon(Icons.search),
-                                onPressed: _searchAddress,
-                              ),
-                              border: const OutlineInputBorder(),
-                            ),
-                            onSubmitted: (_) => _searchAddress(),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      bottom: 20,
-                      left: 20,
-                      right: 20,
-                      child: Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              TextField(
-                                controller: _descriptionController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Descripción (Ej: Casa, Oficina)',
-                                  border: OutlineInputBorder(),
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              TextField(
-                                controller: _addressController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Dirección / Referencia',
-                                  border: OutlineInputBorder(),
-                                ),
-                                maxLines: 2,
-                              ),
-                              const SizedBox(height: 10),
-                              ElevatedButton(
-                                onPressed: _saveLocation,
-                                child: const Text('Guardar Ubicación'),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                    )
+                  : const CircularProgressIndicator(),
+            )
+          : Stack(
+              children: [
+                GoogleMap(
+                  initialCameraPosition: CameraPosition(
+                    target: _currentLatLng!,
+                    zoom: 16,
+                  ),
+                  onMapCreated: (controller) {
+                    _mapController.complete(controller);
+                  },
+                  onCameraMove: _onCameraMove,
+                  myLocationEnabled: !kIsWeb,
+                  myLocationButtonEnabled: !kIsWeb,
                 ),
+                const Center(
+                  child: Icon(
+                    Icons.location_pin,
+                    color: Colors.red,
+                    size: 50,
+                  ),
+                ),
+                Positioned(
+                  top: 10,
+                  left: 10,
+                  right: 10,
+                  child: Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: TextField(
+                        controller: _searchController,
+                        decoration: InputDecoration(
+                          labelText: 'Buscar direccion',
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.search),
+                            onPressed: _searchAddress,
+                          ),
+                          border: const OutlineInputBorder(),
+                        ),
+                        onSubmitted: (_) => _searchAddress(),
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: 20,
+                  left: 20,
+                  right: 20,
+                  child: Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          TextField(
+                            controller: _descriptionController,
+                            decoration: const InputDecoration(
+                              labelText: 'Descripcion (Ej: Casa, Oficina)',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          TextField(
+                            controller: _addressController,
+                            decoration: const InputDecoration(
+                              labelText: 'Direccion / Referencia',
+                              border: OutlineInputBorder(),
+                            ),
+                            maxLines: 2,
+                          ),
+                          const SizedBox(height: 10),
+                          ElevatedButton(
+                            onPressed: _saveLocation,
+                            child: const Text('Guardar ubicacion'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                if (_errorMessage != null)
+                  Positioned(
+                    top: 100,
+                    left: 16,
+                    right: 16,
+                    child: Card(
+                      color: theme.colorScheme.errorContainer,
+                      child: Padding(
+                        padding: const EdgeInsets.all(12.0),
+                        child: Text(
+                          _errorMessage!,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onErrorContainer,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  ),
+                if (_isLoading)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      ignoring: true,
+                      child: Container(
+                        color: Colors.black12,
+                        alignment: Alignment.center,
+                        child: const CircularProgressIndicator(),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
     );
   }
 }
-
