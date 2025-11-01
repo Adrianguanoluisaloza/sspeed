@@ -10,37 +10,41 @@ enum Environment {
 // 2. Clase para la configuración de la API específica de cada entorno
 class ApiSettings {
   final String baseUrl;
+  final String geminiApiKey;
 
-  const ApiSettings({required this.baseUrl});
+  const ApiSettings({required this.baseUrl, required this.geminiApiKey});
 
   // Configuración para el entorno de DESARROLLO (localhost, emuladores O NGROK)
   factory ApiSettings.forDevelopment() {
-    // === ¡IMPORTANTE! ===
+    // === ¡MUY IMPORTANTE! ===
     // REEMPLAZA ESTA URL CON TU URL ACTUAL DE NGROK CADA VEZ QUE LA INICIES.
     // O déjala en blanco para usar la lógica de localhost/10.0.2.2.
-    const String ngrokUrl = 'https://feyly-electrotropic-obdulia.ngrok-free.dev'; // <--- ¡TU URL DE NGROK AQUÍ!
+    const String ngrokUrl = 'PEGA-AQUÍ-TU-NUEVA-URL-DE-NGROK';
 
-    if (ngrokUrl.isNotEmpty) {
-      // Si se proporciona una URL de Ngrok, úsala directamente.
-      return ApiSettings(baseUrl: ngrokUrl);
-    }
+    // === ¡CLAVE DE GEMINI PARA PRUEBAS! ===
+    // PEGA AQUÍ TU CLAVE DE LA API DE GEMINI.
+    const String geminiKeyForTesting = 'PEGA-AQUI-TU-CLAVE-DE-GEMINI';
 
-    // Lógica por defecto para desarrollo local (si ngrokUrl está vacía)
-    String devBaseUrl;
-    if (kIsWeb) {
-      devBaseUrl = 'http://localhost:4567';
-    } else if (defaultTargetPlatform == TargetPlatform.android) {
-      devBaseUrl = 'http://10.0.2.2:4567';
+    String finalBaseUrl;
+    if (ngrokUrl.isNotEmpty && ngrokUrl != 'PEGA-AQUÍ-TU-NUEVA-URL-DE-NGROK') {
+      finalBaseUrl = ngrokUrl;
     } else {
-      devBaseUrl = 'http://localhost:4567';
+      if (kIsWeb) {
+        finalBaseUrl = 'http://localhost:7070';
+      } else if (defaultTargetPlatform == TargetPlatform.android) {
+        finalBaseUrl = 'http://10.0.2.2:7070';
+      } else {
+        finalBaseUrl = 'http://localhost:7070';
+      }
     }
-    return ApiSettings(baseUrl: devBaseUrl);
+    return ApiSettings(baseUrl: finalBaseUrl, geminiApiKey: geminiKeyForTesting);
   }
 
   // Configuración para el entorno de PRODUCCIÓN (tu dominio real)
   static const ApiSettings production = ApiSettings(
     baseUrl:
         'https://api.tu-dominio-produccion.com', // ¡REEMPLAZA CON TU URL REAL DE PRODUCCIÓN!
+    geminiApiKey: 'CLAVE_DE_PRODUCCION_NO_DEBE_ESTAR_AQUI',
   );
 }
 
@@ -77,10 +81,6 @@ class AppConfig {
   }
 
   /// Devuelve la URL base que la aplicación debe usar.
-  /// La prioridad es:
-  /// 1. Override manual en tiempo de ejecución (`AppConfig.overrideBaseUrl()`)
-  /// 2. Variable de entorno de compilación (`--dart-define=API_BASE_URL`)
-  /// 3. Configuración predefinida del entorno (`ApiSettings.forDevelopment()` o `ApiSettings.production`)
   static String get baseUrl {
     if (_runtimeOverrideBaseUrl != null) {
       return _runtimeOverrideBaseUrl!;
@@ -89,5 +89,10 @@ class AppConfig {
       return _compileTimeBaseUrl;
     }
     return _settings[_currentEnvironment]!.baseUrl;
+  }
+
+  /// Devuelve la clave de API de Gemini para el entorno actual.
+  static String get geminiApiKey {
+    return _settings[_currentEnvironment]!.geminiApiKey;
   }
 }

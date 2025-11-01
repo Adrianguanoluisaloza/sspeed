@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.mycompany.delivery.api.config.Database;
+import java.util.Optional;
 
 /**
  * Repositorio para gestionar las operaciones de la base de datos relacionadas
@@ -343,6 +344,22 @@ public class ChatRepository {
             }
         }
         throw new SQLException("No se pudo crear el usuario del chatbot");
+    }
+
+    public Optional<String> buscarRespuestaPredefinida(String mensaje, String scope) throws SQLException {
+        String sql = "SELECT respuesta FROM fn_chatbot_match_predef(?, ?, ?, 'es')";
+        try (Connection conn = Database.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, mensaje);
+            ps.setString(2, scope);
+            ps.setString(3, "general"); // O el canal que corresponda
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return Optional.ofNullable(rs.getString("respuesta"));
+                }
+            }
+        }
+        return Optional.empty();
     }
 
     private void ensureSchema() throws SQLException {

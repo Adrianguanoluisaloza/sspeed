@@ -13,10 +13,12 @@ public final class ChatBotResponder {
 
     private final GeminiService geminiService;
     private final PedidoRepository pedidoRepository;
+    private final com.mycompany.delivery.api.repository.ChatRepository chatRepository;
 
-    public ChatBotResponder(GeminiService geminiService, PedidoRepository pedidoRepository) {
+    public ChatBotResponder(GeminiService geminiService, PedidoRepository pedidoRepository, com.mycompany.delivery.api.repository.ChatRepository chatRepository) {
         this.geminiService = geminiService;
         this.pedidoRepository = pedidoRepository;
+        this.chatRepository = chatRepository;
     }
 
     /**
@@ -32,6 +34,15 @@ public final class ChatBotResponder {
 
         if (message.isBlank()) {
             return "Hola, puedo ayudarte con tu pedido. Cuéntame tu consulta.";
+        }
+
+        try {
+            Optional<String> predefinedResponse = chatRepository.buscarRespuestaPredefinida(message, "cliente");
+            if (predefinedResponse.isPresent()) {
+                return predefinedResponse.get();
+            }
+        } catch (Exception e) {
+            System.err.println("Error al buscar respuesta predefinida: " + e.getMessage());
         }
 
         // Detección de intención: si el usuario pregunta por su pedido.

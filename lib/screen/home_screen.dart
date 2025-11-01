@@ -1,7 +1,10 @@
 ﻿import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:shimmer/shimmer.dart';
 
 import '../models/cart_model.dart';
 import '../models/producto.dart';
@@ -476,14 +479,20 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Image.network(
-                  producto.imagenUrl ?? '',
+                child: CachedNetworkImage(
+                  imageUrl: producto.imagenUrl ?? '',
                   width: double.infinity,
                   fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => const Icon(
+                  placeholder: (context, url) => Container(
+                    color: Colors.grey.shade200,
+                    child: const Center(child: CircularProgressIndicator()),
+                  ),
+                  errorWidget: (context, url, error) => const Icon(
                       Icons.image_not_supported,
                       size: 50,
                       color: Colors.grey),
+                  memCacheHeight: 400,
+                  maxHeightDiskCache: 800,
                 ),
               ),
               Padding(
@@ -600,6 +609,7 @@ class ProductCard extends StatelessWidget {
                 onPressed: !usuario.isAuthenticated
                     ? () => showLoginRequiredDialog(context)
                     : () {
+                        HapticFeedback.lightImpact();
                         cart.addToCart(producto);
                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                             content:
@@ -632,23 +642,15 @@ class _ProductImage extends StatelessWidget {
     if (imageUrl == null || imageUrl!.isEmpty) {
       return const _ImagePlaceholder();
     }
-    return Image.network(
-      imageUrl!,
+    return CachedNetworkImage(
+      imageUrl: imageUrl!,
       fit: BoxFit.cover,
-      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-        if (wasSynchronouslyLoaded) return child;
-        return AnimatedOpacity(
-          opacity: frame == null ? 0 : 1,
-          duration: const Duration(milliseconds: 280),
-          curve: Curves.easeOutCubic,
-          child: child,
-        );
-      },
-      errorBuilder: (c, e, s) => const _ImagePlaceholder(),
-      loadingBuilder: (c, child, progress) {
-        if (progress == null) return child;
-        return const _ImagePlaceholder(isLoading: true);
-      },
+      placeholder: (context, url) => const _ImagePlaceholder(isLoading: true),
+      errorWidget: (c, url, error) => const _ImagePlaceholder(),
+      fadeInDuration: const Duration(milliseconds: 280),
+      fadeInCurve: Curves.easeOutCubic,
+      memCacheHeight: 600,
+      maxHeightDiskCache: 1200,
     );
   }
 }
@@ -712,20 +714,16 @@ class ProductsGridLoading extends StatelessWidget {
             crossAxisSpacing: 16,
             mainAxisSpacing: 16),
         itemCount: 6,
-        itemBuilder: (c, i) => Card(
-          elevation: 0,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.grey.shade200,
-                  Colors.grey.shade100,
-                ],
+        itemBuilder: (c, i) => Shimmer.fromColors(
+          baseColor: Colors.grey.shade300,
+          highlightColor: Colors.grey.shade100,
+          child: Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                color: Colors.white,
               ),
             ),
           ),
@@ -743,18 +741,15 @@ class _RecommendationsLoading extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
         itemCount: 3,
-        itemBuilder: (context, index) => Container(
-          width: 220,
-          margin: const EdgeInsets.symmetric(horizontal: 10),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Colors.grey.shade200,
-                Colors.grey.shade100,
-              ],
+        itemBuilder: (context, index) => Shimmer.fromColors(
+          baseColor: Colors.grey.shade300,
+          highlightColor: Colors.grey.shade100,
+          child: Container(
+            width: 220,
+            margin: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              color: Colors.white,
             ),
           ),
         ),

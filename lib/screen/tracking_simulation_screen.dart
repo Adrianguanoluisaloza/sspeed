@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../models/tracking_point.dart';
 import '../services/database_service.dart';
@@ -100,20 +102,67 @@ class _TrackingSimulationScreenState extends State<TrackingSimulationScreen> {
     _timer?.cancel();
     if (_route.length < 2) return;
 
-    _timer = Timer.periodic(const Duration(seconds: 3), (timer) {
-      if (!_isPlaying || !mounted) return;
-
-      if (_currentIndex >= _route.length - 1) {
-        setState(() => _isPlaying = false);
-        timer.cancel();
+    void scheduleNext() {
+      if (!_isPlaying || !mounted || _currentIndex >= _route.length - 1) {
+        if (mounted) {
+          setState(() => _isPlaying = false);
+          // Vibración al completar
+          HapticFeedback.mediumImpact();
+          // Mostrar notificación
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('🎉 ¡El repartidor ha llegado a su destino!'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
         return;
       }
 
-      setState(() {
-        _currentIndex += 1;
+      // Calcular distancia al siguiente punto
+      final current = _route[_currentIndex];
+      final next = _route[_currentIndex + 1];
+      final distanceKm = Geolocator.distanceBetween(
+        current.latitud,
+        current.longitud,
+        next.latitud,
+        next.longitud,
+      ) / 1000;
+
+      // Velocidad adaptativa basada en distancia
+      Duration delay;
+      if (distanceKm < 0.3) {
+        delay = const Duration(seconds: 1); // Tramos cortos
+      } else if (distanceKm < 1.0) {
+        delay = const Duration(seconds: 2); // Tramos medios
+      } else {
+        delay = const Duration(seconds: 4); // Tramos largos
+      }
+
+      Future.delayed(delay, () {
+        if (mounted && _isPlaying) {
+          setState(() => _currentIndex += 1);
+          _moveCamera(_currentLatLng);
+
+          // Notificación a mitad de camino
+          if (_currentIndex == _route.length ~/ 2) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('🚗 ¡Ya va por la mitad del camino!'),
+                backgroundColor: Colors.orange,
+                duration: Duration(seconds: 2),
+              ),
+            );
+            HapticFeedback.lightImpact();
+          }
+
+          scheduleNext();
+        }
       });
-      _moveCamera(_currentLatLng);
-    });
+    }
+
+    scheduleNext();
   }
 
   void _moveCamera(LatLng target, {double? zoom}) {
@@ -128,10 +177,43 @@ class _TrackingSimulationScreenState extends State<TrackingSimulationScreen> {
 
   int get _remainingStops => _route.isEmpty ? 0 : (_route.length - 1) - _currentIndex;
 
+  // Calcular distancia real restante
+  double _calculateRemainingDistance() {
+    if (_route.length <= 1 || _currentIndex >= _route.length - 1) return 0;
+
+    double totalKm = 0;
+    for (int i = _currentIndex; i < _route.length - 1; i++) {
+      totalKm += Geolocator.distanceBetween(
+        _route[i].latitud,
+        _route[i].longitud,
+        _route[i + 1].latitud,
+        _route[i + 1].longitud,
+      ) / 1000;
+    }
+    return totalKm;
+  }
+
   String get _etaText {
     if (_progress >= 1) return '¡Ha llegado!';
-    final minutes = (_remainingStops * 3).clamp(1, 45);
-    return 'en $minutes min';
+
+    final distanceKm = _calculateRemainingDistance();
+
+    // Si la distancia es muy pequeña, usar cálculo simple
+    if (distanceKm < 0.1) {
+      return 'en menos de 1 min';
+    }
+
+    // Velocidad promedio en ciudad: 25 km/h
+    const avgSpeedKmh = 25.0;
+    final hours = distanceKm / avgSpeedKmh;
+    final minutes = (hours * 60).ceil();
+
+    if (minutes < 1) return 'en menos de 1 min';
+    if (minutes < 60) return 'en $minutes min';
+
+    final hrs = minutes ~/ 60;
+    final mins = minutes % 60;
+    return mins > 0 ? 'en ${hrs}h ${mins}min' : 'en ${hrs}h';
   }
 
   Widget _buildMap() {
@@ -197,6 +279,7 @@ class _TrackingSimulationScreenState extends State<TrackingSimulationScreen> {
         _route.isNotEmpty ? _route[_currentIndex.clamp(0, _route.length - 1)] : null;
     final percentage = (_progress * 100).clamp(0, 100).toInt();
     final nextStop = currentPoint?.descripcion;
+    final distanceKm = _calculateRemainingDistance();
 
     return Card(
       margin: const EdgeInsets.all(16),
@@ -231,10 +314,31 @@ class _TrackingSimulationScreenState extends State<TrackingSimulationScreen> {
                 ),
               ],
             ),
+            if (distanceKm > 0) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  const Icon(Icons.straighten, color: Colors.blue, size: 18),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Distancia restante: ${distanceKm >= 1 ? distanceKm.toStringAsFixed(1) : (distanceKm * 1000).toStringAsFixed(0)} ${distanceKm >= 1 ? "km" : "m"}',
+                    style: const TextStyle(fontSize: 13, color: Colors.black87),
+                  ),
+                ],
+              ),
+            ],
             if (nextStop != null && nextStop.isNotEmpty) ...[
               const SizedBox(height: 12),
-              Text('Próxima parada: $nextStop',
-                  style: const TextStyle(fontSize: 13, color: Colors.black87)),
+              Row(
+                children: [
+                  const Icon(Icons.location_on, color: Colors.green, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text('Próxima parada: $nextStop',
+                        style: const TextStyle(fontSize: 13, color: Colors.black87)),
+                  ),
+                ],
+              ),
             ],
             if (_error != null) ...[
               const SizedBox(height: 12),

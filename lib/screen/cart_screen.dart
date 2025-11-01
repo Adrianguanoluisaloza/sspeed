@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../models/usuario.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../models/cart_model.dart';
 import '../routes/app_routes.dart';
@@ -219,9 +221,21 @@ class CartItemCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          IconButton(icon: const Icon(Icons.remove, size: 16), onPressed: () => cart.decrementQuantity(cartItem.producto.idProducto)),
+          IconButton(
+            icon: const Icon(Icons.remove, size: 16),
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              cart.decrementQuantity(cartItem.producto.idProducto);
+            },
+          ),
           Text('${cartItem.quantity}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          IconButton(icon: const Icon(Icons.add, size: 16), onPressed: () => cart.incrementQuantity(cartItem.producto.idProducto)),
+          IconButton(
+            icon: const Icon(Icons.add, size: 16),
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              cart.incrementQuantity(cartItem.producto.idProducto);
+            },
+          ),
         ],
       ),
     );
@@ -237,8 +251,26 @@ class _CartImage extends StatelessWidget {
     if (imageUrl == null || imageUrl!.isEmpty) {
       return Container(width: 80, height: 80, color: Colors.grey.shade200, alignment: Alignment.center, child: const Icon(Icons.fastfood, color: Colors.grey));
     }
-    return Image.network(imageUrl!, width: 80, height: 80, fit: BoxFit.cover,
-      errorBuilder: (context, error, stackTrace) => Container(width: 80, height: 80, color: Colors.grey.shade200, alignment: Alignment.center, child: const Icon(Icons.image_not_supported, color: Colors.grey)),
+    return CachedNetworkImage(
+      imageUrl: imageUrl!,
+      width: 80,
+      height: 80,
+      fit: BoxFit.cover,
+      placeholder: (context, url) => Container(
+        width: 80,
+        height: 80,
+        color: Colors.grey.shade200,
+        child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      ),
+      errorWidget: (context, error, stackTrace) => Container(
+        width: 80,
+        height: 80,
+        color: Colors.grey.shade200,
+        alignment: Alignment.center,
+        child: const Icon(Icons.image_not_supported, color: Colors.grey),
+      ),
+      memCacheHeight: 200,
+      maxHeightDiskCache: 400,
     );
   }
 }

@@ -9,6 +9,7 @@ import com.mycompany.delivery.api.payloads.Payloads;
 import com.mycompany.delivery.api.payloads.Payloads.PedidoPayload;
 import com.mycompany.delivery.api.repository.ChatRepository;
 import com.mycompany.delivery.api.repository.DashboardDAO;
+import com.mycompany.delivery.api.repository.NegocioRepository;
 import com.mycompany.delivery.api.repository.PedidoRepository;
 import com.mycompany.delivery.api.repository.RespuestaSoporteRepository;
 import com.mycompany.delivery.api.repository.SoporteRepository;
@@ -48,110 +49,54 @@ public class DeliveryApi {
     private static final RespuestaSoporteRepository RESPUESTA_SOPORTE_REPO = new RespuestaSoporteRepository();
     private static final ChatRepository CHAT_REPOSITORY = new ChatRepository();
     private static final GeminiService GEMINI_SERVICE = new GeminiService();
-    private static final ChatBotResponder CHATBOT_RESPONDER = new ChatBotResponder(GEMINI_SERVICE,
-            new PedidoRepository());
+    private static final PedidoRepository PEDIDO_REPOSITORY = new PedidoRepository();
+    private static final ChatBotResponder CHATBOT_RESPONDER = new ChatBotResponder(GEMINI_SERVICE, PEDIDO_REPOSITORY, CHAT_REPOSITORY);
+    private static final NegocioRepository NEGOCIO_REPOSITORY = new NegocioRepository();
 
     public static void main(String[] args) {
-        // Cargar variables de entorno
-        try {
-            io.github.cdimascio.dotenv.Dotenv.configure().directory("../delivery-api").ignoreIfMalformed()
-                    .ignoreIfMissing().load();
-        } catch (io.github.cdimascio.dotenv.DotenvException | IllegalArgumentException e) {
-            System.err.println("[WARN] No se pudo cargar .env: " + e.getMessage());
-        }
-
-        // Ping a la base de datos para asegurar conexiÃ³n
-        Database.ping();
-
-        // Configurar el mapeador de JSON para usar Gson
-        JsonMapper gsonMapper = new JsonMapper() {
-            @NotNull
-            @Override
-            public <T> T fromJsonString(@NotNull String json, @NotNull Type targetType) {
-                try {
-                    if (json.isBlank()) {
-                        throw new ApiException(400, "El cuerpo de la solicitud es obligatorio");
-                    }
-                    T body = GSON.fromJson(json, targetType);
-                    if (body == null) {
-                        throw new ApiException(400, "El cuerpo de la solicitud es obligatorio o el JSON es invÃ¡lido");
-                    }
-                    return body;
-                } catch (JsonSyntaxException e) {
-                    throw new ApiException(400, "JSON mal formado", e);
-                }
-            }
-
-            @NotNull
-            @Override
-            public String toJsonString(@NotNull Object obj, @NotNull Type type) {
-                return GSON.toJson(obj, type);
-            }
-        };
-
-        // Crear y configurar la aplicaciÃ³n Javalin
         Javalin app = Javalin.create(config -> {
-            config.jsonMapper(gsonMapper);
-            config.http.defaultContentType = "application/json; charset=utf-8";
-        }).start(4567);
+            config.jsonMapper(new JsonMapper() {
+                @Override
+                public @NotNull String toJsonString(@NotNull Object obj, @NotNull Type type) {
+                    return GSON.toJson(obj, type);
+                }
 
-        // Middleware CORS manual para todas las rutas
-        app.before(ctx -> {
-            ctx.header("Access-Control-Allow-Origin", "*");
-            ctx.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-            ctx.header("Access-Control-Allow-Headers", "Authorization,Content-Type,Accept,Origin");
-        });
-        app.options("/*", ctx -> {
-            ctx.status(200);
-        });
-
-        System.out.println("[INFO] Servidor Delivery API iniciado en http://localhost:4567");
-
-        // --- MIDDLEWARE (FILTROS) ---
-        app.before("/pedidos/disponibles", ctx -> {
-            String authHeader = ctx.header("Authorization");
-            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-                ctx.status(401).json(ApiResponse.error(401, "Token de autenticaciÃ³n requerido"));
-                return;
+                @Override
+                public <T> T fromJsonString(@NotNull String json, @NotNull Type targetType) throws JsonSyntaxException {
+                    return GSON.fromJson(json, targetType);
+                }
+            });
+            try {
+                // Serve static files from classpath '/public' only if present to avoid startup failure.
+                java.net.URL res = DeliveryApi.class.getResource("/public");
+                if (res != null) {
+                    config.staticFiles.add(staticFiles -> {
+                        staticFiles.hostedPath = "/";
+                        staticFiles.directory = "public";
+                        staticFiles.location = io.javalin.http.staticfiles.Location.CLASSPATH;
+                    });
+                }
+            } catch (Exception e) {
+                // Ignore missing static resources silently
             }
-            String token = authHeader.substring(7);
-            Usuario usuario = USUARIO_CONTROLLER.validarToken(token);
-            if (usuario == null) {
-                ctx.status(401).json(ApiResponse.error(401, "Token invÃ¡lido"));
-                return;
-            }
-            if (!("repartidor".equalsIgnoreCase(usuario.getRol()) || "delivery".equalsIgnoreCase(usuario.getRol()))) {
-                ctx.status(403).json(ApiResponse.error(403, "Acceso solo para repartidores"));
-                return;
-            }
-            ctx.attribute("id_usuario", usuario.getIdUsuario());
+        }).start(7070);
+
+        app.get("/negocios/{id}/stats", ctx -> {
+            long negocioId = Long.parseLong(ctx.pathParam("id"));
+            var stats = NEGOCIO_REPOSITORY.getNegocioStats(negocioId);
+            handleResponse(ctx, ApiResponse.success(200, "Estadisticas del negocio", stats));
         });
 
-        // CORRECCIÃ“N: Se elimina el middleware de admin de este endpoint.
-        // Ahora, cualquier usuario autenticado puede solicitar las ubicaciones de los
-        // repartidores,
-        // lo que permite que el mapa en la app mÃ³vil funcione para todos los roles.
-
-        // --- MANEJO DE EXCEPCIONES ---
-        app.exception(ApiException.class, (ex, ctx) -> {
-            ctx.status(ex.getStatus());
-            ctx.json(ApiResponse.error(ex.getStatus(), ex.getMessage(), ex.getDetails()));
-        });
-        app.exception(Exception.class, (ex, ctx) -> {
-            ctx.status(500);
-            System.err.println("[ERROR] OcurriÃ³ un error inesperado: " + ex.getMessage());
-            ex.printStackTrace(); // Para depuraciÃ³n
-            ctx.json(ApiResponse.error(500, "OcurriÃ³ un error inesperado"));
-        });
-        app.error(404, ctx -> {
-            ctx.json(ApiResponse.error(404, "Ruta no encontrada"));
+        // =============== AUTHENTICATION ===============
+        app.post("/auth/login", ctx -> {
+            var body = ctx.bodyAsClass(Payloads.LoginRequest.class);
+            handleResponse(ctx, USUARIO_CONTROLLER.login(body.getCorreo(), body.getContrasena()));
         });
 
-        // --- RUTAS ---
+        // Registrar el resto de rutas de la API (chat, soporte, tracking, usuarios, etc.)
         registerRoutes(app);
     }
-
-    private static void registerRoutes(Javalin app) {
+        private static void registerRoutes(Javalin app) {
         // --- AUTH ---
         app.post("/login", ctx -> {
             var body = ctx.bodyAsClass(LoginRequest.class);

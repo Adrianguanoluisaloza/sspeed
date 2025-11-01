@@ -75,10 +75,8 @@ public class UbicacionRepository {
 
     public void registrarEventoTracking(int idDelivery, double latitud, double longitud) throws SQLException {
         String sql = """
-                    INSERT INTO tracking_eventos (id_pedido, orden, latitud, longitud, descripcion)
-                    SELECT p.id_pedido,
-                           COALESCE((SELECT MAX(te.orden) + 1 FROM tracking_eventos te WHERE te.id_pedido = p.id_pedido), 1) AS orden,
-                           ?, ?, 'Actualización automática'
+                    INSERT INTO tracking_ruta (id_pedido, latitud, longitud)
+                    SELECT p.id_pedido, ?, ?
                     FROM pedidos p
                     WHERE p.id_delivery = ?
                       AND p.estado NOT IN ('entregado', 'cancelado')
@@ -113,10 +111,10 @@ public class UbicacionRepository {
     public List<TrackingEvento> obtenerRutaPedido(int idPedido) throws SQLException {
         List<TrackingEvento> lista = new ArrayList<>();
         String sql = """
-                    SELECT id_pedido, orden, latitud, longitud, descripcion, fecha_evento
-                    FROM tracking_eventos
+                    SELECT id_tracking, id_pedido, latitud, longitud, registrado_en
+                    FROM tracking_ruta
                     WHERE id_pedido = ?
-                    ORDER BY orden ASC, fecha_evento ASC, id_evento ASC
+                    ORDER BY registrado_en ASC
                 """;
         try (Connection conn = Database.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, idPedido);
@@ -124,11 +122,9 @@ public class UbicacionRepository {
                 while (rs.next()) {
                     TrackingEvento evento = new TrackingEvento();
                     evento.setIdPedido(rs.getInt("id_pedido"));
-                    evento.setOrden(rs.getInt("orden"));
                     evento.setLatitud(rs.getDouble("latitud"));
                     evento.setLongitud(rs.getDouble("longitud"));
-                    evento.setDescripcion(rs.getString("descripcion"));
-                    evento.setFechaEvento(rs.getTimestamp("fecha_evento"));
+                    evento.setFechaEvento(rs.getTimestamp("registrado_en"));
                     lista.add(evento);
                 }
             }

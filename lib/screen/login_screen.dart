@@ -1,8 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_application_2/services/database_service.dart';
-import 'package:flutter_application_2/services/api_exception.dart';
+import '../services/database_service.dart';
+import '../services/api_exception.dart';
 import '../models/session_state.dart';
 import '../routes/app_routes.dart';
 
@@ -30,7 +31,8 @@ class _LoginScreenState extends State<LoginScreen>
     super.initState();
     _animationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1300),
+      // OPTIMIZACIÓN: Se reduce la duración para una sensación más rápida.
+      duration: const Duration(milliseconds: 800),
     );
 
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
@@ -72,8 +74,9 @@ class _LoginScreenState extends State<LoginScreen>
     setState(() => _isLoading = true);
 
     try {
-      final user = await databaseService.login(
+      final future = databaseService.login(
           _emailController.text.trim(), _passwordController.text);
+      final user = await future.timeout(const Duration(seconds: 15));
 
       if (user != null && user.isAuthenticated) {
         final prefs = await SharedPreferences.getInstance();
@@ -97,10 +100,15 @@ class _LoginScreenState extends State<LoginScreen>
 
         switch (normalizedRole) {
           case 'admin':
-          case 'negocio':
-            // CORRECCIÓN: Se redirige al admin al MainNavigator para que pueda ver el mapa.
             navigator.pushNamedAndRemoveUntil(
               AppRoutes.mainNavigator,
+              (route) => false,
+              arguments: user,
+            );
+            break;
+          case 'negocio':
+            navigator.pushNamedAndRemoveUntil(
+              AppRoutes.negocioHome,
               (route) => false,
               arguments: user,
             );
@@ -121,8 +129,6 @@ class _LoginScreenState extends State<LoginScreen>
             break;
           default:
             navigator.pushNamedAndRemoveUntil(
-              // CORRECCIÓN: Se navega al MainNavigator para clientes, que contiene la barra de navegación inferior.
-              // Esto soluciona el problema del carrusel faltante y el cierre de sesión al cambiar de vista.
               AppRoutes.mainNavigator,
               (route) => false,
               arguments: user,
@@ -162,26 +168,24 @@ class _LoginScreenState extends State<LoginScreen>
     return Scaffold(
       body: Stack(
         children: [
-          // Fondo con imagen
+          // OPTIMIZACIÓN: Usar una imagen local para carga instantánea.
+          // Asegúrate de agregar la imagen a tus assets en pubspec.yaml
           Container(
             decoration: const BoxDecoration(
               image: DecorationImage(
-                image: NetworkImage(
-                  'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1170',
-                ),
+                image: AssetImage('assets/images/fondo-login.png'),
                 fit: BoxFit.cover,
               ),
             ),
           ),
 
-          // Capa de degradado (actualizado a .withValues)
+          // Capa de degradado
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  // Corregido: Usar withAlpha
-                  theme.primaryColor.withAlpha(204), // 0.8 * 255
-                  theme.colorScheme.secondary.withAlpha(153), // 0.6 * 255
+                  theme.primaryColor.withOpacity(0.8),
+                  theme.colorScheme.secondary.withOpacity(0.6),
                 ],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
@@ -204,11 +208,11 @@ class _LoginScreenState extends State<LoginScreen>
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: Colors.white.withAlpha(242), // Corregido
+                            color: Colors.white.withOpacity(0.95),
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withAlpha(51), // Corregido
+                                color: Colors.black.withOpacity(0.2),
                                 blurRadius: 20,
                                 spreadRadius: 2,
                               ),
@@ -235,7 +239,7 @@ class _LoginScreenState extends State<LoginScreen>
                         Text('Tu comida favorita a un clic',
                             style: theme.textTheme.titleMedium?.copyWith(
                                 color: theme.colorScheme.onPrimary
-                                    .withAlpha(179))), // Corregido
+                                    .withOpacity(0.7))),
                       ],
                     ),
                   ),
@@ -300,7 +304,7 @@ class _LoginScreenState extends State<LoginScreen>
   Widget _buildPasswordField() {
     return TextFormField(
       controller: _passwordController,
-      obscureText: _obscurePassword, // Usamos el color del tema para el texto
+      obscureText: _obscurePassword,
       style: TextStyle(
           color: Theme.of(context).colorScheme.onPrimary), // Texto blanco
       decoration: _buildInputDecoration(
@@ -315,7 +319,7 @@ class _LoginScreenState extends State<LoginScreen>
             color: Theme.of(context)
                 .colorScheme
                 .onPrimary
-                .withAlpha(179), // Corregido
+                .withOpacity(0.7),
           ),
           onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
         ),
@@ -338,7 +342,7 @@ class _LoginScreenState extends State<LoginScreen>
           borderRadius: BorderRadius.circular(30),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withAlpha(77), // Corregido
+              color: Colors.black.withOpacity(0.3),
               spreadRadius: 1,
               blurRadius: 10,
               offset: const Offset(0, 5),
@@ -382,16 +386,15 @@ class _LoginScreenState extends State<LoginScreen>
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(
-            '¿No tienes cuenta? ', // Corregido: 'theme' no estaba definido aquí
+            '¿No tienes cuenta? ',
             style: TextStyle(
-                color: Theme.of(context).colorScheme.onPrimary.withAlpha(179))),
+                color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.7))),
         GestureDetector(
           onTap: () => Navigator.of(context).pushNamed(AppRoutes.register),
           child: Text(
             'Regístrate',
             style: TextStyle(
-              color: Colors
-                  .white, // CORRECCIÓN: Se cambia a blanco para mejor visibilidad.
+              color: Colors.white,
               fontWeight: FontWeight.bold,
               decoration: TextDecoration.underline,
               decorationColor: Colors.white,
@@ -412,14 +415,14 @@ class _LoginScreenState extends State<LoginScreen>
           color: Theme.of(context)
               .colorScheme
               .onPrimary
-              .withAlpha(179)), // Corregido
+              .withOpacity(0.7)),
       prefixIcon: Icon(icon,
           color: Theme.of(context)
               .colorScheme
               .onPrimary
-              .withAlpha(179)), // Corregido
+              .withOpacity(0.7)),
       filled: true,
-      fillColor: Colors.black.withAlpha(77), // Corregido
+      fillColor: Colors.black.withOpacity(0.3),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,

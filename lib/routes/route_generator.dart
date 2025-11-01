@@ -20,6 +20,7 @@ import '../screen/product_detail_screen.dart';
 import '../models/producto.dart';
 import '../screen/chat_home_screen.dart';
 import '../screen/register_business_screen.dart';
+import '../screen/negocio_home_screen.dart';
 import 'app_routes.dart';
 
 class RouteGenerator {
@@ -122,6 +123,12 @@ class RouteGenerator {
         final usuario = settings.arguments;
         if (usuario is Usuario) {
           return _slideUp(settings, RegisterBusinessScreen(usuario: usuario));
+        }
+        return _redirectToLogin(settings);
+      case AppRoutes.negocioHome:
+        final usuario = settings.arguments;
+        if (usuario is Usuario) {
+          return _fade(settings, NegocioHomeScreen(negocioUser: usuario));
         }
         return _redirectToLogin(settings);
       default:

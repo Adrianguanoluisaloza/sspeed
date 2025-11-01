@@ -17,4 +17,6 @@ class AppRoutes {
   static const orderSuccess = '/order_success';
   static const productDetail = '/products/detail';
   static const registerBusiness = '/business/register';
+
+  static const String negocioHome = '/negocio_home';
 }

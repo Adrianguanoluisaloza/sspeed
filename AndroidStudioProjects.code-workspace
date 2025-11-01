@@ -6,6 +6,7 @@
 	],
 	"settings": {
 		"java.configuration.updateBuildConfiguration": "automatic",
-		"liveServer.settings.multiRootWorkspaceName": "Proyecto"
+		"liveServer.settings.multiRootWorkspaceName": "Proyecto",
+		"CodeGPT.apiKey": "Anthropic"
 	}
 }

@@ -190,6 +190,7 @@ class _ChatScreenState extends State<ChatScreen> {
       idConversacion: idConversacion ?? 0,
       idRemitente: idRemitente,
       mensaje: userMessage,
+      chatSection: widget.initialSection.name,
       esBot: widget.initialSection == ChatSection.ciaBot,
     );
 

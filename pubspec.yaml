@@ -17,6 +17,8 @@ dependencies:
   provider: ^6.1.5+1
   shared_preferences: ^2.5.3
   shimmer: ^3.0.0
+  cached_network_image: ^3.3.1
+  geolocator: ^12.0.0
   intl: ^0.20.2
   location: ^8.0.1
   open_route_service: ^1.2.7
@@ -43,3 +45,5 @@ dependency_overrides:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/images/

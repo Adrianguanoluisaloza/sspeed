@@ -94,24 +94,26 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                 style: theme.textTheme.titleLarge
                     ?.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            _MenuActionCard(
-              title: 'Gestionar Productos',
-              subtitle: 'Agregar, editar o eliminar productos',
-              icon: Icons.fastfood_outlined,
-              color: Colors.blueAccent,
-              onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const AdminProductsView())),
-            ),
-            _MenuActionCard(
-              title: 'Mis Productos (Negocio)',
-              subtitle: 'Gestiona el catalogo de tu negocio',
-              icon: Icons.store_mall_directory_outlined,
-              color: Colors.teal,
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) =>
-                    BusinessProductsView(negocioUser: widget.adminUser),
-              )),
-            ),
+            if (widget.adminUser.rol.trim().toLowerCase() == 'admin')
+              _MenuActionCard(
+                title: 'Gestionar Productos',
+                subtitle: 'Agregar, editar o eliminar productos',
+                icon: Icons.fastfood_outlined,
+                color: Colors.blueAccent,
+                onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const AdminProductsView())),
+              ),
+            if (widget.adminUser.rol.trim().toLowerCase() == 'negocio')
+              _MenuActionCard(
+                title: 'Mis Productos (Negocio)',
+                subtitle: 'Gestiona el catalogo de tu negocio',
+                icon: Icons.store_mall_directory_outlined,
+                color: Colors.teal,
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) =>
+                      BusinessProductsView(negocioUser: widget.adminUser),
+                )),
+              ),
             _MenuActionCard(
               title: 'Pedidos Pendientes',
               subtitle: 'Ver y gestionar pedidos en espera',

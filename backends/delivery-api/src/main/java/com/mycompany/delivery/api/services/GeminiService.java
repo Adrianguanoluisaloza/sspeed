@@ -198,8 +198,9 @@ public final class GeminiService {
             return key.trim();
         }
         try {
+            // CORRECCIÓN: La ruta correcta para Dotenv es el directorio raíz del proyecto de backend.
             Dotenv dotenv = Dotenv.configure()
-                    .directory("../delivery-api")
+                    .directory("./") // Se cambió a la ruta correcta
                     .ignoreIfMalformed()
                     .ignoreIfMissing()
                     .load();
@@ -222,8 +223,9 @@ public final class GeminiService {
             return model.trim();
         }
         try {
+            // CORRECCIÓN: La ruta correcta para Dotenv es el directorio raíz del proyecto de backend.
             Dotenv dotenv = Dotenv.configure()
-                    .directory("../delivery-api")
+                    .directory("./") // Se cambió a la ruta correcta
                     .ignoreIfMalformed()
                     .ignoreIfMissing()
                     .load();

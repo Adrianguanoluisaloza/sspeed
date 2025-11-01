@@ -92,6 +92,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
 
   @override
   void dispose() {
+    context.read<SessionController>().removeListener(_onSessionChange);
     _mapController?.dispose();
     _locationSubscription?.cancel();
     _webLocationSubscription?.cancel();
@@ -100,6 +101,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   }
 
   Future<void> _bootstrap() async {
+    context.read<SessionController>().addListener(_onSessionChange);
     try {
       await _checkAndRequestLocationPermission();
       await _refreshMarkers();
@@ -116,6 +118,13 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
           _isMapReady = true;
         });
       }
+    }
+  }
+
+  void _onSessionChange() {
+    final session = context.read<SessionController>();
+    if (session.isAuthenticated) {
+      _refreshMarkers();
     }
   }
 

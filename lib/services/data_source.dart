@@ -65,6 +65,7 @@ abstract class DataSource {
   Future<Producto?> createProductoParaNegocio(int idNegocio, Producto producto);
   Future<Negocio?> getNegocioDeUsuario(int idUsuario);
   Future<Negocio?> registrarNegocioParaUsuario(int idUsuario, Negocio negocio);
+  Future<Map<String, dynamic>> getNegocioStats(int negocioId);
 
   // --- Métodos de Delivery ---
   Future<List<Pedido>> getPedidosDisponibles();
@@ -93,6 +94,7 @@ abstract class DataSource {
     required int idConversacion,
     required int idRemitente,
     required String mensaje,
+    required String chatSection,
     bool esBot = false,
   });
 }

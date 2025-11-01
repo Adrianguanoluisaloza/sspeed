@@ -54,12 +54,12 @@ public class UsuarioController {
     // ===========================
     public ApiResponse<java.util.Map<String, Object>> login(String correo, String contrasena) {
         if (correo == null || correo.isBlank() || contrasena == null || contrasena.isBlank()) {
-            throw new ApiException(400, "Correo y contrasena son obligatorios");
+            throw new ApiException(400, "Correo y contraseña son obligatorios");
         }
         try {
             Optional<Usuario> usuarioOpt = repo.autenticar(correo, contrasena);
             if (usuarioOpt.isEmpty()) {
-                throw new ApiException(401, "Credenciales incorrectas");
+                throw new ApiException(401, "Usuario o contraseña incorrectos");
             }
             Usuario usuario = usuarioOpt.get();
             // El token es el idUsuario. Se anade al mapa del usuario.
@@ -80,14 +80,14 @@ public class UsuarioController {
             throw new ApiException(400, "El correo es obligatorio");
         }
         if (usuario.getContrasena() == null || usuario.getContrasena().isBlank()) {
-            throw new ApiException(400, "La contrasena es obligatoria");
+            throw new ApiException(400, "La contraseña es obligatoria");
         }
         try {
             String correoNormalizado = usuario.getCorreo().trim().toLowerCase();
             usuario.setCorreo(correoNormalizado);
 
             if (repo.existeCorreo(correoNormalizado)) {
-                throw new ApiException(409, "El correo ya esta registrado");
+                throw new ApiException(409, "El correo ya está registrado");
             }
 
             boolean creado = repo.registrar(usuario);

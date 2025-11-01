@@ -233,12 +233,20 @@ class DatabaseService implements DataSource {
     required int idConversacion,
     required int idRemitente,
     required String mensaje,
+    required String chatSection,
     bool esBot = false,
   }) =>
       _dataSource.enviarMensaje(
         idConversacion: idConversacion,
         idRemitente: idRemitente,
         mensaje: mensaje,
+        chatSection: chatSection,
         esBot: esBot,
       );
+
+  // --- Estadísticas para Negocio ---
+  @override
+  Future<Map<String, dynamic>> getNegocioStats(int negocioId) =>
+      _dataSource.getNegocioStats(negocioId);
+
 }

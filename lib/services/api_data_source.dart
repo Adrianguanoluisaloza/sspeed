@@ -42,7 +42,6 @@ class ApiDataSource implements DataSource {
 
   Map<String, String> get _jsonHeaders {
     final headers = {'Content-Type': 'application/json; charset=UTF-8'};
-    // CORRECCIÓN: Se añade la cabecera para evitar la página de advertencia de Ngrok.
     headers['ngrok-skip-browser-warning'] = 'true';
 
     if (_token != null && _token!.isNotEmpty) {
@@ -148,7 +147,7 @@ class ApiDataSource implements DataSource {
       return error;
     }
     if (error is SocketException) {
-      return const ApiException('No se pudo conectar al servidor.');
+      return const ApiException('No se pudo conectar al servidor. Verifica tu conexion.');
     }
     if (error is TimeoutException) {
       return const ApiException(
@@ -236,7 +235,6 @@ class ApiDataSource implements DataSource {
       String phone, String rol) async {
     final normalizedRole = {
           'cliente': 'cliente',
-          // Compatibilidad: el backend espera 'repartidor' en /registro
           'delivery': 'repartidor',
           'repartidor': 'repartidor',
           'admin': 'admin',
@@ -303,7 +301,6 @@ class ApiDataSource implements DataSource {
 
   @override
   Future<List<Ubicacion>> getUbicaciones(int idUsuario) async {
-    // CORRECCIÓN: Se utiliza la ruta correcta definida en la API de Java.
     final data = await _get('/ubicaciones/usuario/$idUsuario');
     return data.cast<Map<String, dynamic>>().map(Ubicacion.fromMap).toList();
   }
@@ -323,7 +320,6 @@ class ApiDataSource implements DataSource {
     if (data is Map<String, dynamic>) {
       return data;
     }
-    // Backend devuelve JSON (String) crudo de Google Geocoding API
     if (data is String) {
       try {
         final decoded = jsonDecode(data);
@@ -360,7 +356,6 @@ class ApiDataSource implements DataSource {
   @override
   Future<List<ProductoRankeado>> getRecomendaciones() async {
     try {
-      // CORRECCIÓN: El endpoint devuelve un mapa {'data': [...]}, no una lista directa.
       final response = await _getMap('/recomendaciones/destacadas');
       final data = response['data'];
       if (data is! List) return [];
@@ -455,7 +450,6 @@ class ApiDataSource implements DataSource {
   @override
   Future<PedidoDetalle?> getPedidoDetalle(int idPedido) async {
     final data = await _getMap('/pedidos/$idPedido');
-    // Try to get from 'data' key, otherwise assume the map itself is the pedido data
     final Map<String, dynamic> pedidoData =
         (data['data'] as Map<String, dynamic>?) ?? data;
     return PedidoDetalle.fromMap(pedidoData);
@@ -520,6 +514,15 @@ class ApiDataSource implements DataSource {
   @override
   Future<Map<String, dynamic>> getAdminStats() async {
     return await _getMap('/admin/stats');
+  }
+
+  @override
+  Future<Map<String, dynamic>> getNegocioStats(int negocioId) async {
+    final m = await _getMap('/negocios/$negocioId/stats');
+    final data = m['data'];
+    if (data is Map<String, dynamic>) return data;
+    if (data is Map) return Map<String, dynamic>.from(data);
+    return m;
   }
 
   @override
@@ -717,13 +720,24 @@ class ApiDataSource implements DataSource {
     required int idConversacion,
     required int idRemitente,
     required String mensaje,
+    required String chatSection,
     bool esBot = false,
   }) async {
-    if (esBot) {
+    if (chatSection == 'ciaBot') {
+      // CORRECCIÓN: El backend espera 'id_conversacion' en el payload, no 'idConversacion'.
       return _post('/chat/bot/mensajes', {
+        'id_conversacion': idConversacion,
+        'idRemitente': idRemitente,
+        'mensaje': mensaje,
+      });
+    }
+
+    if (chatSection == 'soporte') {
+      return _post('/soporte/mensajes', {
         'idConversacion': idConversacion,
         'idRemitente': idRemitente,
         'mensaje': mensaje,
+        'esBot': esBot,
       });
     }
 
@@ -732,10 +746,12 @@ class ApiDataSource implements DataSource {
     }
 
     return _post(
-      '/chat/conversaciones/$idConversacion/mensajes',
+      '/chat/mensajes',
       {
+        'idConversacion': idConversacion,
         'idRemitente': idRemitente,
         'mensaje': mensaje,
+        'idDestinatario': null,
       },
     );
   }
