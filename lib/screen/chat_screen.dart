@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../services/database_service.dart';
 import '../models/usuario.dart';
 import '../routes/app_routes.dart';
+import '../models/chat_entry.dart';
 
 enum ChatSection {
   cliente,
@@ -557,16 +558,3 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 }
 
-class ChatEntry {
-  final String text;
-  final bool isBot;
-  final DateTime time;
-  final String? senderName;
-
-  const ChatEntry({
-    required this.text,
-    required this.isBot,
-    required this.time,
-    this.senderName,
-  });
-}

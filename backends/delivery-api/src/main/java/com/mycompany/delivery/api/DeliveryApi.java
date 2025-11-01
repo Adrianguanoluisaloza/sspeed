@@ -17,6 +17,7 @@ import com.mycompany.delivery.api.util.ApiException;
 import com.mycompany.delivery.api.services.GeminiService;
 import com.mycompany.delivery.api.util.ApiResponse;
 
+import io.github.cdimascio.dotenv.Dotenv;
 import io.javalin.Javalin;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
@@ -54,6 +55,7 @@ public class DeliveryApi {
     private static final NegocioRepository NEGOCIO_REPOSITORY = new NegocioRepository();
 
     public static void main(String[] args) {
+        Dotenv dotenv = Dotenv.load();
         Javalin app = Javalin.create(config -> {
             config.jsonMapper(new JsonMapper() {
                 @Override

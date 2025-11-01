@@ -9,7 +9,7 @@ import '../routes/app_routes.dart';
 
 // Importa las otras vistas que ya tenías separadas
 
-import 'delivery_activearders_view.dart' show DeliveryActiveOrdersView;
+import 'delivery_activeorders_view.dart' show DeliveryActiveOrdersView;
 import 'delivery_availableorders_view.dart' show DeliveryAvailableOrdersView;
 import 'delivery_history_orders_view.dart';
 import 'delivery_chat_hub_view.dart';

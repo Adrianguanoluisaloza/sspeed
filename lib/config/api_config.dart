@@ -19,7 +19,8 @@ class ApiSettings {
     // === ¡MUY IMPORTANTE! ===
     // REEMPLAZA ESTA URL CON TU URL ACTUAL DE NGROK CADA VEZ QUE LA INICIES.
     // O déjala en blanco para usar la lógica de localhost/10.0.2.2.
-    const String ngrokUrl = 'PEGA-AQUÍ-TU-NUEVA-URL-DE-NGROK';
+    const String ngrokUrl =
+        'https://feyly-electrotropic-obdulia.ngrok-free.dev ';
 
     // === ¡CLAVE DE GEMINI PARA PRUEBAS! ===
     // PEGA AQUÍ TU CLAVE DE LA API DE GEMINI.
@@ -37,7 +38,8 @@ class ApiSettings {
         finalBaseUrl = 'http://localhost:7070';
       }
     }
-    return ApiSettings(baseUrl: finalBaseUrl, geminiApiKey: geminiKeyForTesting);
+    return ApiSettings(
+        baseUrl: finalBaseUrl, geminiApiKey: geminiKeyForTesting);
   }
 
   // Configuración para el entorno de PRODUCCIÓN (tu dominio real)

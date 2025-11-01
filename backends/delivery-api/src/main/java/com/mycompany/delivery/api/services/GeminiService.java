@@ -4,7 +4,6 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import io.github.cdimascio.dotenv.Dotenv;
 
 import java.io.IOException;
 import java.net.URI;
@@ -197,19 +196,6 @@ public final class GeminiService {
         if (key != null && !key.isBlank()) {
             return key.trim();
         }
-        try {
-            // CORRECCIÓN: La ruta correcta para Dotenv es el directorio raíz del proyecto de backend.
-            Dotenv dotenv = Dotenv.configure()
-                    .directory("./") // Se cambió a la ruta correcta
-                    .ignoreIfMalformed()
-                    .ignoreIfMissing()
-                    .load();
-            key = dotenv.get("GEMINI_API_KEY");
-            if (key != null && !key.isBlank()) {
-                return key.trim();
-            }
-        } catch (Exception ignored) {
-        }
         return null;
     }
 
@@ -221,19 +207,6 @@ public final class GeminiService {
         model = System.getProperty("GEMINI_MODEL");
         if (model != null && !model.isBlank()) {
             return model.trim();
-        }
-        try {
-            // CORRECCIÓN: La ruta correcta para Dotenv es el directorio raíz del proyecto de backend.
-            Dotenv dotenv = Dotenv.configure()
-                    .directory("./") // Se cambió a la ruta correcta
-                    .ignoreIfMalformed()
-                    .ignoreIfMissing()
-                    .load();
-            model = dotenv.get("GEMINI_MODEL");
-            if (model != null && !model.isBlank()) {
-                return model.trim();
-            }
-        } catch (Exception ignored) {
         }
         return DEFAULT_MODEL_NAME;
     }

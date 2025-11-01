@@ -125,21 +125,6 @@ public class Payloads {
         public Integer idDelivery;
     }
 
-    // =========================== MENSAJES ===========================
-    public static class MensajePayload {
-        // Acepta id_remitente y idRemitente
-        @SerializedName("id_remitente")
-        private Integer idRemitenteSnake;
-        @SerializedName("idRemitente")
-        private Integer idRemitenteCamel;
-
-        public String mensaje;
-
-        public Integer getIdRemitente() {
-            return idRemitenteSnake != null ? idRemitenteSnake : idRemitenteCamel;
-        }
-    }
-
     // =========================== TRACKING ===========================
     public static class TrackingPayload {
         public Double latitud;
@@ -218,7 +203,7 @@ public class Payloads {
     }
 
     // =========================== CHAT ===========================
-    public static class ChatMensajePayload {
+    public static class PedidoMensajePayload {
         @SerializedName("idConversacion")
         public Long idConversacion;
         @SerializedName("idRemitente")
@@ -259,6 +244,9 @@ public class Payloads {
 
         @SerializedName(value = "id_remitente", alternate = { "idRemitente" })
         public Integer idRemitente;
+
+        @SerializedName(value = "id_destinatario", alternate = { "idDestinatario" })
+        public Integer idDestinatario;
 
         public String mensaje;
     }
