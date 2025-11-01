@@ -20,12 +20,8 @@ public class UbicacionRepository {
     // ===============================
     public Optional<Ubicacion> guardar(Ubicacion ubicacion) throws SQLException {
         String sql = """
-                    INSERT INTO ubicaciones (id_usuario, latitud, longitud, descripcion, direccion, activa, fecha_registro)
-                    VALUES (?, ?, ?, ?, ?, ?, NOW())
-                    ON CONFLICT (id_ubicacion) DO UPDATE
-                    SET latitud = EXCLUDED.latitud, longitud = EXCLUDED.longitud,
-                        descripcion = EXCLUDED.descripcion,
-                        direccion = EXCLUDED.direccion, activa = EXCLUDED.activa
+                    INSERT INTO ubicaciones (id_usuario, latitud, longitud, descripcion, direccion, activa)
+                    VALUES (?, ?, ?, ?, ?, ?)
                     RETURNING *;
                 """;
 
@@ -52,7 +48,7 @@ public class UbicacionRepository {
     // ===============================
     public boolean actualizarUbicacionLive(int idUsuario, double latitud, double longitud) throws SQLException {
         String sql = """
-                    UPDATE ubicaciones SET latitud = ?, longitud = ?, fecha_registro = NOW()
+                    UPDATE ubicaciones SET latitud = ?, longitud = ?
                     WHERE id_usuario = ? AND descripcion = 'LIVE_TRACKING'
                 """;
         try (Connection conn = Database.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -100,7 +96,7 @@ public class UbicacionRepository {
                 SELECT u.latitud, u.longitud FROM ubicaciones u
                 JOIN pedidos p ON p.id_delivery = u.id_usuario
                 WHERE p.id_pedido = ? AND u.descripcion = 'LIVE_TRACKING'
-                ORDER BY u.fecha_registro DESC LIMIT 1
+                ORDER BY u.updated_at DESC LIMIT 1
                 """;
         try (Connection conn = Database.getConnection(); PreparedStatement st = conn.prepareStatement(sql)) {
             st.setInt(1, idPedido);
@@ -204,7 +200,7 @@ public class UbicacionRepository {
         // MEJORA: Se lee la fecha de registro directamente.
         // La tabla 'ubicaciones' siempre tiene esta columna, por lo que el try-catch
         // que ignoraba errores no es necesario y podría ocultar problemas.
-        u.setFechaRegistro(rs.getTimestamp("fecha_registro"));
+        u.setFechaRegistro(rs.getTimestamp("created_at"));
         return u;
     }
 
@@ -218,7 +214,7 @@ public class UbicacionRepository {
                     longitud
                 FROM ubicaciones
                 WHERE id_usuario = ANY(?) AND descripcion = 'LIVE_TRACKING'
-                ORDER BY id_usuario, fecha_registro DESC;
+                ORDER BY id_usuario, updated_at DESC;
                 """;
 
         List<Map<String, Object>> ubicaciones = new ArrayList<>();

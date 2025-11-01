@@ -8,6 +8,7 @@ import '../models/recomendacion_data.dart';
 import '../models/tracking_point.dart';
 import '../models/ubicacion.dart';
 import '../models/usuario.dart';
+import '../models/negocio.dart';
 
 /// Define el contrato que cualquier fuente de datos (API, base de datos local, etc.) debe cumplir.
 abstract class DataSource {
@@ -62,6 +63,8 @@ abstract class DataSource {
   Future<Usuario?> updateNegocio(Usuario negocio);
   Future<List<Producto>> getProductosPorNegocio(int idNegocio);
   Future<Producto?> createProductoParaNegocio(int idNegocio, Producto producto);
+  Future<Negocio?> getNegocioDeUsuario(int idUsuario);
+  Future<Negocio?> registrarNegocioParaUsuario(int idUsuario, Negocio negocio);
 
   // --- Métodos de Delivery ---
   Future<List<Pedido>> getPedidosDisponibles();

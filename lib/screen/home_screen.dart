@@ -6,7 +6,6 @@ import 'package:provider/provider.dart';
 import '../models/cart_model.dart';
 import '../models/producto.dart';
 import '../models/usuario.dart';
-import 'live_map_screen.dart';
 import '../services/database_service.dart';
 import 'widgets/login_required_dialog.dart';
 import 'product_detail_screen.dart';
@@ -25,12 +24,14 @@ class _HomeScreenState extends State<HomeScreen> {
   late Future<List<ProductoRankeado>> _recommendationsFuture;
   late Future<List<Map<String, dynamic>>> _repartidoresLocationFuture;
   late DatabaseService _databaseService;
+  late final PageController _recommendationsController;
 
   final TextEditingController _searchController = TextEditingController();
   String _selectedCategory = "Todos";
   bool _hasQuery = false;
   Timer? _debounce;
   Timer? _repartidoresRefreshTimer;
+  int _currentRecommendationPage = 0;
 
   final List<String> _categories = const [
     'Todos',
@@ -50,6 +51,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _databaseService = Provider.of<DatabaseService>(context, listen: false);
+    _recommendationsController = PageController(viewportFraction: 0.82);
     _loadProducts();
     _loadRecommendations();
     _loadRepartidoresLocation();
@@ -61,6 +63,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     _debounce?.cancel();
     _repartidoresRefreshTimer?.cancel();
+    _recommendationsController.dispose();
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     super.dispose();
@@ -257,37 +260,95 @@ class _HomeScreenState extends State<HomeScreen> {
       future: _recommendationsFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const SizedBox(
-            height: 220,
-            child: Center(child: CircularProgressIndicator()),
-          );
+          return const _RecommendationsLoading();
         }
         if (snapshot.hasError) {
           return Center(
-            child: Text('Error al cargar recomendaciones: ${snapshot.error}'),
+            child: Text('Error al cargar recomendaciones: \\'),
           );
         }
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return const Center(
             child: Padding(
               padding: EdgeInsets.all(16.0),
-              child:
-                  Text('No hay recomendaciones disponibles en este momento.'),
+              child: Text('No hay recomendaciones disponibles en este momento.'),
             ),
           );
         }
 
         final recommendations = snapshot.data!;
+        if (_currentRecommendationPage >= recommendations.length) {
+          _currentRecommendationPage = 0;
+        }
         return SizedBox(
-          height: 250, // Aumentamos la altura para el nuevo diseño
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            itemCount: recommendations.length,
-            itemBuilder: (context, index) {
-              final producto = recommendations[index];
-              return _buildRecommendationCard(producto);
-            },
+          height: 260,
+          child: Column(
+            children: [
+              Expanded(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  child: PageView.builder(
+                    key: ValueKey(recommendations.length),
+                    controller: _recommendationsController,
+                    onPageChanged: (index) {
+                      setState(() => _currentRecommendationPage = index);
+                    },
+                    itemCount: recommendations.length,
+                    itemBuilder: (context, index) {
+                      final producto = recommendations[index];
+                      final isFocused = index == _currentRecommendationPage;
+                      return AnimatedContainer(
+                        duration: const Duration(milliseconds: 260),
+                        curve: Curves.easeOutCubic,
+                        margin: EdgeInsets.symmetric(
+                          horizontal: isFocused ? 12 : 20,
+                          vertical: isFocused ? 4 : 16,
+                        ),
+                        decoration: BoxDecoration(
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withAlpha(
+                                  ((isFocused ? 0.14 : 0.08) * 255).round()),
+                              blurRadius: isFocused ? 18 : 10,
+                              offset: Offset(0, isFocused ? 10 : 6),
+                            ),
+                          ],
+                        ),
+                        child: Transform.scale(
+                          scale: isFocused ? 1 : 0.95,
+                          child: _buildRecommendationCard(producto),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              if (recommendations.length > 1)
+                Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(recommendations.length, (index) {
+                      final isActive = index == _currentRecommendationPage;
+                      return AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        height: 6,
+                        width: isActive ? 22 : 10,
+                        decoration: BoxDecoration(
+                          color: isActive
+                              ? Theme.of(context).colorScheme.primary
+                              : Theme.of(context)
+                                  .colorScheme
+                                  .primary
+                                  .withAlpha((0.25 * 255).round()),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      );
+                    }),
+                  ),
+                ),
+            ],
           ),
         );
       },
@@ -298,83 +359,89 @@ class _HomeScreenState extends State<HomeScreen> {
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: _repartidoresLocationFuture,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting &&
-            (snapshot.data == null || snapshot.data!.isEmpty)) {
-          return const SizedBox
-              .shrink(); // No mostrar nada mientras carga inicialmente
-        }
+        final hasLocations = snapshot.hasData && snapshot.data!.isNotEmpty;
+        Widget child;
+        String keyTag;
 
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const SizedBox
-              .shrink(); // No mostrar la tarjeta si no hay repartidores
-        }
+        if (!hasLocations) {
+          final waiting = snapshot.connectionState == ConnectionState.waiting;
+          child = waiting ? const _LiveMapPlaceholder() : const SizedBox.shrink();
+          keyTag = waiting ? 'map-placeholder' : 'map-empty';
+        } else {
+          final locations = snapshot.data!;
+          final markers = locations
+              .map((loc) {
+                final lat = (loc['latitud'] as num?)?.toDouble();
+                final lon = (loc['longitud'] as num?)?.toDouble();
+                if (lat == null || lon == null) return null;
 
-        final locations = snapshot.data!;
-        final markers = locations
-            .map((loc) {
-              final lat = (loc['latitud'] as num?)?.toDouble();
-              final lon = (loc['longitud'] as num?)?.toDouble();
-              if (lat == null || lon == null) return null;
+                return Marker(
+                  markerId: MarkerId('repartidor_'),
+                  position: LatLng(lat, lon),
+                  icon: BitmapDescriptor.defaultMarkerWithHue(
+                      BitmapDescriptor.hueOrange),
+                );
+              })
+              .whereType<Marker>()
+              .toSet();
 
-              return Marker(
-                markerId: MarkerId('repartidor_${loc['id_repartidor']}'),
-                position: LatLng(lat, lon),
-                icon: BitmapDescriptor.defaultMarkerWithHue(
-                    BitmapDescriptor.hueOrange),
-              );
-            })
-            .whereType<Marker>()
-            .toSet();
-
-        if (markers.isEmpty) return const SizedBox.shrink();
-
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-          child: Card(
-            clipBehavior: Clip.antiAlias,
-            elevation: 3,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: InkWell(
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const LiveMapScreen()),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    height: 150,
-                    child: GoogleMap(
-                      initialCameraPosition: CameraPosition(
-                        target: markers.first.position,
-                        zoom: 13,
-                      ),
-                      markers: markers,
-                      liteModeEnabled:
-                          true, // Modo ligero para mejor rendimiento
-                      myLocationButtonEnabled: false,
-                      zoomControlsEnabled: false,
-                      mapToolbarEnabled: false,
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(12.0),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.delivery_dining,
-                            color: Colors.deepOrange),
-                        const SizedBox(width: 8),
-                        Text(
-                          '${markers.length} repartidor(es) en camino',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+          if (markers.isEmpty) {
+            child = const SizedBox.shrink();
+            keyTag = 'map-empty';
+          } else {
+            keyTag = 'map-';
+            child = Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: Card(
+                clipBehavior: Clip.antiAlias,
+                elevation: 3,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      height: 180,
+                      child: GoogleMap(
+                        initialCameraPosition: CameraPosition(
+                          target: markers.first.position,
+                          zoom: 13,
                         ),
-                      ],
+                        markers: markers,
+                        liteModeEnabled: true,
+                        myLocationButtonEnabled: false,
+                        zoomControlsEnabled: false,
+                        mapToolbarEnabled: false,
+                      ),
                     ),
-                  ),
-                ],
+                    Padding(
+                      padding: const EdgeInsets.all(12.0),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.delivery_dining,
+                              color: Colors.deepOrange),
+                          const SizedBox(width: 8),
+                          Text(
+                            ' repartidor(es) en camino',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
+            );
+          }
+        }
+
+        return AnimatedSwitcher(
+          duration: const Duration(milliseconds: 320),
+          switchInCurve: Curves.easeOutCubic,
+          child: KeyedSubtree(
+            key: ValueKey<String>(keyTag),
+            child: child,
           ),
         );
       },
@@ -562,24 +629,53 @@ class _ProductImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (imageUrl == null || imageUrl!.isEmpty) return const _ImagePlaceholder();
-    return Image.network(imageUrl!,
-        fit: BoxFit.cover,
-        errorBuilder: (c, e, s) => const _ImagePlaceholder(),
-        loadingBuilder: (c, child, progress) {
-          return progress == null
-              ? child
-              : const Center(child: CircularProgressIndicator());
-        });
+    if (imageUrl == null || imageUrl!.isEmpty) {
+      return const _ImagePlaceholder();
+    }
+    return Image.network(
+      imageUrl!,
+      fit: BoxFit.cover,
+      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+        if (wasSynchronouslyLoaded) return child;
+        return AnimatedOpacity(
+          opacity: frame == null ? 0 : 1,
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeOutCubic,
+          child: child,
+        );
+      },
+      errorBuilder: (c, e, s) => const _ImagePlaceholder(),
+      loadingBuilder: (c, child, progress) {
+        if (progress == null) return child;
+        return const _ImagePlaceholder(isLoading: true);
+      },
+    );
   }
 }
 
 class _ImagePlaceholder extends StatelessWidget {
-  const _ImagePlaceholder();
+  final bool isLoading;
+  const _ImagePlaceholder({this.isLoading = false});
   @override
-  Widget build(BuildContext context) => Container(
-      color: Colors.grey.shade200,
-      child: Icon(Icons.fastfood, color: Colors.grey.shade400, size: 40));
+  Widget build(BuildContext context) => AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        decoration: BoxDecoration(
+          gradient: isLoading
+              ? LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [
+                    Colors.grey.shade200,
+                    Colors.grey.shade100,
+                    Colors.grey.shade200,
+                  ],
+                )
+              : null,
+          color: isLoading ? null : Colors.grey.shade200,
+        ),
+        child: Icon(Icons.fastfood, color: Colors.grey.shade400, size: 40),
+      );
 }
 
 class InfoMessage extends StatelessWidget {
@@ -616,8 +712,105 @@ class ProductsGridLoading extends StatelessWidget {
             crossAxisSpacing: 16,
             mainAxisSpacing: 16),
         itemCount: 6,
-        itemBuilder: (c, i) => const Card(),
+        itemBuilder: (c, i) => Card(
+          elevation: 0,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.grey.shade200,
+                  Colors.grey.shade100,
+                ],
+              ),
+            ),
+          ),
+        ),
       );
 }
+
+class _RecommendationsLoading extends StatelessWidget {
+  const _RecommendationsLoading();
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 220,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+        itemCount: 3,
+        itemBuilder: (context, index) => Container(
+          width: 220,
+          margin: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.grey.shade200,
+                Colors.grey.shade100,
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LiveMapPlaceholder extends StatelessWidget {
+  const _LiveMapPlaceholder();
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      child: Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Container(
+          height: 180,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.grey.shade200,
+                Colors.grey.shade100,
+                Colors.grey.shade200,
+              ],
+            ),
+          ),
+          alignment: Alignment.center,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(width: 8),
+              Icon(Icons.delivery_dining,
+                  color: Colors.grey.shade500, size: 32),
+              const SizedBox(width: 12),
+              Text(
+                'Cargando mapa…',
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyMedium
+                    ?.copyWith(color: Colors.grey.shade600),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+
+
 
 

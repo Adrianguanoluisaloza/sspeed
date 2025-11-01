@@ -19,6 +19,7 @@ import '../support/support_home_screen.dart';
 import '../screen/product_detail_screen.dart';
 import '../models/producto.dart';
 import '../screen/chat_home_screen.dart';
+import '../screen/register_business_screen.dart';
 import 'app_routes.dart';
 
 class RouteGenerator {
@@ -115,6 +116,12 @@ class RouteGenerator {
         final args = settings.arguments;
         if (args is Map<String, dynamic> && args['producto'] is Producto && args['usuario'] is Usuario) {
           return _slideUp(settings, ProductDetailScreen(producto: args['producto'] as Producto, usuario: args['usuario'] as Usuario));
+        }
+        return _redirectToLogin(settings);
+      case AppRoutes.registerBusiness:
+        final usuario = settings.arguments;
+        if (usuario is Usuario) {
+          return _slideUp(settings, RegisterBusinessScreen(usuario: usuario));
         }
         return _redirectToLogin(settings);
       default:

@@ -16,4 +16,5 @@ class AppRoutes {
   static const checkoutAddress = '/checkout/address';
   static const orderSuccess = '/order_success';
   static const productDetail = '/products/detail';
+  static const registerBusiness = '/business/register';
 }

@@ -13,41 +13,23 @@ import com.mycompany.delivery.api.config.Database;
 
 public class RecomendacionRepository {
 
-    private static final String SQL_INSERT = "INSERT INTO recomendaciones (id_producto, id_usuario, puntuacion, comentario, fecha) VALUES (?, ?, ?, ?, NOW())";
-    private static final String SQL_UPDATE = "UPDATE recomendaciones SET puntuacion = ?, comentario = ?, fecha = NOW() WHERE id_producto = ? AND id_usuario = ?";
+    private static final String SQL_INSERT = "INSERT INTO recomendaciones (id_producto, id_usuario, puntuacion, comentario) VALUES (?, ?, ?, ?)";
+    private static final String SQL_UPDATE = "UPDATE recomendaciones SET puntuacion = ?, comentario = ? WHERE id_producto = ? AND id_usuario = ?";
 
     public boolean guardar(int idProducto, int idUsuario, int puntuacion, String comentario) throws SQLException {
         try (Connection c = Database.getConnection()) {
-            boolean previousAutoCommit = c.getAutoCommit();
-            if (previousAutoCommit) {
-                c.setAutoCommit(false);
-            }
             try {
-                int updated = actualizarRecomendacion(c, idProducto, idUsuario, puntuacion, comentario);
-                if (updated > 0) {
-                    if (previousAutoCommit) {
-                        c.commit();
-                    }
-                    return true;
-                }
+                // Intenta insertar primero
                 int inserted = insertarRecomendacion(c, idProducto, idUsuario, puntuacion, comentario);
-                if (previousAutoCommit) {
-                    c.commit();
-                }
                 return inserted > 0;
             } catch (SQLException ex) {
-                if (previousAutoCommit) {
-                    try {
-                        c.rollback();
-                    } catch (SQLException rollbackEx) {
-                        ex.addSuppressed(rollbackEx);
-                    }
+                // Si falla por clave duplicada (UNIQUE constraint), intenta actualizar
+                if ("23505".equals(ex.getSQLState())) {
+                    int updated = actualizarRecomendacion(c, idProducto, idUsuario, puntuacion, comentario);
+                    return updated > 0;
                 }
+                // Si es otro error, lo relanza
                 throw ex;
-            } finally {
-                if (previousAutoCommit) {
-                    c.setAutoCommit(true);
-                }
             }
         }
     }
@@ -91,7 +73,7 @@ public class RecomendacionRepository {
     }
 
     public List<Map<String, Object>> listarPorProducto(int idProducto) throws SQLException {
-        String sql = "SELECT id_recomendacion, id_producto, id_usuario, puntuacion, comentario, fecha FROM recomendaciones WHERE id_producto = ? ORDER BY fecha DESC";
+        String sql = "SELECT id_recomendacion, id_producto, id_usuario, puntuacion, comentario, created_at as fecha FROM recomendaciones WHERE id_producto = ? ORDER BY fecha DESC";
         try (Connection c = Database.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idProducto);
@@ -120,17 +102,17 @@ public class RecomendacionRepository {
                 p.descripcion,
                 p.precio,
                 p.imagen_url,
-                COALESCE(n.nombre_comercial, p.proveedor) AS negocio,
+                n.nombre_comercial AS negocio,
                 ROUND(AVG(r.puntuacion)::numeric, 1) AS rating_promedio,
                 COUNT(r.id_recomendacion)::int AS total_reviews,
-                MAX(r.fecha) AS ultima_resena,
+                MAX(r.created_at) AS ultima_resena,
                 (
                     SELECT r2.comentario
                     FROM recomendaciones r2
                     WHERE r2.id_producto = p.id_producto
                       AND r2.comentario IS NOT NULL
                       AND TRIM(r2.comentario) <> ''
-                    ORDER BY r2.fecha DESC
+                    ORDER BY r2.created_at DESC
                     LIMIT 1
                 ) AS comentario_reciente
             FROM recomendaciones r
@@ -142,8 +124,7 @@ public class RecomendacionRepository {
                 p.descripcion,
                 p.precio,
                 p.imagen_url,
-                n.nombre_comercial,
-                p.proveedor
+                n.nombre_comercial
             ORDER BY rating_promedio DESC, total_reviews DESC, ultima_resena DESC
             LIMIT 10
             """;

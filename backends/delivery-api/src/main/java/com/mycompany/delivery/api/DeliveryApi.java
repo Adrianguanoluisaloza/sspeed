@@ -8,8 +8,10 @@ import com.mycompany.delivery.api.model.*;
 import com.mycompany.delivery.api.payloads.Payloads;
 import com.mycompany.delivery.api.payloads.Payloads.PedidoPayload;
 import com.mycompany.delivery.api.repository.ChatRepository;
-import com.mycompany.delivery.api.repository.PedidoRepository;
 import com.mycompany.delivery.api.repository.DashboardDAO;
+import com.mycompany.delivery.api.repository.PedidoRepository;
+import com.mycompany.delivery.api.repository.RespuestaSoporteRepository;
+import com.mycompany.delivery.api.repository.SoporteRepository;
 import com.mycompany.delivery.api.util.ApiException;
 import com.mycompany.delivery.api.services.GeminiService;
 import com.mycompany.delivery.api.util.ApiResponse;
@@ -40,7 +42,10 @@ public class DeliveryApi {
     private static final PedidoController PEDIDO_CONTROLLER = new PedidoController();
     private static final UbicacionController UBICACION_CONTROLLER = new UbicacionController();
     private static final RecomendacionController RECOMENDACION_CONTROLLER = new RecomendacionController();
+    private static final NegocioController NEGOCIO_CONTROLLER = new NegocioController();
     private static final DashboardDAO DASHBOARD_DAO = new DashboardDAO();
+    private static final SoporteRepository SOPORTE_REPO = new SoporteRepository();
+    private static final RespuestaSoporteRepository RESPUESTA_SOPORTE_REPO = new RespuestaSoporteRepository();
     private static final ChatRepository CHAT_REPOSITORY = new ChatRepository();
     private static final GeminiService GEMINI_SERVICE = new GeminiService();
     private static final ChatBotResponder CHATBOT_RESPONDER = new ChatBotResponder(GEMINI_SERVICE,
@@ -55,7 +60,7 @@ public class DeliveryApi {
             System.err.println("[WARN] No se pudo cargar .env: " + e.getMessage());
         }
 
-        // Ping a la base de datos para asegurar conexión
+        // Ping a la base de datos para asegurar conexiÃ³n
         Database.ping();
 
         // Configurar el mapeador de JSON para usar Gson
@@ -69,7 +74,7 @@ public class DeliveryApi {
                     }
                     T body = GSON.fromJson(json, targetType);
                     if (body == null) {
-                        throw new ApiException(400, "El cuerpo de la solicitud es obligatorio o el JSON es inválido");
+                        throw new ApiException(400, "El cuerpo de la solicitud es obligatorio o el JSON es invÃ¡lido");
                     }
                     return body;
                 } catch (JsonSyntaxException e) {
@@ -84,7 +89,7 @@ public class DeliveryApi {
             }
         };
 
-        // Crear y configurar la aplicación Javalin
+        // Crear y configurar la aplicaciÃ³n Javalin
         Javalin app = Javalin.create(config -> {
             config.jsonMapper(gsonMapper);
             config.http.defaultContentType = "application/json; charset=utf-8";
@@ -106,13 +111,13 @@ public class DeliveryApi {
         app.before("/pedidos/disponibles", ctx -> {
             String authHeader = ctx.header("Authorization");
             if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-                ctx.status(401).json(ApiResponse.error(401, "Token de autenticación requerido"));
+                ctx.status(401).json(ApiResponse.error(401, "Token de autenticaciÃ³n requerido"));
                 return;
             }
             String token = authHeader.substring(7);
             Usuario usuario = USUARIO_CONTROLLER.validarToken(token);
             if (usuario == null) {
-                ctx.status(401).json(ApiResponse.error(401, "Token inválido"));
+                ctx.status(401).json(ApiResponse.error(401, "Token invÃ¡lido"));
                 return;
             }
             if (!("repartidor".equalsIgnoreCase(usuario.getRol()) || "delivery".equalsIgnoreCase(usuario.getRol()))) {
@@ -122,10 +127,10 @@ public class DeliveryApi {
             ctx.attribute("id_usuario", usuario.getIdUsuario());
         });
 
-        // CORRECCIÓN: Se elimina el middleware de admin de este endpoint.
+        // CORRECCIÃ“N: Se elimina el middleware de admin de este endpoint.
         // Ahora, cualquier usuario autenticado puede solicitar las ubicaciones de los
         // repartidores,
-        // lo que permite que el mapa en la app móvil funcione para todos los roles.
+        // lo que permite que el mapa en la app mÃ³vil funcione para todos los roles.
 
         // --- MANEJO DE EXCEPCIONES ---
         app.exception(ApiException.class, (ex, ctx) -> {
@@ -134,9 +139,9 @@ public class DeliveryApi {
         });
         app.exception(Exception.class, (ex, ctx) -> {
             ctx.status(500);
-            System.err.println("[ERROR] Ocurrió un error inesperado: " + ex.getMessage());
-            ex.printStackTrace(); // Para depuración
-            ctx.json(ApiResponse.error(500, "Ocurrió un error inesperado"));
+            System.err.println("[ERROR] OcurriÃ³ un error inesperado: " + ex.getMessage());
+            ex.printStackTrace(); // Para depuraciÃ³n
+            ctx.json(ApiResponse.error(500, "OcurriÃ³ un error inesperado"));
         });
         app.error(404, ctx -> {
             ctx.json(ApiResponse.error(404, "Ruta no encontrada"));
@@ -156,7 +161,7 @@ public class DeliveryApi {
             var b = ctx.bodyAsClass(Payloads.RegistroRequest.class);
             if (!"cliente".equalsIgnoreCase(b.rol) && !"repartidor".equalsIgnoreCase(b.rol)) {
                 throw new ApiException(400,
-                        "El rol especificado \'" + b.rol + "\' no es válido. Debe ser \'cliente\' o \'repartidor\'.");
+                        "El rol especificado \'" + b.rol + "\' no es vÃ¡lido. Debe ser \'cliente\' o \'repartidor\'.");
             }
             var u = new Usuario();
             u.setNombre(b.nombre);
@@ -175,6 +180,22 @@ public class DeliveryApi {
         app.delete("/usuarios/{id}", ctx -> {
             int id = parseId(ctx.pathParam("id"));
             handleResponse(ctx, USUARIO_CONTROLLER.eliminarUsuario(id));
+        });
+
+        // --- NEGOCIO DEL USUARIO ---
+        app.get("/usuarios/{id}/negocio", ctx -> {
+            var id = parseId(ctx.pathParam("id"));
+            handleResponse(ctx, NEGOCIO_CONTROLLER.obtenerPorUsuario(id));
+        });
+        app.post("/usuarios/{id}/negocio", ctx -> {
+            var id = parseId(ctx.pathParam("id"));
+            var negocio = ctx.bodyAsClass(Negocio.class);
+            handleResponse(ctx, NEGOCIO_CONTROLLER.registrarONActualizar(id, negocio));
+        });
+        app.put("/usuarios/{id}/negocio", ctx -> {
+            var id = parseId(ctx.pathParam("id"));
+            var negocio = ctx.bodyAsClass(Negocio.class);
+            handleResponse(ctx, NEGOCIO_CONTROLLER.registrarONActualizar(id, negocio));
         });
 
         // --- PRODUCTOS ---
@@ -211,19 +232,17 @@ public class DeliveryApi {
             handleResponse(ctx, PRODUCTO_CONTROLLER.obtenerCategorias());
         });
 
-        // --- NEGOCIOS (usa usuarios con rol admin como "negocio" por compatibilidad
-        // con el esquema guía) ---
+        // --- NEGOCIOS (usa usuarios con rol negocio) ---
         app.get("/admin/negocios", ctx -> {
             var all = USUARIO_CONTROLLER.listarUsuarios();
-            // Filtra en memoria a los que sean rol 'admin' y evita el admin del sistema
+            // Filtra en memoria a los que sean rol 'negocio'
             @SuppressWarnings("unchecked")
             java.util.List<com.mycompany.delivery.api.model.Usuario> lista = (java.util.List<com.mycompany.delivery.api.model.Usuario>) all
                     .getData();
             var negocios = new java.util.ArrayList<java.util.Map<String, Object>>();
             if (lista != null) {
                 for (var u : lista) {
-                    if ("admin".equalsIgnoreCase(u.getRol())
-                            && (u.getCorreo() == null || !u.getCorreo().equalsIgnoreCase("admin@example.com"))) {
+                    if ("negocio".equalsIgnoreCase(u.getRol())) {
                         negocios.add(u.toMap());
                     }
                 }
@@ -236,7 +255,7 @@ public class DeliveryApi {
             if (u.getNombre() == null || u.getCorreo() == null || u.getContrasena() == null) {
                 throw new ApiException(400, "nombre, correo y contrase\u00f1a son obligatorios");
             }
-            u.setRol("admin"); // Usamos 'admin' como rol de negocio según esquema guía
+            u.setRol("negocio"); // Usamos 'negocio' como rol de negocio
             handleResponse(ctx, USUARIO_CONTROLLER.registrar(u));
         });
 
@@ -249,14 +268,14 @@ public class DeliveryApi {
             var id = parseId(ctx.pathParam("id"));
             var body = ctx.bodyAsClass(Usuario.class);
             body.setIdUsuario(id);
-            body.setRol("admin");
+            body.setRol("negocio");
             handleResponse(ctx, USUARIO_CONTROLLER.actualizarUsuario(body));
         });
 
         app.get("/admin/negocios/{id}/productos", ctx -> {
             var id = parseId(ctx.pathParam("id"));
             var negocio = USUARIO_CONTROLLER.obtenerPorId(id).getData();
-            if (negocio == null || !"admin".equalsIgnoreCase(((Usuario) negocio).getRol())) {
+            if (negocio == null || !"negocio".equalsIgnoreCase(((Usuario) negocio).getRol())) {
                 throw new ApiException(404, "Negocio no encontrado");
             }
             var prov = ((Usuario) negocio).getNombre();
@@ -268,7 +287,7 @@ public class DeliveryApi {
         app.post("/admin/negocios/{id}/productos", ctx -> {
             var id = parseId(ctx.pathParam("id"));
             var negocio = USUARIO_CONTROLLER.obtenerPorId(id).getData();
-            if (negocio == null || !"admin".equalsIgnoreCase(((Usuario) negocio).getRol())) {
+            if (negocio == null || !"negocio".equalsIgnoreCase(((Usuario) negocio).getRol())) {
                 throw new ApiException(404, "Negocio no encontrado");
             }
             var prov = ((Usuario) negocio).getNombre();
@@ -352,7 +371,7 @@ public class DeliveryApi {
             var id = parseId(ctx.pathParam("idUbicacion"));
             var b = ctx.bodyAsClass(Payloads.UbicacionRequest.class);
             UBICACION_CONTROLLER.actualizarCoordenadas(id, b.getLatitud(), b.getLongitud());
-            handleResponse(ctx, ApiResponse.success("Ubicación actualizada correctamente"));
+            handleResponse(ctx, ApiResponse.success("UbicaciÃ³n actualizada correctamente"));
         });
         app.get("/ubicaciones/activas", ctx -> {
             handleResponse(ctx, UBICACION_CONTROLLER.listarActivas());
@@ -387,7 +406,7 @@ public class DeliveryApi {
             var body = ctx.bodyAsClass(Recomendacion.class);
             handleResponse(ctx, RECOMENDACION_CONTROLLER.crearRecomendacion(body));
         });
-        // Endpoint de reseñas por producto
+        // Endpoint de reseÃ±as por producto
         app.post("/productos/{id}/recomendaciones", ctx -> {
             var idProducto = parseId(ctx.pathParam("id"));
             @SuppressWarnings("unchecked")
@@ -447,7 +466,7 @@ public class DeliveryApi {
             var idRepartidor = parseId(ctx.pathParam("idRepartidor"));
             var body = ctx.bodyAsClass(Payloads.UbicacionRequest.class);
             UBICACION_CONTROLLER.actualizarCoordenadas(idRepartidor, body.getLatitud(), body.getLongitud());
-            handleResponse(ctx, ApiResponse.success("Ubicación del repartidor actualizada"));
+            handleResponse(ctx, ApiResponse.success("UbicaciÃ³n del repartidor actualizada"));
         });
 
         // --- NUEVO ENDPOINT OPTIMIZADO ---
@@ -470,12 +489,200 @@ public class DeliveryApi {
         // --- DASHBOARD ---
         app.get("/admin/stats", ctx -> {
             handleResponse(ctx,
-                    ApiResponse.success(200, "Estadísticas admin", DASHBOARD_DAO.obtenerEstadisticasAdmin()));
+                    ApiResponse.success(200, "EstadÃ­sticas admin", DASHBOARD_DAO.obtenerEstadisticasAdmin()));
         });
         app.get("/delivery/stats/{id}", ctx -> {
             var id = parseId(ctx.pathParam("id"));
             handleResponse(ctx,
-                    ApiResponse.success(200, "EstadÃ­sticas delivery", DASHBOARD_DAO.obtenerEstadisticasDelivery(id)));
+                    ApiResponse.success(200, "EstadÃƒÂ­sticas delivery", DASHBOARD_DAO.obtenerEstadisticasDelivery(id)));
+        });
+
+        // --- SOPORTE ---
+        app.post("/soporte/iniciar", ctx -> {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> body = (Map<String, Object>) ctx.bodyAsClass(Map.class);
+            Integer idUsuario = parseNullableInt(body.get("idUsuario"));
+            String rol = Objects.toString(body.getOrDefault("rol", "cliente"), "cliente").toLowerCase();
+
+            if (idUsuario == null || idUsuario <= 0) {
+                throw new ApiException(400, "idUsuario es obligatorio");
+            }
+            if (!rol.equals("cliente") && !rol.equals("delivery")) {
+                throw new ApiException(400, "rol debe ser 'cliente' o 'delivery'");
+            }
+
+            try {
+                long idConv = SOPORTE_REPO.ensureSoporteConversacion(idUsuario, rol);
+                handleResponse(ctx, ApiResponse.success(201, "Conversacion de soporte iniciada",
+                        Map.of("id_conversacion", idConv)));
+            } catch (SQLException e) {
+                throw new ApiException(500, "No se pudo iniciar la conversacion de soporte", e);
+            }
+        });
+
+        app.post("/soporte/mensajes", ctx -> {
+            Payloads.SoporteMensajeRequest req = ctx.bodyAsClass(Payloads.SoporteMensajeRequest.class);
+            if (req == null || req.idConversacion == null || req.idConversacion <= 0) {
+                throw new ApiException(400, "idConversacion es obligatorio");
+            }
+            if (req.idRemitente == null || req.idRemitente <= 0) {
+                throw new ApiException(400, "idRemitente es obligatorio");
+            }
+            String mensaje = Objects.toString(req.mensaje, "").trim();
+            if (mensaje.isEmpty()) {
+                throw new ApiException(400, "mensaje es obligatorio");
+            }
+
+            try {
+                SOPORTE_REPO.insertMensajeUsuario(req.idConversacion, req.idRemitente, mensaje);
+
+                Optional<Map<String, Object>> convInfo = SOPORTE_REPO.getInfoConversacion(req.idConversacion);
+                String rol = convInfo.map(info -> Objects.toString(info.get("rol"), "cliente")).orElse("cliente");
+                boolean esDelivery = "delivery".equalsIgnoreCase(rol);
+                boolean esCliente = "cliente".equalsIgnoreCase(rol) || "negocio".equalsIgnoreCase(rol);
+
+                Optional<String> auto = SOPORTE_REPO.buscarAutoRespuesta(mensaje, esCliente, esDelivery);
+                if (auto.isPresent()) {
+                    int botId = SOPORTE_REPO.ensureBotSoporte();
+                    SOPORTE_REPO.insertMensajeSoporte(req.idConversacion, botId, auto.get());
+                    handleResponse(ctx, ApiResponse.success(201, "Auto-respuesta enviada",
+                            Map.of("id_conversacion", req.idConversacion, "respuesta", auto.get(), "auto", true)));
+                } else {
+                    handleResponse(ctx, ApiResponse.success(201, "Mensaje guardado; esperando agente humano",
+                            Map.of("id_conversacion", req.idConversacion, "auto", false)));
+                }
+            } catch (SQLException e) {
+                throw new ApiException(500, "Error al registrar el mensaje de soporte", e);
+            }
+        });
+
+        app.get("/soporte/conversaciones/{id}/mensajes", ctx -> {
+            long idConv = parseLong(ctx.pathParam("id"));
+            try {
+                var mensajes = SOPORTE_REPO.listarMensajes(idConv);
+                handleResponse(ctx, ApiResponse.success(200, "Historial soporte", mensajes));
+            } catch (SQLException e) {
+                throw new ApiException(500, "No se pudo obtener el historial de soporte", e);
+            }
+        });
+
+        app.get("/soporte/usuario/{idUsuario}/conversaciones", ctx -> {
+            int idUsuario = parseId(ctx.pathParam("idUsuario"));
+            try {
+                var convs = SOPORTE_REPO.listarConversacionesPorUsuario(idUsuario);
+                handleResponse(ctx, ApiResponse.success(200, "Conversaciones de soporte", convs));
+            } catch (SQLException e) {
+                throw new ApiException(500, "No se pudieron obtener las conversaciones de soporte", e);
+            }
+        });
+
+        app.post("/soporte/responder", ctx -> {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> body = (Map<String, Object>) ctx.bodyAsClass(Map.class);
+            Long idConversacion = body.get("idConversacion") instanceof Number n ? n.longValue() : null;
+            Integer idSoporte = body.get("idSoporte") instanceof Number n ? n.intValue() : null;
+            String mensaje = Objects.toString(body.get("mensaje"), "").trim();
+
+            if (idConversacion == null || idConversacion <= 0) {
+                throw new ApiException(400, "idConversacion es obligatorio");
+            }
+            if (idSoporte == null || idSoporte <= 0) {
+                throw new ApiException(400, "idSoporte es obligatorio");
+            }
+            if (mensaje.isEmpty()) {
+                throw new ApiException(400, "mensaje es obligatorio");
+            }
+
+            try {
+                SOPORTE_REPO.asignarHumano(idConversacion, idSoporte);
+                SOPORTE_REPO.insertMensajeSoporte(idConversacion, idSoporte, mensaje);
+                handleResponse(ctx,
+                        ApiResponse.success(201, "Respuesta enviada", Map.of("id_conversacion", idConversacion)));
+            } catch (SQLException e) {
+                throw new ApiException(500, "No se pudo registrar la respuesta del agente", e);
+            }
+        });
+
+        app.post("/soporte/asignar", ctx -> {
+            Payloads.SoporteAsignacionRequest req = ctx.bodyAsClass(Payloads.SoporteAsignacionRequest.class);
+            if (req.idConversacion == null || req.idConversacion <= 0) {
+                throw new ApiException(400, "idConversacion requerido");
+            }
+            if (req.idAgente == null || req.idAgente <= 0) {
+                throw new ApiException(400, "idAgente requerido");
+            }
+            try {
+                SOPORTE_REPO.asignarHumano(req.idConversacion, req.idAgente);
+                handleResponse(ctx, ApiResponse.success(200, "Conversacion asignada",
+                        Map.of("id_conversacion", req.idConversacion, "id_agente", req.idAgente)));
+            } catch (SQLException e) {
+                throw new ApiException(500, "No se pudo asignar la conversacion", e);
+            }
+        });
+
+        app.post("/soporte/cerrar", ctx -> {
+            Payloads.SoporteCerrarRequest req = ctx.bodyAsClass(Payloads.SoporteCerrarRequest.class);
+            if (req.idConversacion == null || req.idConversacion <= 0) {
+                throw new ApiException(400, "idConversacion requerido");
+            }
+            try {
+                SOPORTE_REPO.cerrarConversacion(req.idConversacion);
+                handleResponse(ctx, ApiResponse.success(200, "Conversacion cerrada",
+                        Map.of("id_conversacion", req.idConversacion)));
+            } catch (SQLException e) {
+                throw new ApiException(500, "No se pudo cerrar la conversacion", e);
+            }
+        });
+
+        // --- ADMIN SOPORTE: RESPUESTAS PREDEFINIDAS ---
+        app.post("/admin/soporte/respuestas", ctx -> {
+            Payloads.SoporteRespuestaPayload payload = ctx.bodyAsClass(Payloads.SoporteRespuestaPayload.class);
+            if (payload.categoria == null || payload.categoria.isBlank()) {
+                throw new ApiException(400, "categoria requerida");
+            }
+            if (payload.pregunta == null || payload.pregunta.isBlank()) {
+                throw new ApiException(400, "pregunta requerida");
+            }
+            if (payload.respuesta == null || payload.respuesta.isBlank()) {
+                throw new ApiException(400, "respuesta requerida");
+            }
+            try {
+                int id = RESPUESTA_SOPORTE_REPO.crearAutoRespuesta(payload);
+                handleResponse(ctx, ApiResponse.success(201, "Respuesta creada", Map.of("id_respuesta", id)));
+            } catch (SQLException e) {
+                throw new ApiException(500, "No se pudo crear la respuesta predefinida", e);
+            }
+        });
+
+        app.get("/admin/soporte/respuestas", ctx -> {
+            String categoria = ctx.queryParam("categoria");
+            try {
+                var list = RESPUESTA_SOPORTE_REPO.listarAutoRespuestas(categoria);
+                handleResponse(ctx, ApiResponse.success(200, "Respuestas", list));
+            } catch (SQLException e) {
+                throw new ApiException(500, "No se pudo listar las respuestas predefinidas", e);
+            }
+        });
+
+        app.put("/admin/soporte/respuestas/{id}", ctx -> {
+            int id = parseId(ctx.pathParam("id"));
+            Payloads.SoporteRespuestaPayload payload = ctx.bodyAsClass(Payloads.SoporteRespuestaPayload.class);
+            try {
+                RESPUESTA_SOPORTE_REPO.actualizarAutoRespuesta(id, payload);
+                handleResponse(ctx, ApiResponse.success(200, "Respuesta actualizada", Map.of("id_respuesta", id)));
+            } catch (SQLException e) {
+                throw new ApiException(500, "No se pudo actualizar la respuesta", e);
+            }
+        });
+
+        app.delete("/admin/soporte/respuestas/{id}", ctx -> {
+            int id = parseId(ctx.pathParam("id"));
+            try {
+                RESPUESTA_SOPORTE_REPO.borrarAutoRespuesta(id);
+                handleResponse(ctx, ApiResponse.success(200, "Respuesta eliminada", Map.of("id_respuesta", id)));
+            } catch (SQLException e) {
+                throw new ApiException(500, "No se pudo eliminar la respuesta", e);
+            }
         });
 
         // --- CHAT BOT ---
@@ -550,8 +757,8 @@ public class DeliveryApi {
         app.post("/chat/bot/mensajes", ctx -> {
             var req = ctx.bodyAsClass(Payloads.ChatBotRequest.class);
 
-            // 1. Obtener el ID de la conversaciÃ³n. Prioriza el ID enviado por el cliente.
-            // Si el cliente no envÃ­a un idConversacion (es nulo o 0), se busca o crea una
+            // 1. Obtener el ID de la conversaciÃƒÂ³n. Prioriza el ID enviado por el cliente.
+            // Si el cliente no envÃƒÂ­a un idConversacion (es nulo o 0), se busca o crea una
             // nueva.
             long idConversacion = (req.idConversacion != null && req.idConversacion > 0) ? req.idConversacion
                     : CHAT_REPOSITORY.ensureBotConversationForUser(req.idRemitente);
@@ -559,7 +766,7 @@ public class DeliveryApi {
             // 2. Guardar el mensaje del usuario
             CHAT_REPOSITORY.insertMensaje(idConversacion, req.idRemitente, null, req.mensaje);
 
-            // 3. Obtener el historial de la conversaciÃ³n para el contexto de la IA
+            // 3. Obtener el historial de la conversaciÃƒÂ³n para el contexto de la IA
             List<Map<String, Object>> history = CHAT_REPOSITORY.listarMensajes(idConversacion);
 
             // 4. Generar la respuesta del bot
@@ -573,7 +780,7 @@ public class DeliveryApi {
                 throw new ApiException(500, "No se pudo registrar la respuesta del bot", e);
             }
 
-            // 6. Devolver el ID de la conversaciÃ³n para que el frontend pueda recargar el
+            // 6. Devolver el ID de la conversaciÃƒÂ³n para que el frontend pueda recargar el
             // historial
             Map<String, Object> result = Map.of(
                     "id_conversacion", idConversacion,
@@ -593,12 +800,12 @@ public class DeliveryApi {
         if (r == null) {
             throw new ApiException(400, "El cuerpo de la solicitud es obligatorio");
         }
-        requireValidCoordinates(r.getLatitud(), r.getLongitud(), "Coordenadas inválidas");
+        requireValidCoordinates(r.getLatitud(), r.getLongitud(), "Coordenadas invÃ¡lidas");
         Ubicacion u = new Ubicacion();
         u.setIdUsuario(r.getIdUsuario());
         u.setLatitud(r.getLatitud());
         u.setLongitud(r.getLongitud());
-        u.setDireccion(requireNonBlank(r.getDireccion(), "La direcciÃ³n es obligatoria"));
+        u.setDireccion(requireNonBlank(r.getDireccion(), "La direcciÃƒÂ³n es obligatoria"));
         u.setDescripcion(normalizeDescripcion(r.getDescripcion()));
         u.setActiva(r.getActiva() == null || r.getActiva());
         return u;

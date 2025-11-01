@@ -8,6 +8,8 @@ public class Producto {
     private boolean disponible;
     private String imagenUrl;
     private String categoria;
+    private int idCategoria;
+    private Integer idNegocio;
 
     public Producto() {
     }
@@ -21,6 +23,22 @@ public class Producto {
         this.disponible = disponible;
         this.imagenUrl = imagenUrl;
         this.categoria = categoria;
+    }
+
+    public int getIdCategoria() {
+        return idCategoria;
+    }
+
+    public void setIdCategoria(int idCategoria) {
+        this.idCategoria = idCategoria;
+    }
+
+    public Integer getIdNegocio() {
+        return idNegocio;
+    }
+
+    public void setIdNegocio(Integer idNegocio) {
+        this.idNegocio = idNegocio;
     }
 
     public void setCategoria(String categoria) {

@@ -5,7 +5,7 @@ import java.util.List;
 
 /**
  * Clases de soporte para la API Delivery (compatibles con snake_case y
- * camelCase). Acepta alias en campos críticos (id_usuario/idUsuario,
+ * camelCase). Acepta alias en campos crÃ­ticos (id_usuario/idUsuario,
  * puntuacion/rating, etc.)
  */
 public class Payloads {
@@ -80,7 +80,7 @@ public class Payloads {
         public Integer idDelivery;
 
         @SerializedName("id_ubicacion")
-        public Integer idUbicacion; // ✅ agregado
+        public Integer idUbicacion; // âœ… agregado
 
         // Acepta direccion_entrega y direccionEntrega
         @SerializedName("direccion_entrega")
@@ -93,13 +93,13 @@ public class Payloads {
 
         public String estado;
 
-        // ✅ Acepta "total" o "monto_total"
+        // âœ… Acepta "total" o "monto_total"
         @SerializedName(value = "total", alternate = { "monto_total" })
         public Double total;
 
         public List<PedidoDetallePayload> productos;
 
-        // ========== Getters útiles ==========
+        // ========== Getters Ãºtiles ==========
 
         public String getDireccionEntrega() {
             return direccionEntregaSnake != null ? direccionEntregaSnake : direccionEntregaCamel;
@@ -110,7 +110,7 @@ public class Payloads {
         }
 
         public Integer getIdUbicacion() {
-            return idUbicacion; // Devuelve null si no está presente
+            return idUbicacion; // Devuelve null si no estÃ¡ presente
         }
     }
 
@@ -146,7 +146,7 @@ public class Payloads {
         public Double longitud;
     }
 
-    // =========================== UBICACIÓN ===========================
+    // =========================== UBICACIÃ“N ===========================
     public static class UbicacionRequest {
         // Acepta id_usuario y idUsuario
         @SerializedName("id_usuario")
@@ -157,8 +157,8 @@ public class Payloads {
         private Double latitud;
         private Double longitud;
 
-        // Acepta direccion (snake) y direccionEntrega (camel) por si algún cliente lo
-        // manda así
+        // Acepta direccion (snake) y direccionEntrega (camel) por si algÃºn cliente lo
+        // manda asÃ­
         @SerializedName("direccion")
         private String direccionSnake;
         @SerializedName("direccionEntrega")
@@ -240,16 +240,60 @@ public class Payloads {
         public Integer idRemitente;
 
         @SerializedName("idConversacion")
-        public Long idConversacion; // Puede ser nulo si es una nueva conversación
+        public Long idConversacion; // Puede ser nulo si es una nueva conversaciÃ³n
 
         public String mensaje;
     }
 
     /**
-     * Payload para solicitar las ubicaciones de múltiples repartidores. Contiene
+     * Payload para solicitar las ubicaciones de mÃºltiples repartidores. Contiene
      * una lista de IDs de repartidores.
      */
     public static class UbicacionesRequest {
         public List<Integer> ids;
+    }
+    // =========================== SOPORTE ===========================
+    public static class SoporteMensajeRequest {
+        @SerializedName(value = "id_conversacion", alternate = { "idConversacion" })
+        public Long idConversacion;
+
+        @SerializedName(value = "id_remitente", alternate = { "idRemitente" })
+        public Integer idRemitente;
+
+        public String mensaje;
+    }
+
+    public static class SoporteAsignacionRequest {
+        @SerializedName(value = "id_conversacion", alternate = { "idConversacion" })
+        public Long idConversacion;
+
+        @SerializedName(value = "id_agente", alternate = { "idAgente", "idSoporte" })
+        public Integer idAgente;
+    }
+
+    public static class SoporteCerrarRequest {
+        @SerializedName(value = "id_conversacion", alternate = { "idConversacion" })
+        public Long idConversacion;
+    }
+
+    public static class SoporteRespuestaPayload {
+        public String categoria;
+        public String pregunta;
+        public String respuesta;
+
+        @SerializedName(value = "scope", alternate = { "scope_destino" })
+        public String scope;
+
+        public String canal;
+        public String idioma;
+        public String tono;
+        public Short prioridad;
+        public Boolean activo;
+        public List<String> keywords;
+
+        @SerializedName(value = "regex", alternate = { "regex_match" })
+        public String regex;
+
+        public String intent;
     }
 }

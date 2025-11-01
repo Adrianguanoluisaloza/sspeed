@@ -24,7 +24,7 @@ public class DashboardDAO {
         // Fallback inline (con CASTs)
         final String inlineSql = """
             WITH ventas AS (
-                SELECT COALESCE(SUM(total) FILTER (WHERE fecha_pedido::date = CURRENT_DATE), 0) AS ventas_hoy,
+                SELECT COALESCE(SUM(total) FILTER (WHERE created_at::date = CURRENT_DATE), 0) AS ventas_hoy,
                        COALESCE(SUM(total), 0) AS ventas_totales
                 FROM pedidos
             ), pedidos AS (
@@ -32,7 +32,7 @@ public class DashboardDAO {
                        COUNT(*) FILTER (WHERE estado = 'entregado')::int AS pedidos_entregados
                 FROM pedidos
             ), usuarios AS (
-                SELECT COUNT(*) FILTER (WHERE fecha_registro::date = CURRENT_DATE)::int AS nuevos_clientes
+                SELECT COUNT(*) FILTER (WHERE created_at::date = CURRENT_DATE)::int AS nuevos_clientes
                 FROM usuarios
             ), top_producto AS (
                 SELECT p.nombre AS producto_mas_vendido,
@@ -73,10 +73,10 @@ public class DashboardDAO {
     public Map<String, Object> obtenerEstadisticasDelivery(int idDelivery) {
         final String sql = """
             SELECT
-              COUNT(*) FILTER (WHERE estado='entregado' AND fecha_entrega::date=CURRENT_DATE)::int AS pedidos_completados_hoy,
-              COALESCE(SUM(total) FILTER (WHERE estado='entregado' AND fecha_entrega::date=CURRENT_DATE),0) AS total_generado_hoy,
-              AVG(EXTRACT(EPOCH FROM (fecha_entrega - fecha_pedido))/60.0) FILTER (WHERE estado='entregado'
-                    AND fecha_entrega IS NOT NULL AND fecha_pedido IS NOT NULL) AS tiempo_promedio_min
+              COUNT(*) FILTER (WHERE estado='entregado' AND updated_at::date=CURRENT_DATE)::int AS pedidos_completados_hoy,
+              COALESCE(SUM(total) FILTER (WHERE estado='entregado' AND updated_at::date=CURRENT_DATE),0) AS total_generado_hoy,
+              AVG(EXTRACT(EPOCH FROM (updated_at - created_at))/60.0) FILTER (WHERE estado='entregado'
+                    AND updated_at IS NOT NULL AND created_at IS NOT NULL) AS tiempo_promedio_min
             FROM pedidos
             WHERE id_delivery = ?
         """;

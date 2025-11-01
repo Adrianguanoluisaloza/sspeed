@@ -12,6 +12,7 @@ import '../models/chat_message.dart';
 import '../models/pedido.dart';
 import '../models/pedido_detalle.dart';
 import '../models/producto.dart';
+import '../models/negocio.dart';
 import '../models/recomendacion_data.dart';
 import '../models/tracking_point.dart';
 import '../models/ubicacion.dart';
@@ -519,6 +520,36 @@ class ApiDataSource implements DataSource {
   @override
   Future<Map<String, dynamic>> getAdminStats() async {
     return await _getMap('/admin/stats');
+  }
+
+  @override
+  Future<Negocio?> getNegocioDeUsuario(int idUsuario) async {
+    final resp = await _getMap('/usuarios/$idUsuario/negocio');
+    final data = resp['data'];
+    if (data == null) return null;
+    if (data is Map<String, dynamic>) {
+      return Negocio.fromMap(data);
+    }
+    if (data is Map) {
+      return Negocio.fromMap(Map<String, dynamic>.from(data));
+    }
+    return null;
+  }
+
+  @override
+  Future<Negocio?> registrarNegocioParaUsuario(
+      int idUsuario, Negocio negocio) async {
+    final payload = Map<String, dynamic>.from(negocio.toJson());
+    payload['id_usuario'] = idUsuario;
+    final resp = await _post('/usuarios/$idUsuario/negocio', payload);
+    final data = resp['data'];
+    if (data is Map<String, dynamic>) {
+      return Negocio.fromMap(data);
+    }
+    if (data is Map) {
+      return Negocio.fromMap(Map<String, dynamic>.from(data));
+    }
+    return null;
   }
 
   // --- Negocios ---

@@ -94,7 +94,7 @@ public class RecomendacionController {
     public com.mycompany.delivery.api.util.ApiResponse<java.util.List<java.util.Map<String, Object>>> obtenerRecomendacionesPorUsuario(
             int idUsuario) {
         try {
-            String sql = "SELECT * FROM recomendaciones WHERE id_usuario = ? ORDER BY fecha DESC";
+            String sql = "SELECT id_recomendacion, id_producto, id_usuario, puntuacion, comentario, created_at as fecha FROM recomendaciones WHERE id_usuario = ? ORDER BY fecha DESC";
             try (java.sql.Connection c = com.mycompany.delivery.api.config.Database.getConnection();
                     java.sql.PreparedStatement ps = c.prepareStatement(sql)) {
                 ps.setInt(1, idUsuario);

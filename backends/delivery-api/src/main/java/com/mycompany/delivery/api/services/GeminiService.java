@@ -1,7 +1,5 @@
 package com.mycompany.delivery.api.services;
 
-
-
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -20,12 +18,12 @@ import java.util.Map;
 
 /**
  * Servicio ligero que consume la API de Gemini (Generative Language) v1
- * empleando {@link java.net.http.HttpClient}.  Se construye payload compatible
- * con el formato expected por el endpoint /v1/models/:generateContent.
+ * empleando {@link java.net.http.HttpClient}. Construye un payload compatible
+ * con el endpoint /v1/models/:generateContent.
  */
 public final class GeminiService {
 
-    private static final String DEFAULT_MODEL_NAME = "gemini-1.5-flash-001";
+    private static final String DEFAULT_MODEL_NAME = "gemini-2.0-flash-live";
     private static final String FALLBACK_MESSAGE =
             "Lo siento, mi cerebro (IA) no esta disponible en este momento. Por favor, contacta a soporte.";
 
@@ -45,10 +43,10 @@ public final class GeminiService {
     /**
      * Genera una respuesta a partir del prompt y la conversacion previa.
      *
-     * @param prompt         Mensaje actual del usuario.
-     * @param history        Historial de mensajes (cada elemento debe contener al menos
-     *                       las claves "id_remitente" y "mensaje").
-     * @param currentUserId  Identificador del usuario actual (para determinar su rol).
+     * @param prompt        Mensaje actual del usuario.
+     * @param history       Historial de mensajes (cada elemento debe contener al menos
+     *                      las claves "id_remitente" y "mensaje").
+     * @param currentUserId Identificador del usuario actual (para determinar su rol).
      * @return Texto devuelto por Gemini o un mensaje alternativo si no fue posible.
      */
     public String generateReply(String prompt,
@@ -238,6 +236,3 @@ public final class GeminiService {
         return DEFAULT_MODEL_NAME;
     }
 }
-
-
-

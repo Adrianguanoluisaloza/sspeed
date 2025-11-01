@@ -4,6 +4,7 @@ import '../models/chat_message.dart';
 import '../models/pedido.dart';
 import '../models/pedido_detalle.dart';
 import '../models/producto.dart';
+import '../models/negocio.dart';
 import '../models/usuario.dart';
 import '../models/ubicacion.dart';
 import '../models/recomendacion_data.dart';
@@ -159,6 +160,15 @@ class DatabaseService implements DataSource {
   Future<Producto?> createProductoParaNegocio(
           int idNegocio, Producto producto) =>
       _dataSource.createProductoParaNegocio(idNegocio, producto);
+
+  @override
+  Future<Negocio?> getNegocioDeUsuario(int idUsuario) =>
+      _dataSource.getNegocioDeUsuario(idUsuario);
+
+  @override
+  Future<Negocio?> registrarNegocioParaUsuario(
+          int idUsuario, Negocio negocio) =>
+      _dataSource.registrarNegocioParaUsuario(idUsuario, negocio);
 
   // --- Métodos de Delivery ---
   @override

@@ -79,7 +79,7 @@ public class ChatRepository {
     public void ensureConversation(long idConversacion, Integer idCliente, Integer idDelivery, Integer idAdminSoporte,
             Integer idPedido, boolean esChatbot) throws SQLException {
         String sql = """
-                INSERT INTO chat_conversaciones (id_conversacion, id_pedido, id_cliente, id_delivery, id_admin_soporte, es_chatbot, fecha_creacion, activa)
+                INSERT INTO chat_conversaciones (id_conversacion, id_pedido, id_cliente, id_delivery, id_admin_soporte, es_chatbot, created_at, activa)
                 VALUES (?, ?, ?, ?, ?, ?, NOW(), TRUE)
                 ON CONFLICT (id_conversacion) DO UPDATE
                 SET id_pedido = COALESCE(chat_conversaciones.id_pedido, EXCLUDED.id_pedido),
@@ -115,9 +115,9 @@ public class ChatRepository {
     public Map<String, Object> insertMensaje(long idConversacion, //
             int idRemitente, Integer idDestinatario, String mensaje) throws SQLException {
         String sql = """
-                INSERT INTO chat_mensajes (id_conversacion, id_remitente, id_destinatario, mensaje, fecha_envio)
+                INSERT INTO chat_mensajes (id_conversacion, id_remitente, id_destinatario, mensaje, created_at)
                 VALUES (?, ?, ?, ?, NOW())
-                RETURNING id_mensaje, fecha_envio
+                RETURNING id_mensaje, created_at
                 """;
         try (Connection c = Database.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setLong(1, idConversacion);
@@ -132,7 +132,7 @@ public class ChatRepository {
                     map.put("id_remitente", idRemitente);
                     map.put("id_destinatario", idDestinatario);
                     map.put("mensaje", mensaje);
-                    map.put("fecha_envio", rs.getTimestamp("fecha_envio"));
+                    map.put("created_at", rs.getTimestamp("created_at"));
                     return map;
                 }
             }
@@ -154,13 +154,13 @@ public class ChatRepository {
                        m.id_remitente,
                        m.id_destinatario,
                        m.mensaje,
-                       m.fecha_envio,
+                       m.created_at,
                        u.nombre AS remitente_nombre,
                        (LOWER(u.correo) = LOWER(?)) AS es_bot
                 FROM chat_mensajes m
                 LEFT JOIN usuarios u ON u.id_usuario = m.id_remitente
                 WHERE m.id_conversacion = ?
-                ORDER BY m.fecha_envio ASC, m.id_mensaje ASC
+                ORDER BY m.created_at ASC, m.id_mensaje ASC
                 """;
         try (Connection c = Database.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, BOT_EMAIL);
@@ -174,7 +174,7 @@ public class ChatRepository {
                     row.put("id_remitente", rs.getInt("id_remitente"));
                     row.put("id_destinatario", (Integer) rs.getObject("id_destinatario"));
                     row.put("mensaje", rs.getString("mensaje"));
-                    row.put("fecha_envio", rs.getTimestamp("fecha_envio"));
+                    row.put("created_at", rs.getTimestamp("created_at"));
                     row.put("remitente_nombre", rs.getString("remitente_nombre"));
                     row.put("es_bot", rs.getBoolean("es_bot"));
                     list.add(row);
@@ -193,10 +193,10 @@ public class ChatRepository {
      */
     public List<Map<String, Object>> listarConversacionesPorUsuario(int idUsuario) throws SQLException {
         String sql = """
-                SELECT id_conversacion, id_pedido, id_cliente, id_delivery, id_admin_soporte, es_chatbot, fecha_creacion, activa
+                SELECT id_conversacion, id_pedido, id_cliente, id_delivery, id_admin_soporte, es_chatbot, created_at, activa
                 FROM chat_conversaciones
                 WHERE id_cliente = ? OR id_delivery = ? OR id_admin_soporte = ?
-                ORDER BY fecha_creacion DESC
+                ORDER BY created_at DESC
                 """;
         try (Connection c = Database.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, idUsuario);
@@ -212,7 +212,7 @@ public class ChatRepository {
                     row.put("id_delivery", (Integer) rs.getObject("id_delivery"));
                     row.put("id_admin_soporte", (Integer) rs.getObject("id_admin_soporte"));
                     row.put("es_chatbot", rs.getBoolean("es_chatbot"));
-                    row.put("fecha_creacion", rs.getTimestamp("fecha_creacion"));
+                    row.put("created_at", rs.getTimestamp("created_at"));
                     row.put("activa", rs.getObject("activa"));
                     list.add(row);
                 }
@@ -252,7 +252,7 @@ public class ChatRepository {
                 SELECT id_conversacion
                 FROM chat_conversaciones
                 WHERE id_cliente = ? OR id_delivery = ? OR id_admin_soporte = ?
-                ORDER BY fecha_creacion DESC
+                ORDER BY created_at DESC
                 LIMIT 1
                 """;
         try (Connection c = Database.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
@@ -287,7 +287,7 @@ public class ChatRepository {
                 SELECT id_conversacion
                 FROM chat_conversaciones
                 WHERE id_cliente = ? AND es_chatbot = TRUE
-                ORDER BY fecha_creacion DESC
+                ORDER BY created_at DESC
                 LIMIT 1
                 """;
         try (Connection c = Database.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
@@ -349,12 +349,15 @@ public class ChatRepository {
         final String createConversaciones = """
                 CREATE TABLE IF NOT EXISTS chat_conversaciones (
                     id_conversacion BIGINT PRIMARY KEY,
-                    id_pedido INT,
-                    id_cliente INT,
-                    id_delivery INT,
-                    id_admin_soporte INT,
-                    fecha_creacion TIMESTAMP DEFAULT NOW(),
-                    activa BOOLEAN DEFAULT TRUE
+                    id_pedido INT REFERENCES pedidos(id_pedido) ON DELETE SET NULL,
+                    id_cliente INT REFERENCES usuarios(id_usuario) ON DELETE SET NULL,
+                    id_delivery INT REFERENCES usuarios(id_usuario) ON DELETE SET NULL,
+                    id_admin_soporte INT REFERENCES usuarios(id_usuario) ON DELETE SET NULL,
+                    canal VARCHAR(50),
+                    es_chatbot BOOLEAN NOT NULL DEFAULT FALSE,
+                    activa BOOLEAN NOT NULL DEFAULT TRUE,
+                    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
                 )
                 """;
 
@@ -362,29 +365,40 @@ public class ChatRepository {
                 CREATE TABLE IF NOT EXISTS chat_mensajes (
                     id_mensaje SERIAL PRIMARY KEY,
                     id_conversacion BIGINT NOT NULL REFERENCES chat_conversaciones(id_conversacion) ON DELETE CASCADE,
-                    id_remitente INT,
-                    id_destinatario INT,
+                    id_remitente INT REFERENCES usuarios(id_usuario) ON DELETE SET NULL,
+                    id_destinatario INT REFERENCES usuarios(id_usuario) ON DELETE SET NULL,
+                    tipo VARCHAR(20) NOT NULL DEFAULT 'texto',
                     mensaje TEXT NOT NULL,
-                    fecha_envio TIMESTAMP DEFAULT NOW()
+                    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
                 )
                 """;
 
-        final String createIndexConversaciones = """
-                CREATE INDEX IF NOT EXISTS idx_chat_conversaciones_cliente
-                    ON chat_conversaciones(id_cliente, fecha_creacion DESC)
+        final String idxCliente = """
+                CREATE INDEX IF NOT EXISTS idx_chatconv_cliente
+                    ON chat_conversaciones(id_cliente)
                 """;
-
-        final String createIndexMensajes = """
-                CREATE INDEX IF NOT EXISTS idx_chat_mensajes_conversacion
-                    ON chat_mensajes(id_conversacion, fecha_envio)
+        final String idxDelivery = """
+                CREATE INDEX IF NOT EXISTS idx_chatconv_delivery
+                    ON chat_conversaciones(id_delivery)
+                """;
+        final String idxPedido = """
+                CREATE INDEX IF NOT EXISTS idx_chatconv_pedido
+                    ON chat_conversaciones(id_pedido)
+                """;
+        final String idxMensajes = """
+                CREATE INDEX IF NOT EXISTS idx_chatmsg_conv
+                    ON chat_mensajes(id_conversacion, created_at)
                 """;
 
         try (Connection connection = Database.getConnection();
                 java.sql.Statement statement = connection.createStatement()) {
             statement.executeUpdate(createConversaciones);
             statement.executeUpdate(createMensajes);
-            statement.executeUpdate(createIndexConversaciones);
-            statement.executeUpdate(createIndexMensajes);
+            statement.executeUpdate(idxCliente);
+            statement.executeUpdate(idxDelivery);
+            statement.executeUpdate(idxPedido);
+            statement.executeUpdate(idxMensajes);
         }
     }
 }

@@ -124,7 +124,7 @@ public class PedidoController {
     // LISTAR TODOS LOS PEDIDOS
     // ===============================
     public ApiResponse<List<Pedido>> getPedidos() {
-        String sql = "SELECT * FROM pedidos ORDER BY fecha_pedido DESC";
+        String sql = "SELECT * FROM pedidos ORDER BY created_at DESC";
         try (var conn = Database.getConnection();
              var stmt = conn.prepareStatement(sql);
              var rs = stmt.executeQuery()) {
@@ -144,7 +144,7 @@ public class PedidoController {
     // LISTAR POR CLIENTE
     // ===============================
     public ApiResponse<List<Pedido>> getPedidosPorCliente(int idCliente) {
-        String sql = "SELECT * FROM pedidos WHERE id_cliente = ? ORDER BY fecha_pedido DESC";
+        String sql = "SELECT * FROM pedidos WHERE id_cliente = ? ORDER BY created_at DESC";
         try (var conn = Database.getConnection();
              var stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, idCliente);
@@ -249,7 +249,7 @@ public class PedidoController {
         }
 
         String pedidoSql = """
-            SELECT id_pedido, id_cliente, id_delivery, id_ubicacion, fecha_pedido, fecha_entrega,
+            SELECT id_pedido, id_cliente, id_delivery, id_ubicacion, created_at, updated_at,
                    estado, total, direccion_entrega, metodo_pago, notas, coordenadas_entrega
             FROM pedidos
             WHERE id_pedido = ?
@@ -317,8 +317,8 @@ public class PedidoController {
         map.put("id_cliente", rs.getInt("id_cliente"));
         map.put("id_delivery", (Integer) rs.getObject("id_delivery"));
         map.put("id_ubicacion", (Integer) rs.getObject("id_ubicacion"));
-        map.put("fecha_pedido", rs.getTimestamp("fecha_pedido"));
-        map.put("fecha_entrega", rs.getTimestamp("fecha_entrega"));
+        map.put("created_at", rs.getTimestamp("created_at"));
+        map.put("updated_at", rs.getTimestamp("updated_at"));
         map.put("estado", rs.getString("estado"));
         map.put("total", rs.getDouble("total"));
         map.put("direccion_entrega", rs.getString("direccion_entrega"));
@@ -332,7 +332,7 @@ public class PedidoController {
     // MÉTODOS INTERNOS SIN ApiResponse
     // ===============================
     private List<Pedido> listarPedidosDisponiblesRaw() throws SQLException {
-        String sql = "SELECT id_pedido, id_cliente, id_delivery, id_ubicacion, fecha_pedido, fecha_entrega, estado, total, direccion_entrega, metodo_pago, notas, coordenadas_entrega FROM pedidos WHERE estado = 'pendiente'";
+        String sql = "SELECT id_pedido, id_cliente, id_delivery, id_ubicacion, created_at, updated_at, estado, total, direccion_entrega, metodo_pago, notas, coordenadas_entrega FROM pedidos WHERE estado = 'pendiente'";
         try (var conn = Database.getConnection();
              var stmt = conn.prepareStatement(sql);
              var rs = stmt.executeQuery()) {
@@ -345,7 +345,7 @@ public class PedidoController {
     }
 
     private List<Pedido> listarPedidosPorDeliveryRaw(int idDelivery) throws SQLException {
-        String sql = "SELECT * FROM pedidos WHERE id_delivery = ? ORDER BY fecha_pedido DESC";
+        String sql = "SELECT * FROM pedidos WHERE id_delivery = ? ORDER BY created_at DESC";
         try (var conn = Database.getConnection();
              var stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, idDelivery);
@@ -362,10 +362,10 @@ public class PedidoController {
     private Map<String, Object> obtenerEstadisticasDeliveryRaw(int idDelivery) throws SQLException {
         String sql = """
             SELECT
-              COUNT(*) FILTER (WHERE estado='entregado' AND fecha_entrega::date=CURRENT_DATE)::int AS pedidos_completados_hoy,
-              COALESCE(SUM(total) FILTER (WHERE estado='entregado' AND fecha_entrega::date=CURRENT_DATE),0) AS total_generado_hoy,
-              AVG(EXTRACT(EPOCH FROM (fecha_entrega - fecha_pedido))/60.0) FILTER (WHERE estado='entregado' 
-                    AND fecha_entrega IS NOT NULL AND fecha_pedido IS NOT NULL) AS tiempo_promedio_min
+              COUNT(*) FILTER (WHERE estado='entregado' AND updated_at::date=CURRENT_DATE)::int AS pedidos_completados_hoy,
+              COALESCE(SUM(total) FILTER (WHERE estado='entregado' AND updated_at::date=CURRENT_DATE),0) AS total_generado_hoy,
+              AVG(EXTRACT(EPOCH FROM (updated_at - created_at))/60.0) FILTER (WHERE estado='entregado' 
+                    AND updated_at IS NOT NULL AND created_at IS NOT NULL) AS tiempo_promedio_min
             FROM pedidos
             WHERE id_delivery = ?
         """;
@@ -399,8 +399,8 @@ public class PedidoController {
         p.setTotal(rs.getDouble("total"));
         p.setDireccionEntrega(rs.getString("direccion_entrega"));
         p.setMetodoPago(rs.getString("metodo_pago"));
-        p.setFechaPedido(rs.getTimestamp("fecha_pedido"));
-        p.setFechaEntrega(rs.getTimestamp("fecha_entrega"));
+        p.setFechaPedido(rs.getTimestamp("created_at"));
+        p.setFechaEntrega(rs.getTimestamp("updated_at"));
         return p;
     }
 }

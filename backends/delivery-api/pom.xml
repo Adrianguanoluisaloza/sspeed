@@ -32,8 +32,6 @@
         </dependency>
 
 
-
-
         <!-- Driver para la base de datos PostgreSQL -->
         <dependency>
             <groupId>org.postgresql</groupId>
@@ -48,7 +46,7 @@
             <version>3.2.0</version>
         </dependency>
 
-        <!-- Cifrado de contraseñas (BCrypt) - VERSIÓN ACTUALIZADA -->
+        <!-- Cifrado de contraseÃ±as (BCrypt) - VERSIÃ“N ACTUALIZADA -->
         <dependency>
             <groupId>org.mindrot</groupId>
             <artifactId>jbcrypt</artifactId>

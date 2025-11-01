@@ -24,7 +24,12 @@ public class UsuarioRepository {
     // AUTENTICAR (LOGIN)
     // ===============================
     public Optional<Usuario> autenticar(String correo, String contrasenaIngresada) throws SQLException {
-        String sql = "SELECT * FROM usuarios WHERE LOWER(correo) = LOWER(?)";
+        String sql = """
+                SELECT u.*, r.nombre AS rol_nombre
+                FROM usuarios u
+                LEFT JOIN roles r ON r.id_rol = u.id_rol
+                WHERE LOWER(u.correo) = LOWER(?)
+                """;
         try (Connection conn = Database.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setString(1, correo);
@@ -44,7 +49,7 @@ public class UsuarioRepository {
                         }
                     } else {
                         if (hashActual.equals(contrasenaIngresada)) {
-                            String nuevoHash = BCrypt.hashpw(contrasenaIngresada, BCrypt.gensalt());
+                            String nuevoHash = BCrypt.hashpw(contrasenaIngresada, BCrypt.gensalt(6));
                             actualizarContrasenaHash(usuario.getIdUsuario(), nuevoHash);
                             usuario.setContrasena(nuevoHash);
                             return Optional.of(usuario);
@@ -81,8 +86,8 @@ public class UsuarioRepository {
 
     public boolean registrar(Usuario usuario) throws SQLException {
         String sql = """
-                    INSERT INTO usuarios (nombre, correo, contrasena, telefono, rol, activo, fecha_registro)
-                    VALUES (?, ?, ?, ?, COALESCE(?, 'cliente'), TRUE, NOW())
+                    INSERT INTO usuarios (nombre, correo, contrasena, telefono, id_rol, activo, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, TRUE, NOW(), NOW())
                 """;
 
         try (Connection conn = Database.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -92,7 +97,7 @@ public class UsuarioRepository {
                     ? usuario.getCorreo().trim().toLowerCase()
                     : null;
             String telefono = usuario.getTelefono() != null ? usuario.getTelefono().trim() : null;
-            String rol = usuario.getRol() != null ? usuario.getRol().trim().toLowerCase() : null;
+            String rol = usuario.getRol() != null ? usuario.getRol().trim().toLowerCase() : "cliente";
 
             usuario.setCorreo(correoNormalizado);
 
@@ -100,10 +105,10 @@ public class UsuarioRepository {
             stmt.setString(2, correoNormalizado);
 
             String contrasenaPlana = usuario.getContrasena();
-            String hash = BCrypt.hashpw(contrasenaPlana, BCrypt.gensalt());
+            String hash = BCrypt.hashpw(contrasenaPlana, BCrypt.gensalt(6));
             stmt.setString(3, hash);
             stmt.setString(4, telefono);
-            stmt.setString(5, rol);
+            stmt.setInt(5, resolveRoleId(conn, rol));
             return stmt.executeUpdate() > 0;
         }
     }
@@ -113,7 +118,12 @@ public class UsuarioRepository {
     // ===============================
     public List<Usuario> listarUsuarios() throws SQLException {
         List<Usuario> lista = new ArrayList<>();
-        String sql = "SELECT * FROM usuarios ORDER BY id_usuario ASC";
+        String sql = """
+                SELECT u.*, r.nombre AS rol_nombre
+                FROM usuarios u
+                LEFT JOIN roles r ON r.id_rol = u.id_rol
+                ORDER BY u.id_usuario ASC
+                """;
         try (Connection conn = Database.getConnection();
                 PreparedStatement stmt = conn.prepareStatement(sql);
                 ResultSet rs = stmt.executeQuery()) {
@@ -128,7 +138,12 @@ public class UsuarioRepository {
     // OBTENER POR ID
     // ===============================
     public Optional<Usuario> obtenerPorId(int idUsuario) throws SQLException {
-        String sql = "SELECT * FROM usuarios WHERE id_usuario = ?";
+        String sql = """
+                SELECT u.*, r.nombre AS rol_nombre
+                FROM usuarios u
+                LEFT JOIN roles r ON r.id_rol = u.id_rol
+                WHERE u.id_usuario = ?
+                """;
         try (Connection conn = Database.getConnection(); PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, idUsuario);
             try (ResultSet rs = stmt.executeQuery()) {
@@ -146,7 +161,7 @@ public class UsuarioRepository {
     public boolean actualizar(Usuario usuario) throws SQLException {
         String sql = """
                     UPDATE usuarios
-                    SET nombre = ?, correo = ?, telefono = ?, contrasena = ?, rol = ?, activo = ?
+                    SET nombre = ?, correo = ?, telefono = ?, contrasena = ?, id_rol = ?, activo = ?, updated_at = NOW()
                     WHERE id_usuario = ?
                 """;
 
@@ -161,12 +176,12 @@ public class UsuarioRepository {
             // Si ya es un hash, la pasamos directamente para evitar el doble hasheo.
             String contrasena = usuario.getContrasena();
             if (contrasena != null && !contrasena.isBlank() && !contrasena.startsWith("$2")) {
-                stmt.setString(4, BCrypt.hashpw(contrasena, BCrypt.gensalt()));
+                stmt.setString(4, BCrypt.hashpw(contrasena, BCrypt.gensalt(6)));
             } else {
                 stmt.setString(4, contrasena);
             }
 
-            stmt.setString(5, usuario.getRol());
+            stmt.setInt(5, resolveRoleId(conn, usuario.getRol()));
             stmt.setBoolean(6, usuario.isActivo());
             stmt.setInt(7, usuario.getIdUsuario());
             return stmt.executeUpdate() > 0;
@@ -194,13 +209,61 @@ public class UsuarioRepository {
         u.setCorreo(rs.getString("correo"));
         u.setContrasena(rs.getString("contrasena"));
         u.setTelefono(rs.getString("telefono"));
-        u.setRol(rs.getString("rol"));
+        String rolNombre = null;
+        try {
+            rolNombre = rs.getString("rol_nombre");
+        } catch (SQLException ignored) {
+        }
+        if (rolNombre == null) {
+            int idRol = rs.getInt("id_rol");
+            if (!rs.wasNull()) {
+                rolNombre = resolveRoleName(idRol);
+            }
+        }
+        u.setRol(rolNombre != null ? rolNombre : "cliente");
         u.setActivo(rs.getBoolean("activo"));
         // No incluir la contrasena en el mapeo por defecto por seguridad.
         // Se puede anadir un metodo especifico si se necesita explicitamente.
         return u;
     }
 
+    private int resolveRoleId(Connection conn, String rol) throws SQLException {
+        String roleName = (rol == null || rol.isBlank()) ? "cliente" : rol.trim().toLowerCase();
+        String sql = "SELECT id_rol FROM roles WHERE LOWER(nombre) = LOWER(?)";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, roleName);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("id_rol");
+                }
+            }
+        }
+        // Fallback: intentar obtener id de 'cliente'
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, "cliente");
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("id_rol");
+                }
+            }
+        }
+        throw new SQLException("No se encontro el rol especificado: " + rol);
+    }
+
+    private String resolveRoleName(int idRol) {
+        String sql = "SELECT nombre FROM roles WHERE id_rol = ?";
+        try (Connection conn = Database.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, idRol);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString("nombre");
+                }
+            }
+        } catch (SQLException ignored) {
+        }
+        return "cliente";
+    }
 }
 
 
